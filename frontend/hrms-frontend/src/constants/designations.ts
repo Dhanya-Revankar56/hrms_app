@@ -1,0 +1,15 @@
+export const DESIGNATIONS = [
+  "Principal",
+  "Professor & Head",
+  "Professor",
+  "Associate Professor & Head",
+  "Associate Professor",
+  "Assistant Professor & Head",
+  "Assistant Professor",
+  "Lecturer",
+  "Intern",
+  "Driver",
+  "driver",
+  "Gardener",
+  "Technical Lead",
+];
