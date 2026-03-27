@@ -1,16 +1,16 @@
-name: HRMS Frontend CI
+name: HRMS CI
 
 on:
   push:
     branches:
       - develop
-      - 'feature/**'
+      - "feature/**"
   pull_request:
     branches:
       - develop
 
 jobs:
-  build:
+  frontend:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,14 +20,36 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: |
           cd frontend/hrms-frontend
           npm install
 
-      - name: Build project
+      - name: Build frontend
         run: |
           cd frontend/hrms-frontend
           npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Backend check
+        run: |
+          cd backend
+          echo "Backend setup successful"
