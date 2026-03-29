@@ -1,0 +1,381 @@
+﻿{
+    "errors":  [
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69bcd2e466281872ab7168cc, institution_id: \"COLLEGE_A\", name: \"Engineering\", short_name: \"ENG\", created_at: 2026-03-20T04:53:56.164Z, updated_at: 2026-03-20T04:53:56.164Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69b3b30ba89d1c60da84b710, institution_id: \"COLLEGE_A\", name: \"Biotechnology\", short_name: \"BT\", created_at: 2026-03-20T15:22:21.291Z, updated_at: 2026-03-20T15:22:21.291Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69b3b28da89d1c60da84b6f5, institution_id: \"COLLEGE_A\", name: \"Artificial Intelligence and Machine Learning\", short_name: \"AIML\", created_at: 2026-03-20T15:22:20.879Z, updated_at: 2026-03-21T12:51:34.291Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69b3b2eba89d1c60da84b701, institution_id: \"COLLEGE_A\", name: \"Information Science and Engineering\", short_name: \"ISE\", created_at: 2026-03-20T15:22:21.120Z, updated_at: 2026-03-21T12:51:33.743Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69b3b2faa89d1c60da84b708, institution_id: \"COLLEGE_A\", name: \"Data Science\", short_name: \"DS\", created_at: 2026-03-20T15:22:21.206Z, updated_at: 2026-03-20T15:22:21.206Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69b3b355a89d1c60da84b72e, institution_id: \"COLLEGE_A\", name: \"Electronics and communication\", short_name: \"E\u0026C\", created_at: 2026-03-20T15:22:21.558Z, updated_at: 2026-03-21T12:51:33.941Z, __v: 0 }"
+                   },
+                   {
+                       "message":  "ID cannot represent value: { _id: 69b7a466b0a95cc208301681, institution_id: \"COLLEGE_A\", name: \"Chemistry\", short_name: \"CHE\", created_at: 2026-03-20T15:22:21.643Z, updated_at: 2026-03-20T15:22:21.643Z, __v: 0 }"
+                   }
+               ],
+    "data":  {
+                 "settings":  {
+                                  "id":  "69b3a974b635d1442cfc48cf",
+                                  "institution_name":  "Campus Alpha",
+                                  "institution_short_name":  "",
+                                  "institution_code":  "",
+                                  "owner_name":  "",
+                                  "added_by":  "",
+                                  "pan_number":  "",
+                                  "registration_number":  "",
+                                  "website_url":  "",
+                                  "fax_number":  "",
+                                  "contact_email":  "",
+                                  "contact_phone":  "",
+                                  "contact_mobile":  "",
+                                  "address":  {
+                                                  "line1":  "",
+                                                  "line2":  "",
+                                                  "city":  "",
+                                                  "state":  "",
+                                                  "country":  "",
+                                                  "pin_code":  ""
+                                              },
+                                  "departments":  [
+                                                      {
+                                                          "id":  "69bcd2e466281872ab7168cc",
+                                                          "name":  "Engineering",
+                                                          "short_name":  "ENG",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69bcd53c00591a71488c362f",
+                                                          "name":  "Finance",
+                                                          "short_name":  "FIN",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b28da89d1c60da84b6f5",
+                                                          "name":  "Artificial Intelligence and Machine Learning",
+                                                          "short_name":  "AIML",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b2cea89d1c60da84b6fb",
+                                                          "name":  "Computer Science and Engineering",
+                                                          "short_name":  "CSE",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b2eba89d1c60da84b701",
+                                                          "name":  "Information Science and Engineering",
+                                                          "short_name":  "ISE",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b2faa89d1c60da84b708",
+                                                          "name":  "Data Science",
+                                                          "short_name":  "DS",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b30ba89d1c60da84b710",
+                                                          "name":  "Biotechnology",
+                                                          "short_name":  "BT",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b323a89d1c60da84b719",
+                                                          "name":  "Civil",
+                                                          "short_name":  "CV",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b331a89d1c60da84b723",
+                                                          "name":  "Mechanical",
+                                                          "short_name":  "ME",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b355a89d1c60da84b72e",
+                                                          "name":  "Electronics and communication",
+                                                          "short_name":  "E\u0026C",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b7a466b0a95cc208301681",
+                                                          "name":  "Chemistry",
+                                                          "short_name":  "CHE",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69bec20c30a4f08560a67325",
+                                                          "name":  "artificial intelligence and machine learning",
+                                                          "short_name":  "AIML",
+                                                          "description":  ""
+                                                      }
+                                                  ],
+                                  "designations":  [
+                                                       {
+                                                           "id":  "69bcd2fc66281872ab7168da",
+                                                           "name":  "Software Engineer",
+                                                           "short_name":  "SWE",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69bcd55b00591a71488c363d",
+                                                           "name":  "Accountant",
+                                                           "short_name":  "ACC",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b635a89d1c60da84b797",
+                                                           "name":  "Professor",
+                                                           "short_name":  "PROF",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b84d7cadf2c286e89f49",
+                                                           "name":  "Head of Department (HOD)",
+                                                           "short_name":  "HOD",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b85d7cadf2c286e89f5f",
+                                                           "name":  "Guest Faculty",
+                                                           "short_name":  "GF",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b86b7cadf2c286e89f76",
+                                                           "name":  "Research Associate",
+                                                           "short_name":  "RA",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b8797cadf2c286e89f8e",
+                                                           "name":  "Teaching Assistant",
+                                                           "short_name":  "TA",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b8ff7cadf2c286e8a04a",
+                                                           "name":  "Assistant Professor",
+                                                           "short_name":  "ASST",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69b3b9197cadf2c286e8a066",
+                                                           "name":  "Associate Professor",
+                                                           "short_name":  "ASSOC",
+                                                           "description":  null,
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be93bb0d3eaeefbffa7752",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null,
+                                                           "description":  "",
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945466742226cc0d4ac7",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null,
+                                                           "description":  "",
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945466742226cc0d4ac8",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null,
+                                                           "description":  "",
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945566742226cc0d4ac9",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null,
+                                                           "description":  "",
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945566742226cc0d4aca",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null,
+                                                           "description":  "",
+                                                           "department":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945566742226cc0d4acb",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null,
+                                                           "description":  "",
+                                                           "department":  null
+                                                       }
+                                                   ],
+                                  "leave_types":  [
+                                                      {
+                                                          "id":  "69b3b57ca89d1c60da84b73a",
+                                                          "name":  "Casual Leave",
+                                                          "code":  "CL",
+                                                          "total_days":  null,
+                                                          "max_per_request":  0,
+                                                          "carry_forward":  false,
+                                                          "leave_category":  "paid",
+                                                          "applicable_for":  [
+                                                                                 "Male",
+                                                                                 "Female",
+                                                                                 "Other"
+                                                                             ],
+                                                          "reset_cycle":  "yearly",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b59fa89d1c60da84b747",
+                                                          "name":  "On official Duty",
+                                                          "code":  "OOD",
+                                                          "total_days":  null,
+                                                          "max_per_request":  0,
+                                                          "carry_forward":  false,
+                                                          "leave_category":  "paid",
+                                                          "applicable_for":  [
+                                                                                 "Male",
+                                                                                 "Female",
+                                                                                 "Other"
+                                                                             ],
+                                                          "reset_cycle":  "yearly",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b5bca89d1c60da84b755",
+                                                          "name":  "Sick Leave",
+                                                          "code":  "SL",
+                                                          "total_days":  null,
+                                                          "max_per_request":  0,
+                                                          "carry_forward":  false,
+                                                          "leave_category":  "paid",
+                                                          "applicable_for":  [
+                                                                                 "Male",
+                                                                                 "Female",
+                                                                                 "Other"
+                                                                             ],
+                                                          "reset_cycle":  "yearly",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b5d9a89d1c60da84b764",
+                                                          "name":  "Paid Leave",
+                                                          "code":  "PL",
+                                                          "total_days":  null,
+                                                          "max_per_request":  0,
+                                                          "carry_forward":  false,
+                                                          "leave_category":  "paid",
+                                                          "applicable_for":  [
+                                                                                 "Male",
+                                                                                 "Female",
+                                                                                 "Other"
+                                                                             ],
+                                                          "reset_cycle":  "yearly",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b5faa89d1c60da84b774",
+                                                          "name":  "Meternity Leave",
+                                                          "code":  "ML",
+                                                          "total_days":  null,
+                                                          "max_per_request":  0,
+                                                          "carry_forward":  false,
+                                                          "leave_category":  "paid",
+                                                          "applicable_for":  [
+                                                                                 "Male",
+                                                                                 "Female",
+                                                                                 "Other"
+                                                                             ],
+                                                          "reset_cycle":  "yearly",
+                                                          "description":  null
+                                                      },
+                                                      {
+                                                          "id":  "69b3b615a89d1c60da84b785",
+                                                          "name":  "Paternity Leave",
+                                                          "code":  "PL",
+                                                          "total_days":  null,
+                                                          "max_per_request":  0,
+                                                          "carry_forward":  false,
+                                                          "leave_category":  "paid",
+                                                          "applicable_for":  [
+                                                                                 "Male",
+                                                                                 "Female",
+                                                                                 "Other"
+                                                                             ],
+                                                          "reset_cycle":  "yearly",
+                                                          "description":  null
+                                                      }
+                                                  ],
+                                  "employee_categories":  [
+                                                              {
+                                                                  "id":  "69b3b8b77cadf2c286e89ff8",
+                                                                  "name":  "Non teaching",
+                                                                  "short_name":  null,
+                                                                  "description":  null
+                                                              },
+                                                              {
+                                                                  "id":  "69b58074c8bd3d828f4189f5",
+                                                                  "name":  "Teaching",
+                                                                  "short_name":  null,
+                                                                  "description":  null
+                                                              }
+                                                          ],
+                                  "employee_types":  [
+                                                         {
+                                                             "id":  "69b3b8a67cadf2c286e89fc1",
+                                                             "name":  "Contarct",
+                                                             "short_name":  null,
+                                                             "description":  null
+                                                         },
+                                                         {
+                                                             "id":  "69b3e8d74ed8b483218256d7",
+                                                             "name":  "Regular",
+                                                             "short_name":  null,
+                                                             "description":  null
+                                                         }
+                                                     ]
+                              }
+             }
+}

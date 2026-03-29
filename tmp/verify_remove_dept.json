@@ -1,0 +1,73 @@
+﻿{
+    "data":  {
+                 "settings":  {
+                                  "designations":  [
+                                                       {
+                                                           "id":  "69bcd2fc66281872ab7168da",
+                                                           "name":  "Software Engineer",
+                                                           "short_name":  "SWE"
+                                                       },
+                                                       {
+                                                           "id":  "69bcd55b00591a71488c363d",
+                                                           "name":  "Accountant",
+                                                           "short_name":  "ACC"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b635a89d1c60da84b797",
+                                                           "name":  "Professor",
+                                                           "short_name":  "PROF"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b84d7cadf2c286e89f49",
+                                                           "name":  "Head of Department (HOD)",
+                                                           "short_name":  "HOD"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b85d7cadf2c286e89f5f",
+                                                           "name":  "Guest Faculty",
+                                                           "short_name":  "GF"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b86b7cadf2c286e89f76",
+                                                           "name":  "Research Associate",
+                                                           "short_name":  "RA"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b8797cadf2c286e89f8e",
+                                                           "name":  "Teaching Assistant",
+                                                           "short_name":  "TA"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b8ff7cadf2c286e8a04a",
+                                                           "name":  "Assistant Professor",
+                                                           "short_name":  "ASST"
+                                                       },
+                                                       {
+                                                           "id":  "69b3b9197cadf2c286e8a066",
+                                                           "name":  "Associate Professor",
+                                                           "short_name":  "ASSOC"
+                                                       },
+                                                       {
+                                                           "id":  "69be945466742226cc0d4ac7",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945466742226cc0d4ac8",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945566742226cc0d4ac9",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null
+                                                       },
+                                                       {
+                                                           "id":  "69be945566742226cc0d4aca",
+                                                           "name":  "head of department (hod)",
+                                                           "short_name":  null
+                                                       }
+                                                   ]
+                              }
+             }
+}

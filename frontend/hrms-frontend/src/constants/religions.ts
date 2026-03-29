@@ -1,0 +1,1 @@
+export const RELIGIONS = ["Buddhists", "Christian", "Hindu", "Jains", "Muslim", "Others", "Sikhs"];

@@ -1,0 +1,1 @@
+export const HIRING_SOURCES = ["Advertisement", "LinkedIN"];

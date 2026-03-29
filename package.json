@@ -1,0 +1,31 @@
+{
+  "name": "hrms_app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "check_leaves.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://Dhanya-Revankar56@github.com/Dhanya-Revankar56/hrms_app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Dhanya-Revankar56/hrms_app/issues"
+  },
+  "homepage": "https://github.com/Dhanya-Revankar56/hrms_app#readme",
+  "devDependencies": {
+    "husky": "^8.0.0",
+    "lint-staged": "^16.4.0"
+  },
+  "lint-staged": {
+    "frontend/hrms-frontend/src/**/*.{ts,tsx}": [
+      "npm --prefix frontend/hrms-frontend run lint"
+    ]
+  }
+}
