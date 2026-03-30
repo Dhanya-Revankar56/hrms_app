@@ -38,6 +38,7 @@ const typeDefs = gql`
     movement_date: String!
     out_time: String
     in_time: String
+    remarks: String
   }
 
   input UpdateMovementInput {

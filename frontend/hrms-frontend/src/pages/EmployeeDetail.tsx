@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_EMPLOYEE_BY_ID } from "../graphql/employeeQueries";
@@ -252,7 +252,7 @@ export default function EmployeeDetail() {
   });
 
   const { data: settingsData } = useQuery<{ settings: Settings }>(GET_SETTINGS);
-  const leaveTypes = settingsData?.settings?.leave_types || [];
+  const leaveTypes = useMemo(() => settingsData?.settings?.leave_types || [], [settingsData]);
 
   const { data: salaryData } = useQuery<{ salaryRecord: SalaryRecord }>(GET_SALARY_RECORD, {
     variables: { employee_id: id },
@@ -289,6 +289,16 @@ export default function EmployeeDetail() {
     half_day_type: ""
   });
 
+  const initialDefaultDone = useRef(false);
+  useEffect(() => {
+    if (leaveTypes.length > 0 && !applyForm.leave_type && !initialDefaultDone.current) {
+      initialDefaultDone.current = true;
+      setTimeout(() => {
+        setApplyForm(prev => ({ ...prev, leave_type: leaveTypes[0].name }));
+      }, 0);
+    }
+  }, [leaveTypes, applyForm.leave_type]);
+
   const [showMovementModal, setShowMovementModal] = useState(false);
   const [showOut, setShowOut] = useState(false);
   const [showRet, setShowRet] = useState(false);
@@ -303,6 +313,7 @@ export default function EmployeeDetail() {
 
   const [applyMovement, { loading: mLoading }] = useMutation<{ createMovement: Movement }, { input: {
     employee_id: string;
+    employee_code?: string;
     movement_date: string;
     movement_type: string;
     out_time: string;
@@ -850,8 +861,13 @@ export default function EmployeeDetail() {
                         await applyLeave({
                           variables: {
                             input: {
-                              ...applyForm,
-                              employee_id: id,
+                              leave_type: applyForm.leave_type,
+                              from_date: newFrom,
+                              to_date: newTo,
+                              reason: applyForm.reason,
+                              is_half_day: applyForm.is_half_day,
+                              half_day_type: applyForm.half_day_type,
+                              employee_id: id || "",
                             }
                           }
                         });
@@ -947,6 +963,13 @@ export default function EmployeeDetail() {
                   <select className="ed-select" value={moveForm.movement_type} onChange={e => setMoveForm({...moveForm, movement_type: e.target.value})}>
                     <option value="official">Official</option>
                     <option value="personal">Personal</option>
+                    <option value="Exam Duty">Exam Duty</option>
+                    <option value="Bank Visit">Bank Visit</option>
+                    <option value="Medical Appointment">Medical Appointment</option>
+                    <option value="Outside Meeting">Outside Meeting</option>
+                    <option value="Personal Emergency">Personal Emergency</option>
+                    <option value="Official Field Work">Official Field Work</option>
+                    <option value="Government Office">Government Office</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -1047,6 +1070,7 @@ export default function EmployeeDetail() {
                     variables: {
                       input: {
                         employee_id: id || "",
+                        employee_code: employee.employee_id,
                         movement_date: moveForm.movement_date,
                         movement_type: moveForm.movement_type,
                         out_time: moveForm.out_time,

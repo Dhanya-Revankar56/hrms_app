@@ -1,5 +1,6 @@
 const Employee = require("./model");
 const counterService = require("../counter/service");
+const eventLogService = require("../eventLog/service");
 
 /**
  * The Service layer handles all business logic.
@@ -129,10 +130,24 @@ exports.createEmployee = async (data) => {
 
   const emp = new Employee(normalized);
   const saved = await emp.save();
+
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id: normalized.institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "employee",
+    action_type: "CREATE",
+    record_id: saved._id.toString(),
+    description: `New employee created: ${saved.first_name} ${saved.last_name} (${saved.employee_id})`,
+    new_data: saved.toObject()
+  });
+
   return saved.toObject();
 };
 
 exports.updateEmployee = async (id, data, institution_id) => {
+  const existing = await Employee.findOne({ _id: id, institution_id }).lean();
   const normalized = normalizeData(data);
   const updated = await Employee.findOneAndUpdate(
     { _id: id, institution_id, is_active: { $ne: false } },
@@ -140,6 +155,20 @@ exports.updateEmployee = async (id, data, institution_id) => {
     { new: true, runValidators: true }
   ).lean();
   if (!updated) throw new Error("Employee not found or access denied");
+
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "employee",
+    action_type: "UPDATE",
+    record_id: id,
+    description: `Updated details for employee: ${updated.first_name} ${updated.last_name}`,
+    old_data: existing,
+    new_data: updated
+  });
+
   return updated;
 };
 
@@ -148,7 +177,20 @@ exports.deleteEmployee = async (id, institution_id) => {
     { _id: id, institution_id },
     { $set: { is_active: false } },
     { new: true }
-  );
+  ).lean();
   if (!updated) throw new Error("Employee not found or access denied");
+
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "employee",
+    action_type: "DELETE",
+    record_id: id,
+    description: `Archived employee record: ${updated.first_name} ${updated.last_name}`,
+    new_data: updated
+  });
+
   return { success: true, message: "Employee archived successfully" };
 };

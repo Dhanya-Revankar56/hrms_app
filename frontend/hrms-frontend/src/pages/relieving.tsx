@@ -98,7 +98,7 @@ interface RelievingData {
 }
 
 interface ExitRecord {
-  id: number;
+  id: string;
   empId: string;
   firstName: string;
   lastName: string;
@@ -321,7 +321,7 @@ const CSS = `
   .er-filter-count   { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; margin-left:auto; flex-shrink:0; }
 
   /* ── Table ── */
-  .er-table-wrap { overflow-x:auto; }
+  .er-table-wrap { overflow-x:auto; min-height:420px; padding-bottom:60px; } /* Added min-height and padding to prevent menu clipping */
   table.er-table { width:100%; border-collapse:collapse; }
   .er-table thead tr { background:#f8fafc; border-bottom:1.5px solid #e8edf5; }
   .er-table th {
@@ -333,9 +333,10 @@ const CSS = `
   .er-table th:hover { color:#1d4ed8; }
   .er-table th.er-sorted { color:#1d4ed8; }
   .er-th-inner { display:flex; align-items:center; gap:5px; }
-  .er-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background 0.1s; }
+  .er-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background 0.1s; position:relative; }
   .er-table tbody tr:last-child { border-bottom:none; }
-  .er-table tbody tr:hover { background:#fafbfe; }
+  .er-table tbody tr:hover { background:#fafbfe; z-index:5; }
+  .er-table tbody tr:focus-within { z-index:100; } /* Ensure row with active menu is on top */
   .er-table td { padding:11px 13px; vertical-align:middle; }
 
   /* ── Emp ID cell — Inter monospace ── */
@@ -384,7 +385,7 @@ const CSS = `
   .er-badge-rejected  { background:#fef2f2; color:#dc2626; }
 
   /* ── 3-dot Action Menu ── */
-  .er-dots-wrap { position:relative; display:inline-flex; justify-content:center; }
+  .er-dots-wrap { position:relative; display:inline-flex; justify-content:center; perspective:1000px; }
   .er-dots-btn {
     width:30px; height:30px; border-radius:7px; border:1px solid #e2e8f0; background:#f8fafc;
     display:inline-flex; align-items:center; justify-content:center;
@@ -392,24 +393,31 @@ const CSS = `
   }
   .er-dots-btn:hover { background:#f1f5f9; border-color:#cbd5e1; color:#0f172a; }
   .er-dots-menu {
-    position:absolute; top:calc(100% + 6px); right:0; z-index:1000;
-    background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-    box-shadow:0 8px 24px rgba(15,23,42,.12); min-width:150px; overflow:hidden;
-    animation:erMenuIn .14s ease both;
+    position:absolute; top:50%; right:calc(100% + 8px); transform:translateY(-50%); z-index:2000;
+    background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+    box-shadow:0 12px 32px rgba(15,23,42,.18), 0 4px 12px rgba(15,23,42,.08);
+    min-width:180px; overflow:visible;
+    animation:erMenuInRel .15s cubic-bezier(0.16, 1, 0.3, 1) both;
+    display:flex; flex-direction:column;
+    pointer-events:auto;
   }
+  @keyframes erMenuInRel { from{opacity:0;transform:translateY(-50%) translateX(8px) scale(0.95)} to{opacity:1;transform:translateY(-50%) translateX(0) scale(1)} }
   @keyframes erMenuIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
   .er-dots-item {
     padding:11px 16px;
     font-family:'DM Sans',sans-serif; font-size:13.5px; font-weight:600; color:#334155;
     cursor:pointer; transition:background .1s; white-space:nowrap;
     background:none; border:none; width:100%; text-align:left;
+    display:flex; align-items:center; gap:10px;
   }
   .er-dots-item:hover { background:#f8fafc; }
   .er-dots-item.approve { color:#15803d; }
   .er-dots-item.approve:hover { background:#f0fdf4; }
   .er-dots-item.reject  { color:#dc2626; }
   .er-dots-item.reject:hover  { background:#fef2f2; }
-  .er-dots-divider { height:1px; background:#f1f5f9; margin:4px 0; }
+  .er-dots-item.relieve { color:#0f172a; }
+  .er-dots-item.relieve:hover { background:#f1f5f9; }
+  .er-dots-divider { height:1px; background:#f1f5f9; margin:4px 0; flex-shrink:0; }
 
   /* ── Empty State ── */
   .er-empty { padding:52px 24px; text-align:center; }
@@ -651,11 +659,13 @@ interface DotsMenuProps {
   onView: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onRelieve: () => void;
 }
-function DotsMenu({ rec, onView, onApprove, onReject }: DotsMenuProps) {
+function DotsMenu({ rec, onView, onApprove, onReject, onRelieve }: DotsMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const isPending = rec.status === "Pending Approval";
+  const canRelieve = rec.status === "Clearance In Progress";
 
   useEffect(() => {
     if (!open) return;
@@ -669,7 +679,7 @@ function DotsMenu({ rec, onView, onApprove, onReject }: DotsMenuProps) {
   }, [open]);
 
   return (
-    <div className="er-dots-wrap" ref={wrapRef}>
+    <div className="er-dots-wrap" ref={wrapRef} style={{ zIndex: open ? 2000 : 1 }}>
       <button className="er-dots-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}>
         <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
           <circle cx="12" cy="5" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="19" r="2.5"/>
@@ -690,13 +700,24 @@ function DotsMenu({ rec, onView, onApprove, onReject }: DotsMenuProps) {
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
                 </svg>
-                Approve
+                Confirm Relieve
               </button>
               <button className="er-dots-item reject" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onReject(); }}>
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
                 Reject
+              </button>
+            </>
+          )}
+          {canRelieve && (
+            <>
+              <div className="er-dots-divider"/>
+              <button className="er-dots-item relieve" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onRelieve(); }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Confirm Relieve
               </button>
             </>
           )}
@@ -860,12 +881,12 @@ function RecordExitModal({ open, onClose, onToast, employees, createRelieving }:
 interface DrawerProps {
   rec: ExitRecord;
   onClose: () => void;
-  onApprove: (id: number, remarks: string) => void;
-  onReject: (id: number, name: string, remarks: string) => void;
-  onRelieve: (id: number) => void;
+  onApprove: (id: string, remarks: string) => void;
+  onReject: (id: string, name: string, remarks: string) => void;
+  onRelieve: (id: string) => void;
   onClearanceUpdate: () => void;
-  onSettlementToggle: (id: number, key: keyof Settlement) => void;
-  onInterviewSave: (id: number, done: boolean, notes: string) => void;
+  onSettlementToggle: (id: string, key: keyof Settlement) => void;
+  onInterviewSave: (id: string, done: boolean, notes: string) => void;
 }
 
 function ExitDrawer({
@@ -1091,7 +1112,7 @@ function ExitDrawer({
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                Approve Exit
+                Confirm Relieve
               </button>
             </>
           )}
@@ -1103,7 +1124,7 @@ function ExitDrawer({
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {canRelieve ? "Mark as Relieved" : "Clearances Pending"}
+              {canRelieve ? "Confirm Relieve" : "Clearances Pending"}
             </button>
           )}
           {(rec.status === "Relieved" || rec.status === "Approved" || rec.status === "Rejected") && (
@@ -1114,6 +1135,36 @@ function ExitDrawer({
         </div>
       </div>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   CONFIRM RELIEVE MODAL
+───────────────────────────────────────────── */
+interface ConfirmRelieveModalProps {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+function ConfirmRelieveModal({ name, onConfirm, onCancel }: ConfirmRelieveModalProps) {
+  return (
+    <div className="er-modal-overlay" onClick={onCancel}>
+      <div className="er-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <div className="er-modal-icon" style={{ background:"#f0fdf4", color:"#15803d" }}>
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3>Confirm Relieving?</h3>
+        <p>Are you sure you want to confirm relieving for <strong>{name}</strong>? This action will update their official status.</p>
+        <div className="er-modal-actions">
+          <button className="er-modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="er-modal-confirm" style={{ background:"#15803d" }} onClick={onConfirm}>
+            Yes, Confirm Relieve
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1189,7 +1240,7 @@ export default function EmployeeRelieving() {
 
   const records: ExitRecord[] = useMemo(() => {
     return (data?.relievings?.items || []).map((r: BackendRelieving) => ({
-      id: parseInt(r.id),
+      id: r.id,
       empId: r.employee_code || r.employee_id,
       firstName: r.employee?.first_name || "Unknown",
       lastName: r.employee?.last_name || "",
@@ -1229,7 +1280,8 @@ export default function EmployeeRelieving() {
   const [drawerRec, setDrawerRec] = useState<ExitRecord | null>(null);
   const [formOpen, setFormOpen]   = useState<boolean>(false);
   const [toast, setToast]         = useState<string>("");
-  const [rejectTarget, setRejectTarget] = useState<{ id: string | number; name: string; remarks: string } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string } | null>(null);
+  const [relieveTarget, setRelieveTarget] = useState<{ id: string; name: string; status: ExitStatus; remarks?: string } | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -1284,33 +1336,19 @@ export default function EmployeeRelieving() {
   }
 
   /* Approve */
-  function handleApprove(id: number, remarks: string) {
-    updateRelieving({
-      variables: {
-        id: id.toString(),
-        input: { status: "Approved", remarks }
-      },
-      refetchQueries: [
-        { query: GET_RELIEVINGS },
-        { query: GET_DASHBOARD_STATS },
-        { query: GET_EMPLOYEES },
-        { query: GET_LEAVES },
-        { query: GET_MOVEMENTS }
-      ]
-    });
-    if (drawerRec?.id === id) setDrawerRec(null);
-    showToast("Exit request approved. Clearance process initiated.");
+  function initiateApprove(id: string, name: string, remarks: string) {
+    setRelieveTarget({ id, name, status: "Pending Approval", remarks });
   }
 
   /* Reject */
-  function initiateReject(id: number, name: string, remarks: string) {
+  function initiateReject(id: string, name: string, remarks: string) {
     setRejectTarget({ id, name, remarks });
   }
   function confirmReject() {
     if (!rejectTarget) return;
     updateRelieving({
       variables: {
-        id: rejectTarget.id.toString(),
+        id: rejectTarget.id,
         input: { status: "Rejected", remarks: rejectTarget.remarks }
       },
       refetchQueries: [
@@ -1327,10 +1365,14 @@ export default function EmployeeRelieving() {
   }
 
   /* Relieve */
-  function handleRelieve(id: number) {
+  function initiateRelieve(id: string, name: string) {
+    setRelieveTarget({ id, name, status: "Clearance In Progress" });
+  }
+
+  function handleRelieve(id: string) {
     updateRelieving({
       variables: {
-        id: id.toString(),
+        id: id,
         input: { status: "Relieved" }
       },
       refetchQueries: [
@@ -1351,18 +1393,18 @@ export default function EmployeeRelieving() {
   }
 
   /* Settlement toggle */
-  function handleSettlementToggle(id: number, key: keyof Settlement) {
+  function handleSettlementToggle(id: string, key: keyof Settlement) {
     // For now, no specific backend field for this, but can map to assets_returned if it fits
     if (key === 'noDuesIssued') {
-       updateRelieving({ variables: { id: id.toString(), input: { assets_returned: true } } });
+       updateRelieving({ variables: { id, input: { assets_returned: true } } });
     }
   }
 
   /* Interview save */
-  function handleInterviewSave(id: number, done: boolean, notes: string) {
+  function handleInterviewSave(id: string, done: boolean, notes: string) {
     updateRelieving({
       variables: {
-        id: id.toString(),
+        id,
         input: { exit_interview_done: done, remarks: notes }
       }
     });
@@ -1537,8 +1579,9 @@ export default function EmployeeRelieving() {
                       <DotsMenu
                         rec={rec}
                         onView={() => setDrawerRec(rec)}
-                        onApprove={() => handleApprove(rec.id, "")}
+                        onApprove={() => initiateApprove(rec.id, `${rec.firstName} ${rec.lastName}`, "")}
                         onReject={() => initiateReject(rec.id, `${rec.firstName} ${rec.lastName}`, "")}
+                        onRelieve={() => initiateRelieve(rec.id, `${rec.firstName} ${rec.lastName}`)}
                       />
                     </td>
 
@@ -1589,12 +1632,12 @@ export default function EmployeeRelieving() {
         <ExitDrawer
           rec={drawerRec}
           onClose={() => setDrawerRec(null)}
-          onApprove={(id: number, remarks: string) => { handleApprove(id, remarks); }}
-          onReject={(id: number, name: string, remarks: string) => {
+          onApprove={(id: string, remarks: string) => { initiateApprove(id, `${drawerRec.firstName} ${drawerRec.lastName}`, remarks); }}
+          onReject={(id: string, name: string, remarks: string) => {
             initiateReject(id, name, remarks);
             setDrawerRec(null);
           }}
-          onRelieve={(id: number) => { handleRelieve(id); }}
+          onRelieve={(id: string) => { initiateRelieve(id, `${drawerRec.firstName} ${drawerRec.lastName}`); }}
           onClearanceUpdate={handleClearanceUpdate}
           onSettlementToggle={handleSettlementToggle}
           onInterviewSave={handleInterviewSave}
@@ -1607,6 +1650,19 @@ export default function EmployeeRelieving() {
           name={rejectTarget.name}
           onConfirm={confirmReject}
           onCancel={() => setRejectTarget(null)}
+        />
+      )}
+
+      {/* Confirm Relieve Modal */}
+      {relieveTarget && (
+        <ConfirmRelieveModal
+          name={relieveTarget.name}
+          onConfirm={() => {
+            handleRelieve(relieveTarget.id);
+            setRelieveTarget(null);
+            setDrawerRec(null);
+          }}
+          onCancel={() => setRelieveTarget(null)}
         />
       )}
 

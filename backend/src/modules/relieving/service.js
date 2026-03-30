@@ -48,6 +48,18 @@ exports.createRelieving = async (data) => {
   const record = new Relieving({ ...data, status: "Pending Approval" });
   const saved = await record.save();
 
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "relieving",
+    action_type: "CREATE",
+    record_id: saved._id.toString(),
+    description: `Exit request created for employee ${employee_id}. Reason: ${reason}`,
+    new_data: saved.toObject()
+  });
+
   return saved.toObject();
 };
 
@@ -116,6 +128,19 @@ exports.updateRelieving = async (id, data, institution_id) => {
     );
       console.log(`Synchronization complete for employee ${updated.employee_id}. Leaves: ${cancelledLeaves.modifiedCount}, Movements: ${cancelledMovements.modifiedCount}`);
     }
+
+    // Audit Log
+    await eventLogService.logEvent({
+      institution_id,
+      user_name: "Admin",
+      user_role: "HR Administrator",
+      module_name: "relieving",
+      action_type: "UPDATE",
+      record_id: id,
+      description: `Exit request updated. New Status: ${updated.status}`,
+      old_data: existing,
+      new_data: updated
+    });
 
     return updated;
 };

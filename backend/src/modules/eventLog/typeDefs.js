@@ -2,8 +2,6 @@ const { gql } = require("apollo-server-express");
 const { GraphQLJSON } = require('graphql-type-json');
 
 const typeDefs = gql`
-  scalar JSON
-
   type EventLog {
     id: ID!
     user_id: String

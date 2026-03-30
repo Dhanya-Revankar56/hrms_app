@@ -12,7 +12,7 @@ const movementSchema = new mongoose.Schema(
     employee_code: { type: String },
     movement_type: {
       type: String,
-      enum: ["official", "personal", "visit", "other"],
+      enum: ["official", "personal", "visit", "other", "Exam Duty", "Bank Visit", "Medical Appointment", "Outside Meeting", "Personal Emergency", "Official Field Work", "Government Office", "Other"],
       required: true,
     },
     from_location: { type: String },

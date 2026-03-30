@@ -13,6 +13,7 @@ import Settings from "./pages/Settings";
 import EmployeeDetail from "./pages/EmployeeDetail";
 import Holidays from "./pages/Holidays";
 import EventRegister from "./pages/EventRegister";
+import Reports from "./pages/Reports";
 
 
 function App() {
@@ -126,6 +127,15 @@ function App() {
           element={
             <DashboardLayout>
               <EventRegister />
+            </DashboardLayout>
+          }
+        />
+        
+        <Route
+          path="/reports"
+          element={
+            <DashboardLayout>
+              <Reports />
             </DashboardLayout>
           }
         />

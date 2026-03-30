@@ -138,6 +138,20 @@ exports.createMovement = async (data) => {
 
   const record = new Movement(data);
   const saved = await record.save();
+
+  // Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    institution_id: data.institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "movement",
+    action_type: "CREATE",
+    record_id: saved._id.toString(),
+    description: `Movement record initiated for employee ${data.employee_id}. Type: ${data.movement_type}`,
+    new_data: saved.toObject()
+  });
+
   return saved.toObject();
 };
 
@@ -181,11 +195,39 @@ exports.updateMovement = async (id, data, institution_id) => {
     { new: true, runValidators: true }
   ).populate("employee").lean();
 
+  // Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "movement",
+    action_type: "UPDATE",
+    record_id: id,
+    description: `Movement record updated. Status: ${updated.status}`,
+    old_data: existing.toObject ? existing.toObject() : existing,
+    new_data: updated
+  });
+
   return updated;
 };
 
 exports.deleteMovement = async (id, institution_id) => {
-  const deleted = await Movement.findOneAndDelete({ _id: id, institution_id });
+  const deleted = await Movement.findOneAndDelete({ _id: id, institution_id }).lean();
   if (!deleted) throw new Error("Movement record not found");
+
+  // Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "movement",
+    action_type: "DELETE",
+    record_id: id,
+    description: `Movement record deleted for employee ${deleted.employee_id}`,
+    old_data: deleted
+  });
+
   return { success: true, message: "Movement record deleted successfully" };
 };

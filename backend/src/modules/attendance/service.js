@@ -1,4 +1,5 @@
 const Attendance = require("./model");
+const eventLogService = require("../eventLog/service");
 
 exports.listAttendance = async ({ institution_id, employee_id, status, from_date, to_date, pagination }) => {
   const filter = { institution_id };
@@ -37,21 +38,62 @@ exports.getAttendanceById = async (id, institution_id) => {
 exports.createAttendance = async (data) => {
   const record = new Attendance(data);
   const saved = await record.save();
+
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id: data.institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "attendance",
+    action_type: "CREATE",
+    record_id: saved._id.toString(),
+    description: `Attendance record created for employee ${data.employee_id} on ${new Date(data.date).toDateString()}`,
+    new_data: saved.toObject()
+  });
+
   return saved.toObject();
 };
 
 exports.updateAttendance = async (id, data, institution_id) => {
+  const existing = await Attendance.findOne({ _id: id, institution_id }).lean();
   const updated = await Attendance.findOneAndUpdate(
     { _id: id, institution_id },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
   if (!updated) throw new Error("Attendance record not found");
+
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "attendance",
+    action_type: "UPDATE",
+    record_id: id,
+    description: `Attendance updated for employee ${updated.employee_id}: Status changed to ${updated.status}`,
+    old_data: existing,
+    new_data: updated
+  });
+
   return updated;
 };
 
 exports.deleteAttendance = async (id, institution_id) => {
-  const deleted = await Attendance.findOneAndDelete({ _id: id, institution_id });
+  const deleted = await Attendance.findOneAndDelete({ _id: id, institution_id }).lean();
   if (!deleted) throw new Error("Attendance record not found");
+
+  // Audit Log
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "attendance",
+    action_type: "DELETE",
+    record_id: id,
+    description: `Attendance record deleted for employee ${deleted.employee_id} on ${new Date(deleted.date).toDateString()}`,
+    old_data: deleted
+  });
+
   return { success: true, message: "Attendance record deleted successfully" };
 };

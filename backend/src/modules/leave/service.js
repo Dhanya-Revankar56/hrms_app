@@ -212,7 +212,11 @@ exports.listLeaveBalances = async (employee_id, institution_id) => {
  * 1. APPLY LEAVE
  */
 exports.applyLeave = async (input) => {
-  const { employee_id, leave_type, from_date, to_date, institution_id, is_half_day, _half_day_type } = input;
+  let { employee_id, leave_type, from_date, to_date, institution_id, is_half_day, half_day_type } = input;
+  
+  // Safety: Handle empty strings or missing to_date for single-day/half-day leaves
+  if (!to_date || to_date === "") to_date = from_date;
+  if (!from_date || from_date === "") throw new Error("From date is required");
   
   const from = new Date(from_date);
   const to = new Date(to_date);
@@ -303,23 +307,33 @@ exports.applyLeave = async (input) => {
   if (overlappingLeave) throw new Error("You already have a pending or approved leave for these dates");
 
   // 10. Balance Check
-  const balanceRec = await LeaveBalance.findOne({ employee_id, institution_id, leave_type });
+  const balanceRec = await LeaveBalance.findOne({ 
+    employee_id, 
+    institution_id, 
+    leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") } 
+  });
   if (!balanceRec || balanceRec.balance <= 0 || balanceRec.balance < totalDays) {
     throw new Error(`Insufficient balance for ${leave_type}. Current balance: ${balanceRec?.balance || 0}`);
   }
 
   // Create
-  const leave = new Leave({
-    ...input,
-    total_days: totalDays,
-    status: "pending",
-    approvals: [
-      { role: "HOD", status: "pending" },
-      { role: "ADMIN", status: "pending" }
-    ]
+  const leave = new Leave(input);
+  const saved = await leave.save();
+
+  // Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "leave",
+    action_type: "CREATE",
+    record_id: saved._id.toString(),
+    description: `Leave application submitted for ${leave_type} (${totalDays} days).`,
+    new_data: saved.toObject()
   });
 
-  return await leave.save();
+  return saved;
 };
 
 /**
@@ -385,7 +399,23 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id
     );
   }
 
-  return await leave.save();
+  const saved = await leave.save();
+
+  // Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "leave",
+    action_type: status.toUpperCase(),
+    record_id: id,
+    description: `Leave ${status} by ${role}. Remarks: ${remarks || "No remarks"}. Overall status: ${saved.status}`,
+    old_data: { status: oldStatus },
+    new_data: saved.toObject()
+  });
+
+  return saved;
 };
 
 /**
@@ -438,7 +468,23 @@ exports.cancelLeave = async (id, institution_id) => {
     );
   }
 
-  return await leave.save();
+  const saved = await leave.save();
+
+  // Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    institution_id,
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "leave",
+    action_type: "CANCEL",
+    record_id: id,
+    description: `Leave request cancelled for employee ${saved.employee_id}.`,
+    old_data: { status: oldStatus },
+    new_data: saved.toObject()
+  });
+
+  return saved;
 };
 
 exports.createLeave = async (data) => {

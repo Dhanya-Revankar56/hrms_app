@@ -524,6 +524,7 @@ function NewModal({ onClose, onToast }: ModalP) {
 
   function validate(): boolean {
     const e: FormErrors = {};
+    if (!form.empId)       e.empId       = "Required.";
     if (!form.date)        e.date        = "Required.";
     else {
       const d = new Date(form.date);
