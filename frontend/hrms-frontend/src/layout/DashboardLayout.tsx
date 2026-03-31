@@ -12,8 +12,8 @@ const LAYOUT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
 
   :root {
-    --sidebar-w:      232px;
-    --topbar-h:       60px;
+    --sidebar-w:      214px;
+    --topbar-h:       56px;
     --sidebar-bg:     #0f2545;
     --sidebar-hover:  rgba(255,255,255,.07);
     --sidebar-active: rgba(255,255,255,.12);
@@ -389,7 +389,7 @@ const LAYOUT_CSS = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 28px;
+    padding: 0 20px;
     flex-shrink: 0;
     box-shadow: var(--shadow-sm);
     position: relative;
@@ -631,7 +631,7 @@ const LAYOUT_CSS = `
     border-radius: var(--radius);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
-    padding: 20px 20px 0;
+    padding: 16px 16px 0;
     position: relative;
     overflow: hidden;
     transition: box-shadow 0.15s, transform 0.15s;
@@ -667,7 +667,7 @@ const LAYOUT_CSS = `
   }
 
   .dc-value {
-    font-size: 34px;
+    font-size: 28px;
     font-weight: 800;
     letter-spacing: -1.5px;
     line-height: 1;
@@ -681,7 +681,7 @@ const LAYOUT_CSS = `
     gap: 4px;
     font-size: 11.5px;
     font-weight: 500;
-    padding-bottom: 18px;
+    padding-bottom: 14px;
   }
 
   .dc-accent {

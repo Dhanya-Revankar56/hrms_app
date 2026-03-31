@@ -13,6 +13,7 @@ const typeDefs = gql`
     description: String
     old_data: JSON
     new_data: JSON
+    changes: JSON
     ip_address: String
     timestamp: String
   }

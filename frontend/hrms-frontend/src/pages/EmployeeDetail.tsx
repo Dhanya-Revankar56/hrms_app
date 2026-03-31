@@ -38,10 +38,34 @@ const CSS = `
 
   .ed-back-btn { display: flex; align-items: center; gap: 6px; color: #64748b; font-size: 13px; font-weight: 500; cursor: pointer; margin-bottom: 20px; background: none; border: none; padding: 0; }
   .ed-back-btn:hover { color: #1e293b; }
+  .ed-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  .ed-table th { text-align: left; padding: 14px 12px; font-size: 13.5px; font-weight: 700; color: #475569; border-bottom: 2px solid #f1f5f9; background: #f8fbff; white-space: nowrap; }
+  .ed-table td { padding: 14px 12px; border-bottom: 1.5px solid #f1f5f9; font-size: 14.5px; color: #334155; vertical-align: middle; font-weight: 500; }
+  
+  .ed-att-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; background: #fff; border-bottom: 2px solid #f1f5f9; }
+  .ed-month-nav { display: flex; align-items: center; gap: 16px; font-size: 16px; font-weight: 700; color: #1e293b; }
+  .ed-nav-btn { background: none; border: none; cursor: pointer; color: #64748b; padding: 4px; display: flex; align-items: center; transition: 0.2s; }
+  .ed-nav-btn:hover { color: #1e293b; background: #f1f5f9; border-radius: 4px; }
+  
+  .ed-att-stats-box { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.4; }
+  .ed-stat-row { font-size: 13.5px; font-weight: 700; color: #1e293b; }
+  .ed-stat-lbl { color: #64748b; font-weight: 600; margin-right: 4px; }
 
-  .ed-table { width: 100%; border-collapse: collapse; }
-  .ed-table th { text-align: left; padding: 12px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; background: #fafbfe; }
-  .ed-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155; }
+  .ed-day-info { display: flex; flex-direction: column; gap: 2px; }
+  .ed-day-date { font-weight: 700; color: #1e293b; font-size: 14px; }
+  .ed-day-name { font-size: 12px; color: #94a3b8; font-weight: 500; }
+  
+  .ed-table-container { padding: 0 12px; }
+
+  .ed-pill { padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; }
+  .ed-status-present { background: #f0fdf4; color: #16a34a; }
+  .ed-status-absent { background: #fef2f2; color: #dc2626; }
+  .ed-status-weekend { background: #fffbeb; color: #d97706; }
+  .ed-status-pending { background: #fff7ed; color: #f59e0b; }
+  
+  .ed-day-info { display: flex; flex-direction: column; gap: 2px; }
+  .ed-day-date { font-weight: 700; color: #1e293b; }
+  .ed-day-name { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: capitalize; }
   
   .ed-salary-card { display: flex; flex-direction: column; gap: 12px; }
   .ed-salary-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; }
@@ -135,6 +159,94 @@ const CSS = `
   .ed-alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; animation: ed-slide-down 0.3s ease-out; }
   .ed-alert-error { background: #fef2f2; color: #dc2626; border: 1.5px solid #fee2e2; }
   .ed-alert-success { background: #f0fdf4; color: #16a34a; border: 1.5px solid #dcfce7; }
+  /* Modals */
+  .ed-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; animation: ed-fade-in 0.2s ease; }
+  .ed-modal-card { background: #ffffff !important; width: 100%; max-width: 500px; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); padding: 24px; position: relative; z-index: 10000; color: #1e293b; }
+  .ed-modal-field { margin-bottom: 16px; }
+  .ed-modal-label { display: block; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+  .ed-modal-input { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-weight: 500; outline: none; background: #fff; color: #1e293b; }
+  .ed-modal-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .ed-modal-select { width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-weight: 500; background: #fff; cursor: pointer; color: #1e293b; outline: none; }
+
+  .ed-face-setup { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: #f8fafc; }
+  .ed-face-label { font-size: 14px; color: #475569; font-weight: 600; }
+  .ed-face-icons { display: flex; gap: 16px; color: #64748b; }
+  
+  .ed-template-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 12px; display: block; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
+  .ed-template-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+  .ed-template-table th { text-align: left; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; border: none !important; background: transparent !important; padding: 0 4px !important; }
+  .ed-template-table td { padding: 4px 4px; font-size: 13px; vertical-align: middle; border: none; }
+  .ed-td-day { font-weight: 600; color: #475569; width: 100px; }
+  .ed-td-time { font-weight: 600; color: #1e293b; text-align: center; background: #f1f5f9; border-radius: 6px; padding: 4px 10px !important; }
+  .ed-td-action { text-align: right; color: #3b82f6; cursor: pointer; padding-left: 12px !important; position: relative; }
+  
+  .ed-action-dropdown {
+    position: absolute;
+    right: 12px;
+    top: 40px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    z-index: 1000;
+    width: 170px;
+    overflow: hidden;
+    animation: ed-slide-down 0.2s ease-out;
+  }
+  .ed-action-item {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: 0.1s;
+    text-align: left;
+    width: 100%;
+    background: none;
+    border: none;
+  }
+  .ed-action-item:hover { background: #f8fafc; color: #1d4ed8; }
+  .ed-action-item svg { color: #94a3b8; }
+  .ed-action-item:hover svg { color: #3b82f6; }
+
+  /* Details Modal */
+  .ed-details-header { border-bottom: 2px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 24px; }
+  .ed-details-title { font-size: 18px; font-weight: 700; color: #1e293b; }
+  .ed-details-section { margin-bottom: 24px; }
+  .ed-details-sec-title { font-size: 14px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 16px; letter-spacing: 0.5px; }
+  .ed-details-grid { display: flex; flex-direction: column; gap: 14px; }
+  .ed-details-row { display: grid; grid-template-columns: 120px 80px 1fr; align-items: center; font-size: 14px; }
+  .ed-details-label { font-weight: 600; color: #64748b; }
+  .ed-details-time { font-weight: 700; color: #1e293b; text-align: center; }
+  .ed-details-status { font-weight: 600; color: #94a3b8; padding-left: 20px; }
+  .ed-details-punch-link { color: #3b82f6; font-size: 13.5px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 10px; }
+  .ed-details-punch-link:hover { text-decoration: underline; }
+
+  /* Status Update Modal */
+  .ed-status-modal-note { padding: 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; margin-top: 20px; }
+  .ed-status-modal-note span { font-size: 12px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px; }
+  .ed-status-modal-note p { font-size: 12px; font-weight: 500; color: #64748b; margin: 0; line-height: 1.5; }
+
+  /* Update Shift Modal */
+  .ed-modal-card.wide { max-width: 900px; width: 95%; }
+  .ed-timing-grid { width: 100%; margin-top: 10px; }
+  .ed-t-header { display: grid; grid-template-columns: 140px 1fr 1fr 1fr 40px; gap: 20px; padding: 12px 0; border-bottom: 1.5px solid #f1f5f9; text-align: center; }
+  .ed-t-header span { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .ed-t-row { display: grid; grid-template-columns: 140px 1fr 1fr 1fr 40px; gap: 20px; align-items: center; padding: 16px 0; }
+  .ed-t-label { font-size: 14px; font-weight: 600; color: #475569; }
+  .ed-t-input-group { position: relative; display: flex; align-items: center; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 0 10px; transition: 0.2s; }
+  .ed-t-input-group:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .ed-t-input { width: 100%; border: none; padding: 10px 0; outline: none; font-size: 15px; font-weight: 600; color: #1e293b; background: transparent; font-family: 'Inter', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, sans-serif; letter-spacing: -0.01em; }
+  .ed-t-icon { color: #94a3b8; margin-left: 8px; }
+  
+  .ed-t-trash { background: none; border: none; color: #f87171; cursor: pointer; padding: 6px; display: flex; align-items: center; transition: 0.2s; border-radius: 6px; }
+  .ed-t-trash:hover { background: #fef2f2; }
+
+  @keyframes ed-fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes ed-slide-down { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
@@ -197,6 +309,7 @@ interface Attendance {
   check_out: string;
   status: string;
   working_hours: number;
+  marked_by?: string;
 }
 
 interface LeaveApproval {
@@ -228,6 +341,18 @@ interface Movement {
   status?: string;
 }
 
+interface SessionTiming {
+  label?: string;
+  before: string;
+  marking: string;
+  after: string;
+  isOptional: boolean;
+  before_display?: string;
+  after_display?: string;
+  marking_display?: string;
+}
+
+
 interface EmployeeDocument {
   id: string;
   name: string;
@@ -241,10 +366,34 @@ interface Settings {
 
 type TabType = "Summary" | "Salary Details" | "Payslips" | "Attendance" | "Movements" | "Leaves" | "Documents";
 
+function getDaysInMonth(year: number, month: number) {
+  const date = new Date(year, month, 1);
+  const days = [];
+  while (date.getMonth() === month) {
+    const d = new Date(date);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    days.push({
+      iso,
+      dayNumber: d.getDate(),
+      dayName: d.toLocaleDateString("en-US", { weekday: "long" }),
+      dateLabel: `${d.getDate()} ${d.toLocaleDateString("en-US", { month: 'short' })} ${d.getFullYear()}`
+    });
+    date.setDate(date.getDate() + 1);
+  }
+  return days;
+}
+
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [monthYear, setMonthYear] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [activeTab, setActiveTab] = useState<TabType>("Summary");
+
+  const [yearNum, monthNum] = useMemo(() => monthYear.split("-").map(Number), [monthYear]);
+  const daysInMonth = useMemo(() => getDaysInMonth(yearNum, monthNum - 1), [yearNum, monthNum]);
 
   const { data: empData, loading: empLoading } = useQuery<{ employee: Employee }>(GET_EMPLOYEE_BY_ID, {
     variables: { id },
@@ -260,7 +409,11 @@ export default function EmployeeDetail() {
   });
 
   const { data: attendanceData } = useQuery<{ attendances: { items: Attendance[] } }>(GET_ATTENDANCES, {
-    variables: { employee_id: id },
+    variables: { 
+      employee_id: id,
+      from_date: daysInMonth[0].iso,
+      to_date: daysInMonth[daysInMonth.length - 1].iso
+    },
     skip: activeTab !== "Attendance",
   });
 
@@ -303,12 +456,62 @@ export default function EmployeeDetail() {
   const [showOut, setShowOut] = useState(false);
   const [showRet, setShowRet] = useState(false);
   const [mStatus, setMStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showAttSettingsModal, setShowAttSettingsModal] = useState(false);
+  const [biometricId, setBiometricId] = useState("200");
+  const [selectedShift, setSelectedShift] = useState("Teaching Staff");
+  const [template, setTemplate] = useState([
+    { day: "Sunday", checkin: "", checkout: "", isWeekOff: true },
+    { day: "Monday", checkin: "08:55", checkout: "17:30", isWeekOff: false },
+    { day: "Tuesday", checkin: "08:55", checkout: "17:30", isWeekOff: false },
+    { day: "Wednesday", checkin: "08:55", checkout: "17:30", isWeekOff: false },
+    { day: "Thursday", checkin: "08:55", checkout: "17:30", isWeekOff: false },
+    { day: "Friday", checkin: "08:55", checkout: "17:30", isWeekOff: false },
+    { day: "Saturday", checkin: "08:55", checkout: "17:30", isWeekOff: false },
+  ]);
+
+  const formatTo12Hr = (time: string) => {
+    if (!time) return "";
+    const [h, m] = time.split(':');
+    let hours = parseInt(h);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${hours.toString().padStart(2, '0')}:${m} ${ampm}`;
+  };
+  const [showDetailEditModal, setShowDetailEditModal] = useState(false);
+  const [showAttendanceDetailsModal, setShowAttendanceDetailsModal] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [showUpdateStatusModal, setShowUpdateStatusModal] = useState(false);
+  const [updateStatusValue, setUpdateStatusValue] = useState("PRESENT");
+  const [showUpdateShiftTimeModal, setShowUpdateShiftTimeModal] = useState(false);
+  const [selectedSession, setSelectedSession] = useState("Check In");
+  const [updateReason, setUpdateReason] = useState("");
+  const [applyToAll, setApplyToAll] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        // Handle dropdown close
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const [selectedDayName, setSelectedDayName] = useState("");
+  const [detailTimingData, setDetailTimingData] = useState<SessionTiming[]>([
+    { label: "Check In", before: "08:30", marking: "08:55", after: "09:30", isOptional: false },
+    { label: "Intermediate 1", before: "12:30", marking: "12:30", after: "13:00", isOptional: true },
+    { label: "Intermediate 2", before: "14:15", marking: "14:25", after: "15:00", isOptional: true },
+    { label: "Check Out", before: "17:00", marking: "17:30", after: "17:45", isOptional: false },
+  ]);
   const [moveForm, setMoveForm] = useState({
     movement_date: new Date().toISOString().split('T')[0],
     movement_type: "official",
-    out_time: "",
-    in_time: "",
-    purpose: ""
+    out_time: "09:00",
+    in_time: "10:00",
+    purpose: "",
+    remarks: ""
   });
 
   const [applyMovement, { loading: mLoading }] = useMutation<{ createMovement: Movement }, { input: {
@@ -317,7 +520,7 @@ export default function EmployeeDetail() {
     movement_date: string;
     movement_type: string;
     out_time: string;
-    in_time?: string;
+    in_time?: string | null;
     purpose?: string;
     remarks?: string;
   } }>(CREATE_MOVEMENT, {
@@ -511,33 +714,149 @@ export default function EmployeeDetail() {
         )}
 
         {activeTab === "Attendance" && (
-          <div className="ed-section" style={{overflowX: 'auto'}}>
-            <h2 className="ed-sec-title">Attendance Logs</h2>
-            <table className="ed-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Check In</th>
-                  <th>Check Out</th>
-                  <th>Status</th>
-                  <th>Working Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceData?.attendances?.items?.map((att) => (
-                  <tr key={att.id}>
-                    <td>{formatDateForDisplay(att.date)}</td>
-                    <td>{att.check_in ? to12(att.check_in) : "—"}</td>
-                    <td>{att.check_out ? to12(att.check_out) : "—"}</td>
-                    <td><span className={`ed-status-badge`} style={{background: att.status === 'Present' ? '#dcfce7' : '#fee2e2', color: att.status === 'Present' ? '#166534' : '#991b1b'}}>{att.status}</span></td>
-                    <td>{att.working_hours?.toFixed(1) || "0.0"} hrs</td>
+          <div className="ed-section" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="ed-att-toolbar">
+              <div className="ed-month-nav">
+                <button className="ed-nav-btn" onClick={() => {
+                  const d = new Date(monthYear + "-01");
+                  d.setMonth(d.getMonth() - 1);
+                  setMonthYear(d.toISOString().slice(0, 7));
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <span>{new Date(monthYear + "-01").toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                <button className="ed-nav-btn" onClick={() => {
+                  const d = new Date(monthYear + "-01");
+                  d.setMonth(d.getMonth() + 1);
+                  setMonthYear(d.toISOString().slice(0, 7));
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+              
+              <div className="ed-att-stats-box">
+                <div className="ed-stat-row">
+                  <span className="ed-stat-lbl">Total Late Mins :</span> 0
+                </div>
+                <div className="ed-stat-row">
+                  <span className="ed-stat-lbl">Balance Late Mins :</span> 100
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="ed-btn" title="History" onClick={() => {
+                  if (selectedDates.length === 0) {
+                    alert("Please select at least one date to update.");
+                    return;
+                  }
+                  setShowUpdateShiftTimeModal(true);
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </button>
+                <button className="ed-btn" title="Edit Record" onClick={() => {
+                  if (selectedDates.length === 0) {
+                    alert("Please select at least one date to update.");
+                    return;
+                  }
+                  setShowUpdateStatusModal(true);
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button className="ed-btn" title="Download"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
+                <button className="ed-btn" title="Settings" onClick={() => setShowAttSettingsModal(true)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="ed-table-container" style={{ overflowX: 'auto' }}>
+              <table className="ed-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 50 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedDates.length === daysInMonth.length && daysInMonth.length > 0}
+                        ref={(el) => {
+                          if (el) {
+                            el.indeterminate = selectedDates.length > 0 && selectedDates.length < daysInMonth.length;
+                          }
+                        }}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedDates(daysInMonth.map(d => d.iso));
+                          } else {
+                            setSelectedDates([]);
+                          }
+                        }}
+                      />
+                    </th>
+                    <th style={{ width: 180 }}>Date</th>
+                    <th style={{ width: 160 }}>Check in</th>
+                    <th style={{ width: 120 }}>I</th>
+                    <th style={{ width: 140 }}>II</th>
+                    <th style={{ width: 160 }}>Check out</th>
+                    <th style={{ width: 180 }}>Last updated by</th>
+                    <th style={{ width: 140, textAlign: 'center' }}>Status</th>
                   </tr>
-                ))}
-                {(!attendanceData?.attendances?.items || attendanceData.attendances.items.length === 0) && (
-                  <tr><td colSpan={5} style={{textAlign: 'center', padding: 30, color: '#94a3b8'}}>No attendance records found.</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[...daysInMonth].reverse().map((day) => {
+                    const record = attendanceData?.attendances?.items?.find(r => r.date === day.iso);
+                    const isWeekend = day.dayName === 'Sunday';
+                    
+                    let statusLabel = record?.status || "NOT MARKED";
+                    let statusClass = "ed-status-pending";
+
+                    if (isWeekend) {
+                      statusLabel = "WEEK_OFF";
+                      statusClass = "ed-status-weekend";
+                    } else if (!record) {
+                      statusLabel = "ABSENT";
+                      statusClass = "ed-status-absent";
+                    } else if (record.status?.toLowerCase() === 'present') {
+                      statusLabel = "PRESENT";
+                      statusClass = "ed-status-present";
+                    } else if (record.status?.toLowerCase() === 'absent') {
+                      statusLabel = "ABSENT";
+                      statusClass = "ed-status-absent";
+                    }
+
+                    return (
+                      <tr key={day.iso}>
+                        <td>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedDates.includes(day.iso)}
+                            onChange={() => {
+                              if (selectedDates.includes(day.iso)) {
+                                setSelectedDates(selectedDates.filter(d => d !== day.iso));
+                              } else {
+                                setSelectedDates([...selectedDates, day.iso]);
+                              }
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <div className="ed-day-info">
+                            <span className="ed-day-date">{day.dateLabel}</span>
+                            <span className="ed-day-name">{day.dayName}</span>
+                          </div>
+                        </td>
+                        <td>{record?.check_in ? to12(record.check_in) : (isWeekend ? "Week Off" : "-")}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>{record?.check_out ? to12(record.check_out) : (isWeekend ? "Week Off" : "-")}</td>
+                        <td>{record?.marked_by || "-"}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className={`ed-pill ${statusClass}`}>{statusLabel}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -566,8 +885,7 @@ export default function EmployeeDetail() {
                     <th>Movement Date</th>
                     <th>Reason</th>
                     <th>Time Range</th>
-                    <th>Status</th>
-                    <th>Description</th>
+                    <th style={{ textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -582,16 +900,15 @@ export default function EmployeeDetail() {
                       <td>
                         <div style={{ fontWeight:600 }}>{to12(m.out_time)} - {m.in_time ? to12(m.in_time) : '...'}</div>
                       </td>
-                      <td>
-                        <span className={`ed-mv-badge ed-mv-${(m.status || "pending").toLowerCase()}`}>
-                          {m.status || "PENDING"}
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`ed-pill ed-status-${(m.status || 'pending').toLowerCase()}`}>
+                          {m.status || 'Pending'}
                         </span>
                       </td>
-                      <td><div style={{ fontSize:12, color:'#64748b', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis' }}>{m.purpose || m.remarks || '—'}</div></td>
                     </tr>
                   ))}
                   {(!movementsData?.movements?.items || movementsData.movements.items.length === 0) && (
-                    <tr><td colSpan={6} style={{textAlign: 'center', padding: 30, color: '#94a3b8'}}>No movement records found.</td></tr>
+                    <tr><td colSpan={4} style={{textAlign: 'center', padding: 30, color: '#94a3b8'}}>No movement records found.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -624,7 +941,6 @@ export default function EmployeeDetail() {
               })}
             </div>
 
-            {/* Filter Bar */}
             <div className="ed-filter-bar">
               <div className="ed-filter-item">
                 <label className="ed-filter-label">Leave Type</label>
@@ -687,7 +1003,6 @@ export default function EmployeeDetail() {
                       <td>{l.total_days}</td>
                       <td>{l.document_url ? <a href={l.document_url} target="_blank" rel="noreferrer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></a> : '-'}</td>
                       <td>{formatDateForDisplay(l.requested_date || l.created_at || "")}</td>
-                    {/* Status Columns */}
                     <td>
                       <span className="ed-pill" style={{
                         background: (l.approvals?.find((a) => a.role === 'HOD')?.status === 'approved' ? '#dcfce7' : l.approvals?.find((a) => a.role === 'HOD')?.status === 'rejected' ? '#fee2e2' : '#fef9c3'),
@@ -721,7 +1036,6 @@ export default function EmployeeDetail() {
               </table>
             </div>
 
-            {/* Apply Leave Modal */}
             {showApplyModal && (
               <div className="ed-modal-overlay">
                 <div className="ed-modal">
@@ -900,7 +1214,7 @@ export default function EmployeeDetail() {
 
         {activeTab === "Documents" && (
           <div className="ed-section">
-            <h2 className="ed-sec-title">Uploaded Documents <button style={{background: '#3b82f6', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '6px', fontSize: 11, cursor: 'pointer'}}>Upload New</button></h2>
+            <h2 className="ed-sec-title">Uploaded Documents</h2>
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginTop: 16}}>
               {docsData?.employeeDocuments?.map((doc) => (
                 <div key={doc.id} style={{border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px', display: 'flex', alignItems: 'center', gap: 12}}>
@@ -933,7 +1247,6 @@ export default function EmployeeDetail() {
         )}
       </div>
 
-      {/* Apply Movement Modal (Global) */}
       {showMovementModal && (
         <div className="ed-modal-overlay">
           <div className="ed-modal" style={{ width: 500 }}>
@@ -1016,9 +1329,15 @@ export default function EmployeeDetail() {
                 </div>
               </div>
 
-              <div className="ed-filter-item">
-                <label className="ed-filter-label">Purpose / Remarks <span style={{color:'red'}}>*</span></label>
-                <textarea className="ed-select" style={{height: 60, padding: 10, resize: 'none'}} value={moveForm.purpose} onChange={e => setMoveForm({...moveForm, purpose: e.target.value})} placeholder="Describe the reason for movement..."></textarea>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="ed-filter-item">
+                  <label className="ed-filter-label">Purpose <span style={{color:'red'}}>*</span></label>
+                  <textarea className="ed-select" style={{height: 60, padding: 10, resize: 'none'}} value={moveForm.purpose} onChange={e => setMoveForm({...moveForm, purpose: e.target.value})} placeholder="Describe the reason for movement..."></textarea>
+                </div>
+                <div className="ed-filter-item">
+                  <label className="ed-filter-label">Remarks</label>
+                  <textarea className="ed-select" style={{height: 60, padding: 10, resize: 'none'}} value={moveForm.remarks} onChange={e => setMoveForm({...moveForm, remarks: e.target.value})} placeholder="Additional notes..."></textarea>
+                </div>
               </div>
             </div>
             <div className="ed-modal-foot">
@@ -1070,13 +1389,13 @@ export default function EmployeeDetail() {
                     variables: {
                       input: {
                         employee_id: id || "",
-                        employee_code: employee.employee_id,
+                        employee_code: employee?.employee_id || "",
                         movement_date: moveForm.movement_date,
                         movement_type: moveForm.movement_type,
                         out_time: moveForm.out_time,
-                        in_time: moveForm.in_time || undefined,
-                        purpose: moveForm.purpose || "",
-                        remarks: "",
+                        in_time: moveForm.in_time || null,
+                        purpose: moveForm.purpose,
+                        remarks: moveForm.remarks
                       }
                     }
                   });
@@ -1084,13 +1403,410 @@ export default function EmployeeDetail() {
                   setTimeout(() => {
                     setShowMovementModal(false);
                     setMStatus(null);
-                    setMoveForm({ movement_date: new Date().toISOString().split('T')[0], movement_type: "official", out_time: "", in_time: "", purpose: "" });
+                    setMoveForm({ 
+                      movement_date: new Date().toISOString().split('T')[0], 
+                      movement_type: "official", 
+                      out_time: "09:00", 
+                      in_time: "10:00", 
+                      purpose: "", 
+                      remarks: "" 
+                    });
                   }, 1500);
                 } catch (err: unknown) {
                   const error = err as { message?: string };
                   setMStatus({ message: error.message || "Error applying", type: 'error' });
                 }
               }}>{mLoading ? 'Submitting...' : 'Apply'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAttSettingsModal && (
+        <div className="ed-modal-overlay" onClick={() => setShowAttSettingsModal(false)}>
+          <div className="ed-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="ed-modal-field">
+              <label className="ed-modal-label">Biometric ID</label>
+              <input 
+                className="ed-modal-input" 
+                value={biometricId} 
+                onChange={(e) => setBiometricId(e.target.value)}
+              />
+            </div>
+
+            <div className="ed-modal-field">
+              <label className="ed-modal-label">Select Shift</label>
+              <select 
+                className="ed-modal-select" 
+                value={selectedShift} 
+                onChange={(e) => setSelectedShift(e.target.value)}
+              >
+                <option value="Teaching Staff">Teaching Staff</option>
+                <option value="Admin Staff">Admin Staff</option>
+              </select>
+            </div>
+
+            <div className="ed-face-setup">
+              <span className="ed-face-label">Face ID Setup</span>
+              <div className="ed-face-icons">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+            </div>
+
+            <div className="ed-template-details">
+              <span className="ed-template-title">Template Details</span>
+              <table className="ed-template-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th style={{ textAlign: 'center' }}>Checkin - Checkout</th>
+                    <th style={{ width: 40 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {template.map((row, idx) => {
+                    const isEditing = false;
+                    return (
+                      <tr key={row.day}>
+                        <td className="ed-td-day">{row.day}</td>
+                        <td className="ed-td-time">
+                          {isEditing ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={row.isWeekOff} 
+                                onChange={(e) => {
+                                  const newT = [...template];
+                                  newT[idx].isWeekOff = e.target.checked;
+                                  setTemplate(newT);
+                                }}
+                                title="Week Off"
+                              />
+                              {!row.isWeekOff && (
+                                <>
+                                  <input 
+                                    type="time" 
+                                    className="ed-modal-input" 
+                                    style={{ padding: '4px 8px', fontSize: '12px', width: 90 }}
+                                    value={row.checkin}
+                                    onChange={(e) => {
+                                      const newT = [...template];
+                                      newT[idx].checkin = e.target.value;
+                                      setTemplate(newT);
+                                    }}
+                                  />
+                                  <span>-</span>
+                                  <input 
+                                    type="time" 
+                                    className="ed-modal-input" 
+                                    style={{ padding: '4px 8px', fontSize: '12px', width: 90 }}
+                                    value={row.checkout}
+                                    onChange={(e) => {
+                                      const newT = [...template];
+                                      newT[idx].checkout = e.target.value;
+                                      setTemplate(newT);
+                                    }}
+                                  />
+                                </>
+                              )}
+                              {row.isWeekOff && <span style={{ color: '#94a3b8', fontSize: '13px' }}>Week Off</span>}
+                            </div>
+                          ) : (
+                            row.isWeekOff ? "Week Off" : `${formatTo12Hr(row.checkin)} - ${formatTo12Hr(row.checkout)}`
+                          )}
+                        </td>
+                        <td className="ed-td-action">
+                          <button 
+                            onClick={() => {
+                              setSelectedDayName(row.day);
+                              setShowDetailEditModal(true);
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '4px' }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+              <button className="ed-btn" style={{ flex: 1, justifyContent: 'center', height: 44 }} onClick={() => setShowAttSettingsModal(false)}>Cancel</button>
+              <button className="ed-btn" style={{ flex: 1, justifyContent: 'center', height: 44, background: '#00264d', color: '#fff' }}>Update</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDetailEditModal && (
+        <div className="ed-modal-overlay" style={{ zIndex: 11000 }}>
+          <div className="ed-modal-card wide">
+            <span className="ed-template-title" style={{ fontSize: '18px', border: 'none' }}>Update Shift - {selectedDayName}</span>
+            
+            <div className="ed-timing-grid">
+              <div className="ed-t-header">
+                <div></div>
+                <span>Leisure before</span>
+                <span>Marking time</span>
+                <span>Leisure after</span>
+                <div></div>
+              </div>
+              
+              {detailTimingData.map((session, idx) => (
+                <div className="ed-t-row" key={idx}>
+                  <div className="ed-t-label">{session.label}</div>
+                  <div className="ed-t-input-group">
+                    <input type="text" className="ed-t-input" value={formatTo12Hr(session.before)} onChange={(e) => {
+                      // Basic parsing: if user types "01:30 PM" -> "13:30"
+                      // For now, let's keep it simple and just allow editing in a text field
+                      // Realistically, for a professional UI, we might want a better picker, 
+                      // but here we respond to the '12 hours cycle' request.
+                      const newVal = e.target.value;
+                      const newD = [...detailTimingData];
+                      newD[idx].before_display = newVal; // Temporary state for raw input if needed
+                      // For simplicity, we'll try to parse or just store the 24h equivalent logic
+                      setDetailTimingData(newD);
+                    }} onBlur={(e) => {
+                      // On blur, attempt to convert back to HH:mm for internal state
+                      const val = e.target.value;
+                      const matched = val.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                      if (matched) {
+                        let h = parseInt(matched[1]);
+                        const m = matched[2];
+                        const ap = matched[3].toUpperCase();
+                        if (ap === 'PM' && h < 12) h += 12;
+                        if (ap === 'AM' && h === 12) h = 0;
+                        const newD = [...detailTimingData];
+                        newD[idx].before = `${h.toString().padStart(2, '0')}:${m}`;
+                        setDetailTimingData(newD);
+                      }
+                    }}/>
+                    <svg className="ed-t-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <div className="ed-t-input-group">
+                    <input type="text" className="ed-t-input" value={formatTo12Hr(session.marking)} onChange={(e) => {
+                       const newD = [...detailTimingData];
+                       newD[idx].marking_display = e.target.value;
+                       setDetailTimingData(newD);
+                    }} onBlur={(e) => {
+                      const val = e.target.value;
+                      const matched = val.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                      if (matched) {
+                        let h = parseInt(matched[1]);
+                        const m = matched[2];
+                        const ap = matched[3].toUpperCase();
+                        if (ap === 'PM' && h < 12) h += 12;
+                        if (ap === 'AM' && h === 12) h = 0;
+                        const newD = [...detailTimingData];
+                        newD[idx].marking = `${h.toString().padStart(2, '0')}:${m}`;
+                        setDetailTimingData(newD);
+                      }
+                    }}/>
+                    <svg className="ed-t-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <div className="ed-t-input-group">
+                    <input type="text" className="ed-t-input" value={formatTo12Hr(session.after)} onChange={(e) => {
+                       const newD = [...detailTimingData];
+                       newD[idx].after_display = e.target.value;
+                       setDetailTimingData(newD);
+                    }} onBlur={(e) => {
+                      const val = e.target.value;
+                      const matched = val.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                      if (matched) {
+                        let h = parseInt(matched[1]);
+                        const m = matched[2];
+                        const ap = matched[3].toUpperCase();
+                        if (ap === 'PM' && h < 12) h += 12;
+                        if (ap === 'AM' && h === 12) h = 0;
+                        const newD = [...detailTimingData];
+                        newD[idx].after = `${h.toString().padStart(2, '0')}:${m}`;
+                        setDetailTimingData(newD);
+                      }
+                    }}/>
+                    <svg className="ed-t-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <div>
+                    {session.isOptional && (
+                      <button className="ed-t-trash" onClick={() => {
+                        const newD = detailTimingData.filter((_, i) => i !== idx);
+                        setDetailTimingData(newD);
+                      }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 20 }}>
+              <input 
+                type="checkbox" 
+                id="applyAllDays" 
+                style={{ cursor: 'pointer' }} 
+                checked={applyToAll}
+                onChange={(e) => setApplyToAll(e.target.checked)}
+              />
+              <label htmlFor="applyAllDays" style={{ fontSize: '14px', color: '#475569', cursor: 'pointer' }}>Apply to all days</label>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 40, justifyContent: 'flex-end' }}>
+              <button className="ed-btn" style={{ width: 120, justifyContent: 'center' }} onClick={() => setShowDetailEditModal(false)}>Cancel</button>
+              <button className="ed-btn" style={{ width: 120, justifyContent: 'center', background: '#00264d', color: '#fff' }} onClick={() => {
+                const newTemplate = [...template];
+                const checkInRow = detailTimingData.find(d => d.label === "Check In");
+                const checkOutRow = detailTimingData.find(d => d.label === "Check Out");
+
+                if (applyToAll) {
+                  newTemplate.forEach(t => {
+                    if (!t.isWeekOff) {
+                      if (checkInRow) t.checkin = checkInRow.marking;
+                      if (checkOutRow) t.checkout = checkOutRow.marking;
+                    }
+                  });
+                } else {
+                  const dayIdx = newTemplate.findIndex(t => t.day === selectedDayName);
+                  if (dayIdx > -1) {
+                    if (checkInRow) newTemplate[dayIdx].checkin = checkInRow.marking;
+                    if (checkOutRow) newTemplate[dayIdx].checkout = checkOutRow.marking;
+                    setTemplate(newTemplate);
+                  }
+                }
+                setTemplate(newTemplate);
+                setShowDetailEditModal(false);
+              }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showAttendanceDetailsModal && (
+        <div className="ed-modal-overlay" onClick={() => setShowAttendanceDetailsModal(false)}>
+          <div className="ed-modal-card" style={{ maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+            <div className="ed-details-header">
+              <div className="ed-details-title">Attendance Details of {selectedDetailsDate ? formatDateForDisplay(selectedDetailsDate) : ""}</div>
+            </div>
+            
+            <div className="ed-details-section">
+              <div className="ed-details-sec-title">Session Details</div>
+              <div className="ed-details-grid">
+                <div className="ed-details-row">
+                  <span className="ed-details-label">Check in</span>
+                  <span className="ed-details-time">-</span>
+                  <span className="ed-details-status">To be marked</span>
+                </div>
+                <div className="ed-details-row">
+                  <span className="ed-details-label">II</span>
+                  <span className="ed-details-time">-</span>
+                  <span className="ed-details-status">To be marked</span>
+                </div>
+                <div className="ed-details-row">
+                  <span className="ed-details-label">III</span>
+                  <span className="ed-details-time">-</span>
+                  <span className="ed-details-status">To be marked</span>
+                </div>
+                <div className="ed-details-row">
+                  <span className="ed-details-label">Check out</span>
+                  <span className="ed-details-time">-</span>
+                  <span className="ed-details-status">To be marked</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="ed-details-punch-link">View Punch Details</div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 32 }}>
+              <button className="ed-btn" style={{ minWidth: 100, justifyContent: 'center' }} onClick={() => setShowAttendanceDetailsModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showUpdateStatusModal && (
+        <div className="ed-modal-overlay" onClick={() => setShowUpdateStatusModal(false)}>
+          <div className="ed-modal-card" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
+            <div className="ed-details-header" style={{ marginBottom: 20 }}>
+              <div className="ed-details-title">Update Attendance Status</div>
+            </div>
+            
+            <div className="ed-modal-body" style={{ padding: 0 }}>
+              <div className="ed-modal-field" style={{ display: 'grid', gridTemplateColumns: '80px 1fr', alignItems: 'center', gap: 20 }}>
+                <label className="ed-modal-label" style={{ marginBottom: 0 }}>Status</label>
+                <select 
+                  className="ed-modal-select" 
+                  value={updateStatusValue} 
+                  onChange={(e) => setUpdateStatusValue(e.target.value)}
+                >
+                  <option value="PRESENT">Present</option>
+                  <option value="ABSENT">Absent</option>
+                  <option value="HALF_DAY">Half Day</option>
+                  <option value="ON_LEAVE">On Leave</option>
+                  <option value="WEEK_OFF">Week Off</option>
+                </select>
+              </div>
+
+              <div className="ed-status-modal-note">
+                <span>Note:</span>
+                <p>This model updates data in batches, so it may not reflect the latest information immediately. Please wait for a few minutes or check back later for the updated results.</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 32, justifyContent: 'flex-end' }}>
+              <button className="ed-btn" style={{ minWidth: 100, justifyContent: 'center' }} onClick={() => setShowUpdateStatusModal(false)}>Cancel</button>
+              <button className="ed-btn" style={{ minWidth: 100, justifyContent: 'center', background: '#00264d', color: '#fff' }} onClick={() => {
+                // Here we would trigger the mutation
+                // For UI demo, we'll just close it
+                setShowUpdateStatusModal(false);
+                setSelectedDates([]);
+              }}>Update</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showUpdateShiftTimeModal && (
+        <div className="ed-modal-overlay" onClick={() => setShowUpdateShiftTimeModal(false)}>
+          <div className="ed-modal-card" style={{ maxWidth: 550 }} onClick={(e) => e.stopPropagation()}>
+            <div className="ed-details-header" style={{ marginBottom: 20 }}>
+              <div className="ed-details-title">Update Shift Time</div>
+            </div>
+            
+            <div className="ed-modal-body" style={{ padding: 0 }}>
+              <div className="ed-modal-field" style={{ display: 'grid', gridTemplateColumns: '80px 1fr', alignItems: 'center', gap: 20 }}>
+                <label className="ed-modal-label" style={{ marginBottom: 0 }}>Session</label>
+                <select 
+                  className="ed-modal-select" 
+                  value={selectedSession} 
+                  onChange={(e) => setSelectedSession(e.target.value)}
+                >
+                  <option value="Check In">Check In</option>
+                  <option value="Intermediate 1">Intermediate 1</option>
+                  <option value="Intermediate 2">Intermediate 2</option>
+                  <option value="Check Out">Check Out</option>
+                </select>
+              </div>
+
+              <div className="ed-modal-field" style={{ display: 'grid', gridTemplateColumns: '80px 1fr', alignItems: 'flex-start', gap: 20 }}>
+                <label className="ed-modal-label" style={{ marginTop: 12 }}>Reason</label>
+                <textarea 
+                  className="ed-modal-input" 
+                  style={{ height: 60, padding: 10, resize: 'none' }} 
+                  value={updateReason} 
+                  onChange={(e) => setUpdateReason(e.target.value)}
+                  placeholder="Reason for change..."
+                ></textarea>
+              </div>
+
+              <div className="ed-status-modal-note">
+                <span>Note:</span>
+                <p>This model updates data in batches, so it may not reflect the latest information immediately. Please wait for a few minutes or check back later for the updated results.</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 32, justifyContent: 'flex-end' }}>
+              <button className="ed-btn" style={{ minWidth: 100, justifyContent: 'center' }} onClick={() => setShowUpdateShiftTimeModal(false)}>Cancel</button>
+              <button className="ed-btn" style={{ minWidth: 100, justifyContent: 'center', background: '#00264d', color: '#fff' }} onClick={() => {
+                // Here we would trigger the mutation
+                setShowUpdateShiftTimeModal(false);
+                setSelectedDates([]);
+              }}>Update</button>
             </div>
           </div>
         </div>

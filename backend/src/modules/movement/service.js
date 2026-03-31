@@ -127,32 +127,49 @@ exports.getMovementById = async (id, institution_id) => {
 };
 
 exports.createMovement = async (data) => {
+  console.log("[MovementService] Incoming data:", JSON.stringify(data, null, 2));
+
   // Enforce rules before creation
-  await checkMovementRules(
-    data.institution_id, 
-    data.employee_id, 
-    data.movement_date, 
-    data.out_time, 
-    data.in_time
-  );
+  try {
+    await checkMovementRules(
+      data.institution_id, 
+      data.employee_id, 
+      data.movement_date, 
+      data.out_time, 
+      data.in_time
+    );
+  } catch (ruleErr) {
+    console.error("[MovementService] Rule check failed:", ruleErr.message);
+    throw ruleErr;
+  }
 
-  const record = new Movement(data);
-  const saved = await record.save();
+  try {
+    const record = new Movement(data);
+    const saved = await record.save();
+    console.log("[MovementService] Record saved successfully:", saved._id);
 
-  // Audit Log
-  const eventLogService = require("../eventLog/service");
-  await eventLogService.logEvent({
-    institution_id: data.institution_id,
-    user_name: "Admin",
-    user_role: "HR Administrator",
-    module_name: "movement",
-    action_type: "CREATE",
-    record_id: saved._id.toString(),
-    description: `Movement record initiated for employee ${data.employee_id}. Type: ${data.movement_type}`,
-    new_data: saved.toObject()
-  });
+    // Audit Log
+    const eventLogService = require("../eventLog/service");
+    await eventLogService.logEvent({
+      institution_id: data.institution_id,
+      user_name: "Admin",
+      user_role: "HR Administrator",
+      module_name: "movement",
+      action_type: "CREATE",
+      record_id: saved._id.toString(),
+      description: `Movement record initiated for employee ${data.employee_id}. Type: ${data.movement_type}`,
+      new_data: saved.toObject(),
+      is_workflow_action: true
+    });
 
-  return saved.toObject();
+    return saved.toObject();
+  } catch (saveErr) {
+    console.error("[MovementService] Mongoose save failed:", saveErr.message);
+    if (saveErr.errors) {
+       console.error("[MovementService] Validation details:", JSON.stringify(saveErr.errors, null, 2));
+    }
+    throw saveErr;
+  }
 };
 
 exports.updateMovement = async (id, data, institution_id) => {
@@ -193,7 +210,13 @@ exports.updateMovement = async (id, data, institution_id) => {
     { _id: id, institution_id },
     { $set: updateData },
     { new: true, runValidators: true }
-  ).populate("employee").lean();
+  ).lean();
+
+  const workflowFields = [
+    "status", "admin_status", "dept_admin_status", "remarks", 
+    "admin_remarks", "dept_admin_remarks", "updated_at"
+  ];
+  const isWorkflow = Object.keys(data).every(k => workflowFields.includes(k));
 
   // Audit Log
   const eventLogService = require("../eventLog/service");
@@ -206,7 +229,8 @@ exports.updateMovement = async (id, data, institution_id) => {
     record_id: id,
     description: `Movement record updated. Status: ${updated.status}`,
     old_data: existing.toObject ? existing.toObject() : existing,
-    new_data: updated
+    new_data: updated,
+    is_workflow_action: isWorkflow
   });
 
   return updated;

@@ -12,6 +12,7 @@ const eventLogSchema = new mongoose.Schema(
     description: { type: String },
     old_data: { type: mongoose.Schema.Types.Mixed },
     new_data: { type: mongoose.Schema.Types.Mixed },
+    changes: { type: mongoose.Schema.Types.Mixed },
     ip_address: { type: String },
     timestamp: { type: Date, default: Date.now }
   },

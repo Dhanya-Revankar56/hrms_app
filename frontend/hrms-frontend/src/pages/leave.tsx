@@ -1,8 +1,8 @@
 // src/pages/LeaveManagement.tsx
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
-import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE } from "../graphql/leaveQueries";
+import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE, UPDATE_LEAVE } from "../graphql/leaveQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 
 /* ─────────────────────────────────────────────
@@ -612,6 +612,15 @@ const CSS = `
   .lv-pag-btn:hover:not(:disabled) { background: #f8fafc; border-color: #1d4ed8; color: #1d4ed8; }
   .lv-pag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .lv-pag-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+
+  /* ── Update Leave Modal ── */
+  .lv-up-dates-table { width:100%; border-collapse:collapse; margin:16px 0; border:1px solid #eef2ff; border-radius:10px; overflow:hidden; }
+  .lv-up-dates-table th { background:#f8fafc; padding:10px; font-size:12px; color:#64748b; text-align:left; border-bottom:1px solid #eef2ff; }
+  .lv-up-dates-table td { padding:10px; font-size:13px; color:#334155; border-bottom:1px solid #eef2ff; }
+  .lv-up-dates-table tr:last-child td { border-bottom:none; }
+  .lv-up-total { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#f0fdf4; border-radius:8px; margin-bottom:16px; }
+  .lv-up-total-lbl { font-size:13px; font-weight:700; color:#166534; }
+  .lv-up-total-val { font-size:15px; font-weight:800; color:#1d4ed8; font-family:'Inter',sans-serif; }
 `;
 
 /* ─────────────────────────────────────────────
@@ -711,8 +720,156 @@ interface DrawerProps {
   onApprove: (id: string, remarks: string, role: 'HOD' | 'ADMIN') => void;
   onReject:  (id: string, remarks: string, role: 'HOD' | 'ADMIN') => void;
 }
-function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProps) {
+
+/* ─────────────────────────────────────────────
+   UPDATE LEAVE MODAL
+───────────────────────────────────────────── */
+interface UpdateModalProps {
+  req: LeaveRequest;
+  onClose: () => void;
+  onToast: (m: string) => void;
+}
+
+function UpdateLeaveModal({ req, onClose, onToast }: UpdateModalProps) {
+  const [fromDate, setFromDate] = useState(req.from_date.split('T')[0]);
+  const [toDate, setToDate] = useState(req.to_date.split('T')[0]);
+  const [reason, setReason] = useState(req.reason || "");
+  const [daysData, setDaysData] = useState<{date: string, type: string}[]>([]);
+
+  const [updateLeave] = useMutation(UPDATE_LEAVE, {
+    refetchQueries: [{ query: GET_LEAVES }],
+    onCompleted: () => {
+      onToast("Leave request updated successfully");
+      onClose();
+    },
+    onError: (err) => onToast(`Error: ${err.message}`)
+  });
+
+  // Generate list of days based on from/to
+  const lastRange = useRef({ from: "", to: "" });
+  useEffect(() => {
+    if (!fromDate || !toDate) return;
+    if (lastRange.current.from === fromDate && lastRange.current.to === toDate) return;
+    lastRange.current = { from: fromDate, to: toDate };
+
+    const timer = setTimeout(() => {
+      setDaysData(prev => {
+        const list: {date: string, type: string}[] = [];
+        const start = new Date(fromDate);
+        const end = new Date(toDate);
+        const curr = new Date(start);
+        while (curr <= end) {
+          const dStr = curr.toISOString().split('T')[0];
+          const existing = prev.find(d => d.date === dStr);
+          list.push({ date: dStr, type: existing?.type || "Full Day" });
+          curr.setDate(curr.getDate() + 1);
+        }
+        return list;
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fromDate, toDate]);
+
+  const totalDays = useMemo(() => {
+    return daysData.reduce((acc, d) => acc + (d.type === "Full Day" ? 1 : 0.5), 0);
+  }, [daysData]);
+
+  function submit() {
+    if (new Date(toDate) < new Date(fromDate)) {
+      onToast("End date cannot be before start date.");
+      return;
+    }
+    updateLeave({
+      variables: {
+        id: req.id,
+        input: {
+          from_date: fromDate,
+          to_date: toDate,
+          total_days: totalDays,
+          reason: reason
+        }
+      }
+    });
+  }
+
+  return (
+    <div className="lv-modal-overlay" style={{ zIndex: 1000 }} onClick={onClose}>
+      <div className="lv-modal" style={{ width: 500, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div className="lv-mi-h" style={{ display: 'flex', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>Modify Leave Request</span>
+          <button className="lv-drawer-close-x" onClick={onClose}>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div style={{ padding: 22, maxHeight: '70vh', overflowY: 'auto' }}>
+          <div className="lv-form-grid">
+            <div className="lv-ff">
+              <label className="lv-field-label">From Date</label>
+              <input type="date" className="lv-input" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            </div>
+            <div className="lv-ff">
+              <label className="lv-field-label">To Date</label>
+              <input type="date" className="lv-input" value={toDate} onChange={e => setToDate(e.target.value)} />
+            </div>
+          </div>
+
+          <table className="lv-up-dates-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Leave Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {daysData.map((d, i) => (
+                <tr key={d.date}>
+                  <td>{formatDate(d.date)}</td>
+                  <td>
+                    <select className="lv-select" value={d.type} style={{ height: 32, fontSize: 12 }} 
+                      onChange={e => {
+                        const newList = [...daysData];
+                        newList[i].type = e.target.value;
+                        setDaysData(newList);
+                      }}>
+                      <option value="Full Day">Full Day</option>
+                      <option value="Half Day Morning">First Half (Morning)</option>
+                      <option value="Half Day Afternoon">Second Half (Afternoon)</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="lv-up-total">
+            <span className="lv-up-total-lbl">Total Leave Duration</span>
+            <span className="lv-up-total-val">{totalDays} Day(s)</span>
+          </div>
+
+          <div className="lv-ff">
+            <label className="lv-field-label">Reason</label>
+            <textarea className="lv-textarea" value={reason} onChange={e => setReason(e.target.value)} />
+          </div>
+        </div>
+        <div className="lv-mi-f" style={{ display: 'flex', gap: 10, padding: 18, borderTop: '1px solid #f3f4f6' }}>
+          <button className="lv-modal-cancel" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button className="lv-modal-confirm" style={{ flex: 1, background: '#1d4ed8' }} onClick={submit}>Update Request</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate }: DrawerProps & { onOpenUpdate: () => void }) {
   const [remarks, setRemarks] = useState<string>("");
+  const [showMenu, setShowMenu] = useState(false);
+
+  const [cancelLeave] = useMutation(CANCEL_LEAVE, {
+    refetchQueries: [{ query: GET_LEAVES }],
+    onCompleted: () => { onClose(); },
+  });
 
   return (
     <>
@@ -733,12 +890,39 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProp
               </div>
             </div>
           </div>
-          <button className="lv-drawer-close-x" onClick={onClose}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div className="lv-dots-wrap">
+              <button className="lv-dots-btn" onClick={() => setShowMenu(!showMenu)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/>
+                </svg>
+              </button>
+              {showMenu && (
+                <div className="lv-dots-menu" onMouseLeave={() => setShowMenu(false)}>
+                  <button className="lv-dots-item" onClick={() => { onOpenUpdate(); setShowMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Update leave
+                  </button>
+                  <button className="lv-dots-item reject" onClick={() => {
+                    if (window.confirm("Are you sure you want to cancel this leave?")) {
+                      cancelLeave({ variables: { id: req.id } });
+                    }
+                    setShowMenu(false);
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    Cancel leave
+                  </button>
+                </div>
+              )}
+            </div>
+            <button className="lv-drawer-close-x" onClick={onClose}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
         </div>
+
 
         {/* Body */}
         <div className="lv-drawer-scroll">
@@ -860,6 +1044,7 @@ export default function Leave() {
   const [selected, setSelected]   = useState<string[]>([]);
   const [drawerReq, setDrawerReq] = useState<LeaveRequest | null>(null);
   const [toast, setToast]         = useState<string>("");
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string; level: 'HOD' | 'ADMIN' } | null>(null);
 
   /* Local Search Term for Debouncing */
@@ -1155,7 +1340,6 @@ export default function Leave() {
                     <th onClick={() => handleSort("finalStatus")} className={sortField === "finalStatus" ? "lv-sorted" : ""}>
                         <div className="lv-th-inner">Final Result {sortField === "finalStatus" && (sortDir === "asc" ? "↑" : "↓")}</div>
                     </th>
-                    <th style={{ textAlign:'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1212,11 +1396,6 @@ export default function Leave() {
                       <td><StepBadge status={req.approvals?.find(a => a.role === 'HOD')?.status || "Pending"}/></td>
                       <td><StepBadge status={req.approvals?.find(a => a.role === 'ADMIN')?.status || "Pending"}/></td>
                       <td><OverallStatusBadge req={req}/></td>
-                      <td style={{ textAlign:'center' }}>
-                        <button className="lv-dots-btn" onClick={() => setDrawerReq(req)}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1247,6 +1426,7 @@ export default function Leave() {
           <LeaveDrawer
             req={drawerReq}
             onClose={() => setDrawerReq(null)}
+            onOpenUpdate={() => setShowUpdateModal(true)}
             onCancel={(id: string) => {
                if (window.confirm("Are you sure you want to cancel this leave?")) {
                  cancelLeaveMutation({ variables: { id } }).then(() => {
@@ -1287,6 +1467,10 @@ export default function Leave() {
           </svg>
           {toast}
         </div>
+      )}
+      {/* Update Modal */}
+      {showUpdateModal && drawerReq && (
+        <UpdateLeaveModal req={drawerReq} onClose={() => setShowUpdateModal(false)} onToast={showToast} />
       )}
     </div>
   );

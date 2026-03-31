@@ -61,20 +61,18 @@ const CSS = `
     background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe;
   }
 
-  /* Color Palette - Soft Backgrounds, Strong Text/Dots */
-  .er-action-create, .er-action-approve { background: #dcfce7 !important; color: #166534 !important; }
-  .er-action-update { background: #dbeafe !important; color: #1e40af !important; }
-  .er-action-delete, .er-action-reject { background: #fee2e2 !important; color: #991b1b !important; }
-  .er-action-employee_relieved { background: #f5f3ff !important; color: #7c3aed !important; }
-  .er-action-login { background: #f1f5f9 !important; color: #475569 !important; }
-  .er-action-logout { background: #fdf2f8 !important; color: #9d174d !important; }
+  /* Color Palette - Standardized Event Types */
+  .er-action-joined, .er-action-created { background: #dcfce7 !important; color: #166534 !important; }
+  .er-action-updated { background: #dbeafe !important; color: #1e40af !important; }
+  .er-action-deleted { background: #fee2e2 !important; color: #991b1b !important; }
+  .er-action-relieved { background: #f3e8ff !important; color: #7e22ce !important; }
   
-  .er-badge-module { background: #eff6ff !important; color: #1d4ed8 !important; }
-  .er-badge-module-settings { background: #f0fdfa !important; color: #0f766e !important; }
-  .er-badge-module-holidays { background: #fff7ed !important; color: #9a3412 !important; }
+  .er-badge-module { background: #f1f5f9 !important; color: #475569 !important; border: 1px solid #e2e8f0 !important; }
+  .er-badge-module-employee { background: #eff6ff !important; color: #1d4ed8 !important; }
+  .er-badge-module-leave, .er-badge-module-movement { background: #fff7ed !important; color: #9a3412 !important; }
 
-  .er-btn-view { background: #f8fafc; color: #64748b; border: 1.5px solid #e2e8f0; padding: 6px 14px; border-radius: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: 0.15s; }
-  .er-btn-view:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+  .er-btn-view { background: #fff; color: #4f46e5; border: 1.5px solid #e0e7ff; padding: 6px 14px; border-radius: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+  .er-btn-view:hover { background: #4f46e5; color: #fff; border-color: #4f46e5; box-shadow: 0 4px 10px rgba(79,70,229,0.25); }
 
   /* Details View (Full Content) */
   .er-details-view { background: #fff; padding: 32px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.05); animation: erFadeIn 0.3s ease-out; }
@@ -121,12 +119,13 @@ interface EventLog {
   user_id: string;
   user_name?: string;
   user_role?: string;
-  action_type: "CREATE" | "UPDATE" | "DELETE" | "APPROVE" | "REJECT" | "LOGIN" | "LOGOUT" | "EMPLOYEE_RELIEVED";
-  module_name: "employee" | "leave" | "attendance" | "movement" | "relieving" | "settings" | "holidays";
+  action_type: "JOINED" | "UPDATED" | "CREATED" | "DELETED" | "RELIEVED";
+  module_name: "employee" | "onboarding" | "leave" | "attendance" | "movement" | "relieving" | "settings" | "holidays";
   record_id?: string;
   description?: string;
   old_data?: Record<string, unknown>;
   new_data?: Record<string, unknown>;
+  changes?: Record<string, { old: unknown; new: unknown }>;
   ip_address?: string;
   timestamp: string;
 }
@@ -143,8 +142,8 @@ interface EventLogResponse {
   };
 }
 
-const MODULES = ["employee", "leave", "attendance", "movement", "relieving", "settings", "holidays"];
-const ACTIONS = ["CREATE", "UPDATE", "DELETE", "APPROVE", "REJECT", "EMPLOYEE_RELIEVED"];
+const MODULES = ["employee", "onboarding", "leave", "attendance", "movement", "relieving", "settings", "holidays"];
+const ACTIONS = ["JOINED", "UPDATED", "CREATED", "DELETED", "RELIEVED"];
 
 interface DiffResult {
   key: string;
@@ -206,22 +205,38 @@ export default function EventRegister() {
 
   const formatAction = (action: string) => {
     if (!action) return "UNKNOWN";
-    if (action === "EMPLOYEE_RELIEVED") return "Relieved";
+    if (action === "JOINED") return "Joined";
+    if (action === "RELIEVED") return "Relieved";
+    if (action === "CREATED") return "Added";
+    if (action === "DELETED") return "Removed";
+    if (action === "UPDATED") return "Updated";
     return action.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
   };
 
   /* ─────────────────────────────────────────────
      DIFF LOGIC
   ───────────────────────────────────────────── */
-  const getDiff = (oldData?: Record<string, unknown>, newData?: Record<string, unknown>): DiffResult[] => {
-    if (!oldData && !newData) return [];
+  const getDiff = (log: EventLog): DiffResult[] => {
+    if (log.changes) {
+      return Object.entries(log.changes).map(([key, val]) => ({
+        key,
+        oldVal: val.old === null || val.old === undefined ? "—" : (typeof val.old === 'object' ? JSON.stringify(val.old) : String(val.old)),
+        newVal: val.new === null || val.new === undefined ? "—" : (typeof val.new === 'object' ? JSON.stringify(val.new) : String(val.new)),
+        isChanged: true,
+        isAdded: (val.old === null || val.old === undefined) && (val.new !== null && val.new !== undefined),
+        isRemoved: (val.old !== null && val.old !== undefined) && (val.new === null || val.new === undefined)
+      }));
+    }
+
+    if (!log.old_data && !log.new_data) return [];
     
     const diff: DiffResult[] = [];
-    const allKeys = Array.from(new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]));
+    const allKeys = Array.from(new Set([...Object.keys(log.old_data || {}), ...Object.keys(log.new_data || {})]));
 
     for (const key of allKeys) {
-      const oldVal = oldData?.[key];
-      const newVal = newData?.[key];
+      if (['_id', 'id', 'updated_at', 'created_at', '__v', 'timestamp'].includes(key)) continue;
+      const oldVal = log.old_data?.[key];
+      const newVal = log.new_data?.[key];
 
       if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
         diff.push({
@@ -238,7 +253,7 @@ export default function EventRegister() {
   };
 
   if (selectedLog) {
-    const diffs = getDiff(selectedLog.old_data, selectedLog.new_data);
+    const diffs = getDiff(selectedLog);
     const ts = formatTimestamp(selectedLog.timestamp);
 
     return (

@@ -674,30 +674,15 @@ interface DrP {
   rec: MovementRecord;
   onClose: ()=>void;
   onToast: (m:string)=>void;
-  flt: FilterState;
+  initialIsEditing?: boolean;
 }
-function Drawer({ rec, onClose, onToast, flt }: DrP) {
-  const [updateMovement] = useMutation(UPDATE_MOVEMENT, {
-    refetchQueries: [{ 
-      query: GET_MOVEMENTS, 
-      variables: { 
-        pagination: { page: 1, limit: 10 }, 
-        status: flt.status === "All" ? undefined : flt.status.toLowerCase() 
-      } 
-    }],
-    onCompleted: () => {
-      onToast("Movement updated successfully");
-    },
-    onError: (error) => {
-      onToast(`Error: ${error.message}`);
-    }
-  });
+function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { onUpdate: (vars: { variables: { id: string, input: { status?: string, admin_status?: string, dept_admin_status?: string, remarks?: string, admin_remarks?: string, dept_admin_remarks?: string, in_time?: string, out_time?: string } } })=>void }) {
 
   const [deptRem, setDeptRem] = useState("");
   const [adminRem, setAdminRem] = useState("");
   const [ret, setRet] = useState<string>("");
   const [showMenu, setShowMenu] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(initialIsEditing || false);
   const [editOut, setEditOut] = useState(rec.out_time);
   const [editRet, setEditRet] = useState(rec.in_time);
   const [showOutP, setShowOutP] = useState(false);
@@ -737,7 +722,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
       }
     }
 
-    updateMovement({
+    onUpdate({
       variables: {
         id: rec.id,
         input
@@ -788,8 +773,8 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div className="mr-dr-actions">
               <button className="mr-dr-dots" title="Actions" onClick={() => setShowMenu(!showMenu)}>
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path d="M12 6v.01M12 12v.01M12 18v.01" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/>
                 </svg>
               </button>
               {showMenu && (
@@ -802,10 +787,10 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
                   </div>
                   {!isCompleted && (
                     <div className="mr-dr-item mr-dr-danger" onClick={() => {
-                        if(window.confirm("Are you sure you want to cancel this movement?")) {
-                          updateMovement({ variables: { id: rec.id, input: { status: "cancelled" } } });
-                          onClose();
-                        }
+                          if(window.confirm("Are you sure you want to cancel this movement?")) {
+                            onUpdate({ variables: { id: rec.id, input: { status: "cancelled" } } });
+                            onClose();
+                          }
                       }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
@@ -816,11 +801,6 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
                 </div>
               )}
             </div>
-            <button className="mr-dr-x" onClick={onClose}>
-              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
           </div>
         </div>
         <div className="mr-dr-bd">
@@ -858,7 +838,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
               <div className="mr-edit-btns">
                 <button className="mr-edit-btn mr-edit-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
                 <button className="mr-edit-btn mr-edit-save" onClick={() => {
-                  updateMovement({ variables: { id: rec.id, input: { out_time: editOut, in_time: editRet } } });
+                  onUpdate({ variables: { id: rec.id, input: { out_time: editOut, in_time: editRet } } });
                   setIsEditing(false);
                 }}>Save Changes</button>
               </div>
@@ -1004,6 +984,12 @@ export default function MovementRegister() {
       pagination: { page: currentPage, limit: itemsPerPage },
       status: flt.status === "All" ? undefined : flt.status.toLowerCase(),
     }
+  });
+  
+  const [updateMovement] = useMutation(UPDATE_MOVEMENT, {
+    refetchQueries: [{ query: GET_MOVEMENTS }],
+    onCompleted: () => { showToast("Movement updated successfully"); },
+    onError: (error) => { showToast(`Error: ${error.message}`); }
   });
 
   const records = useMemo(() => data?.movements?.items || [], [data?.movements?.items]);
@@ -1157,6 +1143,7 @@ export default function MovementRegister() {
                   <th>Movement Time</th>
                   <th>Reason</th>
                   <th>Status</th>
+                  <th style={{ width: 40 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1168,6 +1155,13 @@ export default function MovementRegister() {
                     <td><span className="mr-time">{timeRange(rec.out_time, rec.in_time)}</span></td>
                     <td><span className="mr-reason">{rec.movement_type}</span></td>
                     <td><StatusCell status={rec.status}/></td>
+                    <td style={{ textAlign: "right" }}>
+                      <div style={{ color: "#94a3b8", cursor: "pointer" }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/>
+                        </svg>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1202,7 +1196,14 @@ export default function MovementRegister() {
         )}
       </div>
 
-      {drawer && <Drawer rec={drawer} onClose={() => setDrawer(null)} onToast={showToast} flt={flt} />}
+      {drawer && (
+        <Drawer 
+          rec={drawer} 
+          onClose={() => setDrawer(null)} 
+          onToast={showToast} 
+          onUpdate={updateMovement}
+        />
+      )}
 
       {modal && (
         <NewModal onClose={() => setModal(false)} onToast={showToast}/>
