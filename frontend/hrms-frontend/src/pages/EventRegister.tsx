@@ -12,8 +12,8 @@ const CSS = `
 
   .er-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
   .er-title-group { display: flex; flex-direction: column; gap: 4px; }
-  .er-title { font-size: 24px; font-weight: 700; color: #111827; margin: 0; letter-spacing: -0.5px; }
-  .er-subtitle { font-size: 13.5px; color: #6b7280; margin: 0; }
+  .er-title { font-size: 24px; font-weight: 700; color: #111827; margin: 0; letter-spacing: -0.3px; font-family: 'DM Sans', sans-serif; }
+  .er-subtitle { font-size: 13.5px; color: #6b7280; margin: 0; font-family: 'DM Sans', sans-serif; }
 
   /* ── Filter Bar (Matches Movement Register Sync) ── */
   .er-filter-bar { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #f1f5f9; background: #fff; }
@@ -39,8 +39,8 @@ const CSS = `
   /* ── Table (Matches Movement Register Sync) ── */
   .er-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
   .er-table { width: 100%; border-collapse: collapse; }
-  .er-table th { background: #f8fafc; padding: 14px 20px; text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; }
-  .er-table td { padding: 18px 20px; font-size: 13.5px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  .er-table th { background: #f8fafc; padding: 14px 20px; text-align: left; font-size: 13px; font-weight: 600; color: #374151; text-transform: none; border-bottom: 1px solid #e2e8f0; font-family: 'DM Sans', sans-serif; }
+  .er-table td { padding: 18px 20px; font-size: 13.5px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-family: 'DM Sans', sans-serif; }
   .er-row-in { animation: erRowIn 0.4s ease-out backwards; }
   @keyframes erRowIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
 
@@ -48,7 +48,7 @@ const CSS = `
   .er-badge-action {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 10px; border-radius: 99px !important;
-    font-size: 10.5px; font-weight: 700; white-space: nowrap;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
     letter-spacing: .02em; font-family: 'DM Sans', sans-serif;
     text-transform: uppercase; border: none;
   }
@@ -80,13 +80,13 @@ const CSS = `
   .er-back-btn { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #64748b; background: #f8fafc; border: 1.5px solid #e2e8f0; padding: 8px 16px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
   .er-back-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
   
-  .er-details-title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; }
+  .er-details-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; font-family: 'DM Sans', sans-serif; }
   .er-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-bottom: 40px; }
   .er-meta-item { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; }
-  .er-meta-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
-  .er-meta-value { font-size: 14px; font-weight: 700; color: #1e293b; }
+  .er-meta-label { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; font-family: 'DM Sans', sans-serif; }
+  .er-meta-value { font-size: 13.5px; font-weight: 700; color: #1e293b; font-family: 'DM Sans', sans-serif; }
 
-  .er-section-title { font-size: 14px; font-weight: 800; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .er-section-title { font-size: 10.5px; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-family: 'DM Sans', sans-serif; }
   .er-section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
 
   /* Structured Changes Table */
@@ -106,9 +106,9 @@ const CSS = `
   .er-diff-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
   .er-diff-header { font-size: 12px; font-weight: 800; color: #64748b; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
   
-  .er-diff-key { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 3px; display: block; }
-  .er-timestamp { font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 600; color: #334155; }
-  .er-timestamp-sub { font-size: 10.5px; color: #94a3b8; font-weight: 500; margin-top: 1px; }
+  .er-diff-key { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 3px; display: block; font-family: 'DM Sans', sans-serif; }
+  .er-timestamp { font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: #334155; }
+  .er-timestamp-sub { font-size: 11.5px; color: #94a3b8; font-weight: 500; margin-top: 1px; font-family: 'DM Sans', sans-serif; }
 `;
 
 /* ─────────────────────────────────────────────
@@ -207,8 +207,8 @@ export default function EventRegister() {
     if (!action) return "UNKNOWN";
     if (action === "JOINED") return "Joined";
     if (action === "RELIEVED") return "Relieved";
-    if (action === "CREATED") return "Added";
-    if (action === "DELETED") return "Removed";
+    if (action === "CREATED") return "Created";
+    if (action === "DELETED") return "Deleted";
     if (action === "UPDATED") return "Updated";
     return action.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
   };
@@ -281,7 +281,7 @@ export default function EventRegister() {
             <div className="er-meta-item" style={{ borderRadius: '16px' }}>
               <span className="er-meta-label">Action Taken</span>
               <div className="er-meta-value">
-                <span className={`er-badge er-action-${selectedLog.action_type.toLowerCase()}`} style={{ margin: 0 }}>
+                <span className={`er-badge-action er-action-${selectedLog.action_type.toLowerCase()}`} style={{ margin: 0 }}>
                   {formatAction(selectedLog.action_type)}
                 </span>
               </div>
@@ -398,10 +398,10 @@ export default function EventRegister() {
           <table className="er-table">
             <thead>
               <tr>
-                <th style={{ width: '160px' }}>Timestamp</th>
-                <th style={{ width: '120px' }}>Module</th>
-                <th style={{ width: '130px' }}>Action</th>
-                <th style={{ width: '180px' }}>Executed By</th>
+                <th style={{ width: '180px' }}>Timestamp</th>
+                <th style={{ width: '150px' }}>Module</th>
+                <th style={{ width: '150px' }}>Action</th>
+                <th style={{ width: '210px' }}>Executed By</th>
                 <th>Description</th>
                 <th style={{ width: '100px', textAlign: 'center' }}>Details</th>
               </tr>

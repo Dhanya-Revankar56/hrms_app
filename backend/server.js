@@ -4,6 +4,7 @@ const cors = require("cors");
 const { ApolloServer } = require("apollo-server-express");
 const connectDB = require("./src/config/db");
 const { typeDefs, resolvers } = require("./src/modules");
+const { getUserFromToken } = require("./src/middleware/auth");
 
 async function startServer() {
   const app = express();
@@ -16,8 +17,16 @@ async function startServer() {
     typeDefs,
     resolvers,
     context: ({ req }) => {
+      // 🏷 Pull institution from header (default/legacy)
       const institution_id = req.headers["x-institution-id"] || null;
-      return { institution_id };
+      
+      // 🛡 Extract user from JWT token
+      const user = getUserFromToken(req);
+      
+      return { 
+        institution_id: user ? user.institution_id : institution_id,
+        user 
+      };
     },
     formatError: (err) => {
       console.error("[GraphQL Error]", err.message);

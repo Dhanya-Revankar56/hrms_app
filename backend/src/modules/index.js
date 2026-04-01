@@ -11,6 +11,7 @@ const documentTypeDefs = require("./document/typeDefs");
 const holidayTypeDefs = require("./holiday/typeDefs");
 const eventLogTypeDefs = require("./eventLog/typeDefs");
 const analyticsTypeDefs = require("./analytics/typeDefs");
+const authTypeDefs = require("./auth/typeDefs");
 
 const employeeResolvers = require("./employee/resolvers");
 const attendanceResolvers = require("./attendance/resolvers");
@@ -23,6 +24,7 @@ const documentResolvers = require("./document/resolvers");
 const holidayResolvers = require("./holiday/resolvers");
 const eventLogResolvers = require("./eventLog/resolvers");
 const analyticsResolvers = require("./analytics/resolvers");
+const authResolvers = require("./auth/resolvers");
 
 const typeDefs = [
   commonTypeDefs,
@@ -37,6 +39,7 @@ const typeDefs = [
   holidayTypeDefs,
   eventLogTypeDefs,
   analyticsTypeDefs,
+  authTypeDefs,
 ];
 
 const resolvers = [
@@ -51,6 +54,7 @@ const resolvers = [
   holidayResolvers,
   eventLogResolvers,
   analyticsResolvers,
+  authResolvers,
 ];
 
 module.exports = { typeDefs, resolvers };

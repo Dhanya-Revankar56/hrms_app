@@ -1,5 +1,6 @@
 const Employee = require("./model");
 const employeeService = require("./service");
+const { requireRole } = require("../../middleware/auth");
 
 // Helper: throw error if institution_id missing from context
 const requireTenant = (ctx) => {
@@ -13,11 +14,18 @@ const resolvers = {
   Query: {
     getAllEmployees: async (_, { status, department, search, pagination }, ctx) => {
       const institution_id = requireTenant(ctx);
+      requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT"]);
       return await employeeService.listEmployees({ institution_id, status, department, search, pagination });
     },
 
     employee: async (_, { id }, ctx) => {
       const institution_id = requireTenant(ctx);
+      
+      // 🛡 Data-level restriction: Employee can only access their own data
+      if (ctx.user && ctx.user.role === "EMPLOYEE" && ctx.user.id !== id) {
+        throw new Error("You are only authorized to view your own profile");
+      }
+      
       return await employeeService.getEmployeeById(id, institution_id);
     },
   },
@@ -25,6 +33,7 @@ const resolvers = {
   Mutation: {
     createEmployee: async (_, { input }, ctx) => {
       const institution_id = requireTenant(ctx);
+      requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT"]);
       return await employeeService.createEmployee({ ...input, institution_id });
     },
 
@@ -35,6 +44,7 @@ const resolvers = {
 
     deleteEmployee: async (_, { id }, ctx) => {
       const institution_id = requireTenant(ctx);
+      requireRole(ctx.user, ["ADMIN"]);
       return await employeeService.deleteEmployee(id, institution_id);
     },
   },

@@ -1,4 +1,5 @@
 const settingsService = require("./service");
+const { requireRole } = require("../../middleware/auth");
 
 const requireTenant = (ctx) => {
   if (!ctx.institution_id) {
@@ -119,6 +120,7 @@ const resolvers = {
   Mutation: {
     upsertSettings: async (_, { input }, ctx) => {
       const institution_id = requireTenant(ctx);
+      requireRole(ctx.user, ["ADMIN"]);
       return await settingsService.upsertSettings(institution_id, input);
     },
     // Master Data Mutations

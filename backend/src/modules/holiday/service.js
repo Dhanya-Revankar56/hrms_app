@@ -25,15 +25,15 @@ exports.createHoliday = async (data) => {
   const holiday = new Holiday(data);
   const saved = await holiday.save();
 
-  // Audit Log
+  // Event Log — Business Event: Holiday Created
   await eventLogService.logEvent({
     institution_id: data.institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "holidays",
-    action_type: "CREATE",
+    action_type: "CREATED",
     record_id: saved._id.toString(),
-    description: `New holiday created: ${saved.name} on ${new Date(saved.date).toDateString()}`,
+    description: `Holiday ${saved.name} added`,
     new_data: saved.toObject()
   });
 
@@ -49,15 +49,15 @@ exports.updateHoliday = async (id, data, institution_id) => {
   ).lean();
   if (!updated) throw new Error("Holiday record not found");
 
-  // Audit Log
+  // Event Log — Business Event: Holiday Updated
   await eventLogService.logEvent({
     institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "holidays",
-    action_type: "UPDATE",
+    action_type: "UPDATED",
     record_id: id,
-    description: `Holiday updated: ${updated.name}`,
+    description: `Holiday ${updated.name} updated`,
     old_data: existing,
     new_data: updated
   });
@@ -69,15 +69,15 @@ exports.deleteHoliday = async (id, institution_id) => {
   const deleted = await Holiday.findOneAndDelete({ _id: id, institution_id }).lean();
   if (!deleted) throw new Error("Holiday record not found");
 
-  // Audit Log
+  // Event Log — Business Event: Holiday Deleted
   await eventLogService.logEvent({
     institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "holidays",
-    action_type: "DELETE",
+    action_type: "DELETED",
     record_id: id,
-    description: `Holiday deleted: ${deleted.name} (${new Date(deleted.date).toDateString()})`,
+    description: `Holiday ${deleted.name} deleted`,
     old_data: deleted
   });
 

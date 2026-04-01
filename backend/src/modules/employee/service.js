@@ -131,15 +131,15 @@ exports.createEmployee = async (data) => {
   const emp = new Employee(normalized);
   const saved = await emp.save();
 
-  // Audit Log
+  // Event Log — Business Event: Employee Joined
   await eventLogService.logEvent({
     institution_id: normalized.institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "employee",
-    action_type: "CREATE",
+    action_type: "JOINED",
     record_id: saved._id.toString(),
-    description: `New employee created: ${saved.first_name} ${saved.last_name} (${saved.employee_id})`,
+    description: `${saved.first_name} ${saved.last_name} joined the organization`,
     new_data: saved.toObject()
   });
 
@@ -156,15 +156,15 @@ exports.updateEmployee = async (id, data, institution_id) => {
   ).lean();
   if (!updated) throw new Error("Employee not found or access denied");
 
-  // Audit Log
+  // Event Log — Business Event: Employee Updated
   await eventLogService.logEvent({
     institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "employee",
-    action_type: "UPDATE",
+    action_type: "UPDATED",
     record_id: id,
-    description: `Updated details for employee: ${updated.first_name} ${updated.last_name}`,
+    description: `${updated.first_name} ${updated.last_name} details updated`,
     old_data: existing,
     new_data: updated
   });
@@ -180,15 +180,15 @@ exports.deleteEmployee = async (id, institution_id) => {
   ).lean();
   if (!updated) throw new Error("Employee not found or access denied");
 
-  // Audit Log
+  // Event Log — Business Event: Employee Archived
   await eventLogService.logEvent({
     institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "employee",
-    action_type: "DELETE",
+    action_type: "DELETED",
     record_id: id,
-    description: `Archived employee record: ${updated.first_name} ${updated.last_name}`,
+    description: `${updated.first_name} ${updated.last_name} record archived`,
     new_data: updated
   });
 

@@ -1,5 +1,6 @@
 const leaveService = require("./service");
 const employeeService = require("../employee/service");
+const { requireRole } = require("../../middleware/auth");
 
 const requireTenant = (ctx) => {
   if (!ctx.institution_id) {
@@ -31,6 +32,7 @@ const resolvers = {
     },
     updateLeaveApproval: async (_, { id, role, status, remarks }, ctx) => {
       const institution_id = requireTenant(ctx);
+      requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT"]);
       return await leaveService.updateLeaveApproval({ id, role, status, remarks, institution_id });
     },
     cancelLeave: async (_, { id }, ctx) => {

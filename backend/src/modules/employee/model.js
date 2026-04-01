@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const employeeSchema = new mongoose.Schema(
   {
@@ -23,6 +24,10 @@ const employeeSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true
+    },
+    password: {
+      type: String,
+      select: false // Always hidden unless explicitly selected
     },
     user_contact: {
       type: String,
@@ -98,5 +103,23 @@ const employeeSchema = new mongoose.Schema(
 
 // 🔥 Compound Index (Ensures ID uniqueness per college)
 employeeSchema.index({ institution_id: 1, employee_id: 1 }, { unique: true });
+
+// 🔐 Password Hashing Hook
+employeeSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 🔓 Compare Password Method
+employeeSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password) return false;
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model("Employee", employeeSchema);

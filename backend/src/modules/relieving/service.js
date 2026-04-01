@@ -37,28 +37,16 @@ const MovementRegister = require("../movement/model");
 const eventLogService = require("../eventLog/service");
 
 exports.createRelieving = async (data) => {
-  const { institution_id, employee_id, reason } = data;
-  
+  const { institution_id, employee_id } = data;
+
   // 1. Check if employee exists and isn't already relieved
   const emp = await Employee.findOne({ _id: employee_id, institution_id });
   if (!emp) throw new Error("Employee not found");
   if (emp.app_status === "relieved") throw new Error("Employee is already relieved");
 
-  // 2. Save Relieving document with default status
+  // 2. Save Relieving document with default status (no event log — create is not a business event)
   const record = new Relieving({ ...data, status: "Pending Approval" });
   const saved = await record.save();
-
-  // Audit Log
-  await eventLogService.logEvent({
-    institution_id,
-    user_name: "Admin",
-    user_role: "HR Administrator",
-    module_name: "relieving",
-    action_type: "CREATE",
-    record_id: saved._id.toString(),
-    description: `Exit request created for employee ${employee_id}. Reason: ${reason}`,
-    new_data: saved.toObject()
-  });
 
   return saved.toObject();
 };
@@ -84,16 +72,16 @@ exports.updateRelieving = async (id, data, institution_id) => {
 
     // 2. Cancel ALL leaves for the relieved employee (except terminal ones)
     const cancelledLeaves = await Leave.updateMany(
-      { 
+      {
         $or: [
           { employee_id: updated.employee_id },
           { employee_id: updated.employee_id.toString() }
         ],
-        institution_id: updated.institution_id, 
-        status: { $nin: ["cancelled", "rejected", "closed"] } 
+        institution_id: updated.institution_id,
+        status: { $nin: ["cancelled", "rejected", "closed"] }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           status: "cancelled",
           dept_admin_status: "cancelled",
           admin_status: "cancelled",
@@ -102,47 +90,53 @@ exports.updateRelieving = async (id, data, institution_id) => {
           "approvals.$[].status": "cancelled",
           "approvals.$[].remarks": "Cancelled due to employee relieving",
           "approvals.$[].updated_at": new Date()
-        } 
+        }
       }
     );
 
     // 3. Cancel ALL movements for the relieved employee (except terminal ones)
     const cancelledMovements = await MovementRegister.updateMany(
-      { 
+      {
         $or: [
           { employee_id: updated.employee_id },
           { employee_id: updated.employee_id.toString() }
         ],
-        institution_id: updated.institution_id, 
-        status: { $nin: ["cancelled", "rejected", "completed"] } 
+        institution_id: updated.institution_id,
+        status: { $nin: ["cancelled", "rejected", "completed"] }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           status: "cancelled",
           dept_admin_status: "cancelled",
           admin_status: "cancelled",
           admin_remarks: "Employee relieved from application - Automated Synchronization",
           admin_date: new Date()
-        } 
+        }
       }
     );
-      console.log(`Synchronization complete for employee ${updated.employee_id}. Leaves: ${cancelledLeaves.modifiedCount}, Movements: ${cancelledMovements.modifiedCount}`);
-    }
 
-    // Audit Log
+    console.log(`Synchronization complete for employee ${updated.employee_id}. Leaves: ${cancelledLeaves.modifiedCount}, Movements: ${cancelledMovements.modifiedCount}`);
+
+    // Event Log — Business Event: Employee Relieved (ONLY on final relieving action)
+    const empRecord = await Employee.findOne({ _id: updated.employee_id, institution_id }).lean();
+    const empName = empRecord
+      ? `${empRecord.first_name} ${empRecord.last_name}`
+      : updated.employee_id;
+
     await eventLogService.logEvent({
       institution_id,
       user_name: "Admin",
       user_role: "HR Administrator",
       module_name: "relieving",
-      action_type: "UPDATE",
+      action_type: "RELIEVED",
       record_id: id,
-      description: `Exit request updated. New Status: ${updated.status}`,
+      description: `${empName} has been relieved`,
       old_data: existing,
       new_data: updated
     });
+  }
 
-    return updated;
+  return updated;
 };
 
 exports.deleteRelieving = async (id, institution_id) => {

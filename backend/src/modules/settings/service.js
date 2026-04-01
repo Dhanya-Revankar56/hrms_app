@@ -31,15 +31,15 @@ exports.upsertSettings = async (institution_id, data) => {
     { new: true, upsert: true, runValidators: true }
   ).lean();
 
-  // Audit Log
+  // Event Log — Business Event: Settings Updated
   await eventLogService.logEvent({
     institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "settings",
-    action_type: "UPDATE",
+    action_type: "UPDATED",
     record_id: updated._id.toString(),
-    description: "Institutional settings updated.",
+    description: "Attendance settings updated",
     old_data: existing,
     new_data: updated
   });
@@ -53,11 +53,10 @@ exports.upsertMasterData = async (institution_id, field, input) => {
 
   const { id, ...data } = input;
   let result;
-  let action = "CREATE";
+  let isNew = false;
   let existing = null;
   
   if (id) {
-    action = "UPDATE";
     existing = await Model.findOne({ _id: id, institution_id }).lean();
     result = await Model.findOneAndUpdate(
       { _id: id, institution_id },
@@ -66,19 +65,20 @@ exports.upsertMasterData = async (institution_id, field, input) => {
     ).lean();
     if (!result) throw new Error(`Item with id ${id} not found in ${field}`);
   } else {
+    isNew = true;
     result = await Model.create({ ...data, institution_id });
     result = result.toObject();
   }
 
-  // Audit Log
+  // Event Log — Business Event: Master Data Changed
   await eventLogService.logEvent({
     institution_id,
     user_name: "Admin",
     user_role: "HR Administrator",
     module_name: "settings",
-    action_type: action,
+    action_type: isNew ? "CREATED" : "UPDATED",
     record_id: result._id.toString(),
-    description: `${action === "CREATE" ? "New" : "Updated"} master data in ${field}: ${result.name || result.code}`,
+    description: `${result.name || result.code} ${isNew ? "created" : "updated"}`,
     old_data: existing,
     new_data: result
   });
@@ -92,15 +92,15 @@ exports.deleteMasterData = async (institution_id, field, id) => {
 
   const deleted = await Model.findOneAndDelete({ _id: id, institution_id }).lean();
   if (deleted) {
-    // Audit Log
+    // Event Log — Business Event: Master Data Deleted
     await eventLogService.logEvent({
       institution_id,
       user_name: "Admin",
       user_role: "HR Administrator",
       module_name: "settings",
-      action_type: "DELETE",
+      action_type: "DELETED",
       record_id: id,
-      description: `Deleted master data from ${field}: ${deleted.name || deleted.code}`,
+      description: `${deleted.name || deleted.code} deleted`,
       old_data: deleted
     });
   }

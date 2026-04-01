@@ -2,6 +2,7 @@ const Movement = require("./model");
 const Settings = require("../settings/model");
 const Leave = require("../leave/model");
 const Holiday = require("../holiday/model");
+const Employee = require("../employee/model");
 
 /**
  * Validates movement request against institutional settings
@@ -148,20 +149,6 @@ exports.createMovement = async (data) => {
     const saved = await record.save();
     console.log("[MovementService] Record saved successfully:", saved._id);
 
-    // Audit Log
-    const eventLogService = require("../eventLog/service");
-    await eventLogService.logEvent({
-      institution_id: data.institution_id,
-      user_name: "Admin",
-      user_role: "HR Administrator",
-      module_name: "movement",
-      action_type: "CREATE",
-      record_id: saved._id.toString(),
-      description: `Movement record initiated for employee ${data.employee_id}. Type: ${data.movement_type}`,
-      new_data: saved.toObject(),
-      is_workflow_action: true
-    });
-
     return saved.toObject();
   } catch (saveErr) {
     console.error("[MovementService] Mongoose save failed:", saveErr.message);
@@ -212,26 +199,24 @@ exports.updateMovement = async (id, data, institution_id) => {
     { new: true, runValidators: true }
   ).lean();
 
-  const workflowFields = [
-    "status", "admin_status", "dept_admin_status", "remarks", 
-    "admin_remarks", "dept_admin_remarks", "updated_at"
-  ];
-  const isWorkflow = Object.keys(data).every(k => workflowFields.includes(k));
-
-  // Audit Log
-  const eventLogService = require("../eventLog/service");
-  await eventLogService.logEvent({
-    institution_id,
-    user_name: "Admin",
-    user_role: "HR Administrator",
-    module_name: "movement",
-    action_type: "UPDATE",
-    record_id: id,
-    description: `Movement record updated. Status: ${updated.status}`,
-    old_data: existing.toObject ? existing.toObject() : existing,
-    new_data: updated,
-    is_workflow_action: isWorkflow
-  });
+  // Event Log — Only log when admin edits time fields (not approval flow)
+  const isTimeEdit = "out_time" in data || "in_time" in data;
+  if (isTimeEdit) {
+    const emp = await Employee.findOne({ _id: updated.employee_id, institution_id }).lean();
+    const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
+    const eventLogService = require("../eventLog/service");
+    await eventLogService.logEvent({
+      institution_id,
+      user_name: "Admin",
+      user_role: "HR Administrator",
+      module_name: "movement",
+      action_type: "UPDATED",
+      record_id: id,
+      description: `${empName} movement details updated`,
+      old_data: existing.toObject ? existing.toObject() : existing,
+      new_data: updated
+    });
+  }
 
   return updated;
 };
@@ -239,19 +224,6 @@ exports.updateMovement = async (id, data, institution_id) => {
 exports.deleteMovement = async (id, institution_id) => {
   const deleted = await Movement.findOneAndDelete({ _id: id, institution_id }).lean();
   if (!deleted) throw new Error("Movement record not found");
-
-  // Audit Log
-  const eventLogService = require("../eventLog/service");
-  await eventLogService.logEvent({
-    institution_id,
-    user_name: "Admin",
-    user_role: "HR Administrator",
-    module_name: "movement",
-    action_type: "DELETE",
-    record_id: id,
-    description: `Movement record deleted for employee ${deleted.employee_id}`,
-    old_data: deleted
-  });
 
   return { success: true, message: "Movement record deleted successfully" };
 };

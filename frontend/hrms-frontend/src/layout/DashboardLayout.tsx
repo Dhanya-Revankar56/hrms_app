@@ -12,7 +12,7 @@ const LAYOUT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
 
   :root {
-    --sidebar-w:      214px;
+    --sidebar-w:      240px;
     --topbar-h:       56px;
     --sidebar-bg:     #0f2545;
     --sidebar-hover:  rgba(255,255,255,.07);
