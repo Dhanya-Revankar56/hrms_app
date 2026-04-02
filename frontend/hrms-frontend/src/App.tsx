@@ -14,6 +14,7 @@ import EmployeeDetail from "./pages/EmployeeDetail";
 import Holidays from "./pages/Holidays";
 import EventRegister from "./pages/EventRegister";
 import Reports from "./pages/Reports";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 
 function App() {
@@ -27,9 +28,9 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Dashboard />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -37,9 +38,9 @@ function App() {
         <Route
           path="/onboarding"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <EmployeeOnboarding />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -47,18 +48,18 @@ function App() {
         <Route
           path="/employees"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <EmployeeManagement />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
         <Route
           path="/employees/:id"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <EmployeeDetail />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -66,9 +67,9 @@ function App() {
         <Route
           path="/attendance"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Attendance />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -76,9 +77,9 @@ function App() {
         <Route
           path="/leave"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Leave />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -86,9 +87,9 @@ function App() {
         <Route
           path="/relieving"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Relieving />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -96,9 +97,9 @@ function App() {
         <Route
           path="/movement"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <MovementRegister />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
@@ -106,37 +107,36 @@ function App() {
         <Route
           path="/settings"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Settings />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
-  // testing husky 
 
         <Route
           path="/holidays"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Holidays />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 
         <Route
           path="/event-register"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <EventRegister />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
         
         <Route
           path="/reports"
           element={
-            <DashboardLayout>
+            <ProtectedRoute><DashboardLayout>
               <Reports />
-            </DashboardLayout>
+            </DashboardLayout></ProtectedRoute>
           }
         />
 

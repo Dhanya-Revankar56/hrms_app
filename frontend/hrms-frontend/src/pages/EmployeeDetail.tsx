@@ -480,6 +480,7 @@ export default function EmployeeDetail() {
   };
   const [showDetailEditModal, setShowDetailEditModal] = useState(false);
   const [showAttendanceDetailsModal, setShowAttendanceDetailsModal] = useState(false);
+  const [selectedDetailsDate, setSelectedDetailsDate] = useState<string>("");
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [showUpdateStatusModal, setShowUpdateStatusModal] = useState(false);
   const [updateStatusValue, setUpdateStatusValue] = useState("PRESENT");
@@ -849,7 +850,14 @@ export default function EmployeeDetail() {
                         <td>{record?.check_out ? to12(record.check_out) : (isWeekend ? "Week Off" : "-")}</td>
                         <td>{record?.marked_by || "-"}</td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className={`ed-pill ${statusClass}`}>{statusLabel}</span>
+                          <span
+                            className={`ed-pill ${statusClass}`}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              setSelectedDetailsDate(day.iso);
+                              setShowAttendanceDetailsModal(true);
+                            }}
+                          >{statusLabel}</span>
                         </td>
                       </tr>
                     );
