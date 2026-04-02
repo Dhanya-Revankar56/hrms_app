@@ -2,11 +2,27 @@
 
 import  { useState, useEffect, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-const currentUser = {
-  name: "Admin",
-  role: "HR Administrator",
-  initials: "A"
+import { getRole, type AppRole } from "../utils/auth";
+const user = () => {
+  const u = {
+    name: localStorage.getItem('user_name') || "User",
+    role: localStorage.getItem('user_role') || "Employee",
+    initials: (localStorage.getItem('user_name') || "U").charAt(0).toUpperCase()
+  };
+  try {
+     const raw = localStorage.getItem('user');
+     if (raw) {
+       const parsed = JSON.parse(raw);
+       u.name = parsed.name || u.name;
+       u.role = parsed.role || u.role;
+       u.initials = (parsed.name || "U").charAt(0).toUpperCase();
+     }
+  } catch {
+    // Silently handle JSON parsing errors
+  }
+  return u;
 };
+const currentUser = user();
 
 const LAYOUT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
@@ -717,6 +733,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: ReactNode;
+  roles: AppRole[];
 }
 
 const IcoSize = {
@@ -729,6 +746,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/dashboard",
     label: "Dashboard",
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
         <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -741,6 +759,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/onboarding",
     label: "Employee Onboarding",
+    roles: ["ADMIN"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -751,6 +770,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/employees",
     label: "Employee Management",
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -761,6 +781,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/attendance",
     label: "Attendance",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -771,6 +792,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/leave",
     label: "Leave Management",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -781,6 +803,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/movement",
     label: "Movement Register",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -791,6 +814,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/relieving",
     label: "Relieving",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -801,6 +825,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/event-register",
     label: "Event Register",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -811,6 +836,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/reports",
     label: "Reports & Analytics",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -821,6 +847,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/holidays",
     label: "Holidays",
+    roles: ["ADMIN"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -832,6 +859,7 @@ const NAV_ITEMS: NavItem[] = [
   {
   path: "/settings",
   label: "Settings",
+  roles: ["ADMIN"],
   icon: (
     <svg {...IcoSize}>
       <path
@@ -942,7 +970,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <nav className="sb-nav">
             <div className="sb-section-label">Menu</div>
-            {NAV_ITEMS.map((item: NavItem) => (
+            {NAV_ITEMS.filter(item => item.roles.includes(getRole())).map((item: NavItem) => (
               <NavLink
                 key={item.path}
                 to={item.path}

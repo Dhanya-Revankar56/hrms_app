@@ -1,4 +1,5 @@
 const relievingService = require("./service");
+const Employee = require("../employee/model");
 const employeeService = require("../employee/service");
 
 const requireTenant = (ctx) => {
@@ -10,9 +11,29 @@ const requireTenant = (ctx) => {
 
 const resolvers = {
   Query: {
-    relievings: async (_, { employee_id, status, pagination }, ctx) => {
+    relievings: async (_, { employee_id, status, department, pagination }, ctx) => {
       const institution_id = requireTenant(ctx);
-      return await relievingService.listRelievings({ institution_id, employee_id, status, pagination });
+      const role = ctx.user?.role;
+
+      let filterId = employee_id;
+      let filterDept = department;
+
+      if (role === "EMPLOYEE") {
+        filterId = ctx.user.id;
+      } else if (role === "HEAD OF DEPARTMENT") {
+        const hodRecord = await Employee.findOne({ _id: ctx.user.id, institution_id })
+          .select("work_detail.department")
+          .lean();
+        filterDept = hodRecord?.work_detail?.department?.toString();
+      }
+
+      return await relievingService.listRelievings({ 
+        institution_id, 
+        employee_id: filterId, 
+        status, 
+        department: filterDept, 
+        pagination 
+      });
     },
     relieving: async (_, { id }, ctx) => {
       const institution_id = requireTenant(ctx);

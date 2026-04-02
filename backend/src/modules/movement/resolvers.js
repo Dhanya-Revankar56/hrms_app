@@ -1,4 +1,5 @@
 const movementService = require("./service");
+const Employee = require("../employee/model");
 const employeeService = require("../employee/service");
 
 const requireTenant = (ctx) => {
@@ -10,9 +11,30 @@ const requireTenant = (ctx) => {
 
 const resolvers = {
   Query: {
-    movements: async (_, { employee_id, status, movement_type, pagination }, ctx) => {
+    movements: async (_, { employee_id, status, movement_type, department, pagination }, ctx) => {
       const institution_id = requireTenant(ctx);
-      return await movementService.listMovements({ institution_id, employee_id, status, movement_type, pagination });
+      const role = ctx.user?.role;
+      
+      let filterId = employee_id;
+      let filterDept = department;
+
+      if (role === "EMPLOYEE") {
+        filterId = ctx.user.id;
+      } else if (role === "HEAD OF DEPARTMENT") {
+        const hodRecord = await Employee.findOne({ _id: ctx.user.id, institution_id })
+          .select("work_detail.department")
+          .lean();
+        filterDept = hodRecord?.work_detail?.department?.toString();
+      }
+
+      return await movementService.listMovements({ 
+        institution_id, 
+        employee_id: filterId, 
+        status, 
+        movement_type, 
+        department: filterDept, 
+        pagination 
+      });
     },
     movement: async (_, { id }, ctx) => {
       const institution_id = requireTenant(ctx);
@@ -27,7 +49,7 @@ const resolvers = {
     },
     updateMovement: async (_, { id, input }, ctx) => {
       const institution_id = requireTenant(ctx);
-      return await movementService.updateMovement(id, input, institution_id);
+      return await movementService.updateMovement(id, input, institution_id, ctx.user.id);
     },
     deleteMovement: async (_, { id }, ctx) => {
       const institution_id = requireTenant(ctx);

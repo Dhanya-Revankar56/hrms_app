@@ -1,9 +1,25 @@
 const Relieving = require("./model");
 
-exports.listRelievings = async ({ institution_id, employee_id, status, pagination }) => {
+exports.listRelievings = async ({ institution_id, employee_id, status, department, pagination }) => {
   const filter = { institution_id };
   if (employee_id) filter.employee_id = employee_id;
   if (status) filter.status = status;
+
+  if (department) {
+    const employees = await Employee.find({ 
+      institution_id, 
+      "work_detail.department": department 
+    }).select("_id").lean();
+    const employeeIds = employees.map(e => e._id.toString());
+    
+    if (filter.employee_id) {
+       if (!employeeIds.includes(filter.employee_id)) {
+         filter.employee_id = { $in: [] }; 
+       }
+    } else {
+       filter.employee_id = { $in: employeeIds };
+    }
+  }
 
   const page = pagination?.page || 1;
   const limit = pagination?.limit || 10;

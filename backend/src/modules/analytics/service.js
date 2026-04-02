@@ -3,13 +3,35 @@ const Attendance = require("../attendance/model");
 const Leave = require("../leave/model");
 const Department = require("../settings/department.model");
 
-exports.getHrAnalytics = async (institution_id) => {
+exports.getHrAnalytics = async (institution_id, user = null) => {
+  const role = user?.role;
+  const userId = user?.id;
+
+  const baseFilter = { institution_id };
+  let deptId = null;
+
+  if (role === "EMPLOYEE") {
+    baseFilter._id = userId;
+  } else if (role === "HEAD OF DEPARTMENT") {
+    const hodRecord = await Employee.findOne({ _id: userId, institution_id })
+      .select("work_detail.department")
+      .lean();
+    deptId = hodRecord?.work_detail?.department?.toString();
+    if (deptId) {
+      baseFilter["work_detail.department"] = deptId;
+    } else {
+      // No department found, return empty stats if not admin/employee but HOD? 
+      // safer to return nothing if HOD without department
+      baseFilter._id = { $in: [] };
+    }
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // 1. Employee Stats
   const [employees, allDepts] = await Promise.all([
-    Employee.find({ institution_id, is_active: { $ne: false } }).lean(),
+    Employee.find({ ...baseFilter, is_active: { $ne: false } }).lean(),
     Department.find({ institution_id }).lean()
   ]);
 
@@ -40,10 +62,29 @@ exports.getHrAnalytics = async (institution_id) => {
   };
 
   // 2. Attendance Stats
-  const todayAttendance = await Attendance.find({
-    institution_id,
-    date: { $gte: today }
-  }).lean();
+  const attendanceFilter = { institution_id, date: { $gte: today } };
+  const leaveFilter = { institution_id };
+
+  if (role === "EMPLOYEE") {
+    attendanceFilter.employee_id = userId;
+    leaveFilter.employee_id = userId;
+  } else if (role === "HEAD OF DEPARTMENT" && deptId) {
+    const employees = await Employee.find({ 
+      institution_id, 
+      "work_detail.department": deptId 
+    }).select("_id").lean();
+    const ids = employees.map(e => e._id.toString());
+    attendanceFilter.employee_id = { $in: ids };
+    leaveFilter.employee_id = { $in: ids };
+  } else if (role === "HEAD OF DEPARTMENT" && !deptId) {
+    attendanceFilter.employee_id = { $in: [] };
+    leaveFilter.employee_id = { $in: [] };
+  }
+
+  const [todayAttendance, leaves] = await Promise.all([
+    Attendance.find(attendanceFilter).lean(),
+    Leave.find(leaveFilter).lean()
+  ]);
 
   const attendanceStats = {
     todayPresent: todayAttendance.filter(a => a.status === "Present").length,
@@ -52,7 +93,6 @@ exports.getHrAnalytics = async (institution_id) => {
   };
 
   // 3. Leave Stats
-  const leaves = await Leave.find({ institution_id }).lean();
   const leaveStats = {
     pending: leaves.filter(l => l.status === "pending").length,
     approved: leaves.filter(l => l.status === "approved").length,

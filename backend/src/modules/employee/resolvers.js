@@ -14,8 +14,44 @@ const resolvers = {
   Query: {
     getAllEmployees: async (_, { status, department, search, pagination }, ctx) => {
       const institution_id = requireTenant(ctx);
-      requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT"]);
-      return await employeeService.listEmployees({ institution_id, status, department, search, pagination });
+      requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT", "EMPLOYEE"]);
+
+      const role = ctx.user?.role; // "ADMIN" | "HEAD OF DEPARTMENT" | "EMPLOYEE"
+
+      // EMPLOYEE → return only their own record wrapped in page shape
+      if (role === "EMPLOYEE") {
+        const self = await Employee.findOne({ _id: ctx.user.id, institution_id })
+          .populate("work_detail.department")
+          .populate("work_detail.designation")
+          .lean();
+        const items = self ? [self] : [];
+        return {
+          items,
+          pageInfo: { totalCount: items.length, totalPages: 1, currentPage: 1, hasNextPage: false },
+          activeCount: self?.app_status === "active" ? 1 : 0,
+          onLeaveCount: self?.app_status === "on-leave" ? 1 : 0,
+        };
+      }
+
+      // HOD → restrict to their own department (DB lookup — no JWT change needed)
+      let hodDepartment = department; // may still be overridden by their dept
+      if (role === "HEAD OF DEPARTMENT") {
+        const hodRecord = await Employee.findOne({ _id: ctx.user.id, institution_id })
+          .select("work_detail.department")
+          .lean();
+        const hodDeptId = hodRecord?.work_detail?.department?.toString();
+        // If HOD tries to filter another dept, ignore — always lock to own dept
+        hodDepartment = hodDeptId || null;
+      }
+
+      // ADMIN or HOD with resolved department
+      return await employeeService.listEmployees({
+        institution_id,
+        status,
+        department: role === "HEAD OF DEPARTMENT" ? hodDepartment : department,
+        search,
+        pagination,
+      });
     },
 
     employee: async (_, { id }, ctx) => {

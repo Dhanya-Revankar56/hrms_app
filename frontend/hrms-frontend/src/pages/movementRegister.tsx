@@ -6,6 +6,7 @@ import { GET_MOVEMENTS, CREATE_MOVEMENT, UPDATE_MOVEMENT } from "../graphql/move
 import { GET_EMPLOYEES } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 import AnalogTimePicker from "../components/AnalogTimePicker";
+import { isAdmin, hasRole } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -779,13 +780,15 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
               </button>
               {showMenu && (
                 <div className="mr-dr-menu" onMouseLeave={() => setShowMenu(false)}>
-                  <div className="mr-dr-item" onClick={() => { setIsEditing(true); setShowMenu(false); }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
-                    Update Time
-                  </div>
-                  {!isCompleted && (
+                  {isAdmin() && (
+                    <div className="mr-dr-item" onClick={() => { setIsEditing(true); setShowMenu(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                      Update Time
+                    </div>
+                  )}
+                  {!isCompleted && hasRole("ADMIN", "HOD") && (
                     <div className="mr-dr-item mr-dr-danger" onClick={() => {
                           if(window.confirm("Are you sure you want to cancel this movement?")) {
                             onUpdate({ variables: { id: rec.id, input: { status: "cancelled" } } });
@@ -906,7 +909,7 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
           </div>
 
           {/* Actions - DEPT ADMIN */}
-          {(!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
+          {hasRole("ADMIN", "HOD") && (!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
             <div className="mr-sec">
               <div className="mr-sec-t" style={{color:'#1d4ed8', borderBottom:'1px solid #eff6ff'}}>Dept Admin Actions</div>
               <textarea className="mr-rem" placeholder="Dept Admin remarks…"
@@ -919,7 +922,7 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
           )}
 
           {/* Actions - ADMIN */}
-          {(!rec.admin_status || rec.admin_status?.toLowerCase() === "pending") && (
+          {isAdmin() && (!rec.admin_status || rec.admin_status?.toLowerCase() === "pending") && (
             <div className="mr-sec">
               <div className="mr-sec-t" style={{color:'#1d4ed8', borderBottom:'1px solid #eff6ff'}}>Admin Actions</div>
               <textarea className="mr-rem" placeholder="Admin remarks…"
@@ -932,7 +935,7 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
           )}
 
           {/* Log return */}
-          {rec.status?.toLowerCase() === "approved" && !isCompleted && (
+          {hasRole("ADMIN", "HOD") && rec.status?.toLowerCase() === "approved" && !isCompleted && (
             <div className="mr-sec">
               <div className="mr-sec-t">Log Return</div>
               <div className="mr-rl">

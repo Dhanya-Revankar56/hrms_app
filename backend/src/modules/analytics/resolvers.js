@@ -11,7 +11,7 @@ const resolvers = {
   Query: {
     hrAnalytics: async (_, __, ctx) => {
       const institution_id = requireTenant(ctx);
-      return await analyticsService.getHrAnalytics(institution_id);
+      return await analyticsService.getHrAnalytics(institution_id, ctx.user);
     },
   },
 };

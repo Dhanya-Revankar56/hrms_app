@@ -317,7 +317,7 @@ exports.applyLeave = async (input) => {
   }
 
   // Create
-  const leave = new Leave(input);
+  const leave = new Leave({ ...input, total_days: totalDays });
   const saved = await leave.save();
 
   return saved;
@@ -326,7 +326,7 @@ exports.applyLeave = async (input) => {
 /**
  * 2. APPROVAL LOGIC
  */
-exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id }) => {
+exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id, user_id }) => {
   const leave = await Leave.findOne({ _id: id, institution_id });
   if (!leave) throw new Error("Leave record not found");
 
@@ -451,25 +451,50 @@ exports.createLeave = async (data) => {
   return await leave.save();
 };
 
-exports.updateLeave = async (id, data, institution_id) => {
-   // Admin-only date edit — log as UPDATED business event
-   const updated = await Leave.findOneAndUpdate({ _id: id, institution_id }, { $set: data }, { new: true }).lean();
-   if (updated) {
-     const emp = await Employee.findOne({ _id: updated.employee_id, institution_id }).lean();
-     const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
-     const eventLogService = require("../eventLog/service");
-     await eventLogService.logEvent({
-       institution_id,
-       user_name: "Admin",
-       user_role: "HR Administrator",
-       module_name: "leave",
-       action_type: "UPDATED",
-       record_id: id,
-       description: `${empName} leave details updated`,
-       new_data: updated
-     });
-   }
-   return updated;
+exports.updateLeave = async (id, data, institution_id, user_id) => {
+  // 1. Recalculate total_days if dates change
+  if (data.from_date || data.to_date) {
+    const existing = await Leave.findOne({ _id: id, institution_id });
+    if (existing) {
+       const from = new Date(data.from_date || existing.from_date);
+       const to = new Date(data.to_date || existing.to_date);
+       
+       const leaveTypeReq = data.leave_type || existing.leave_type;
+       const leaveTypeConfig = await LeaveType.findOne({ institution_id, name: leaveTypeReq.toLowerCase() });
+       if (leaveTypeConfig) {
+         const settings = await Settings.findOne({ institution_id });
+         const publicHolidays = await getHolidaysInRange(institution_id, from, to);
+         
+         let totalDays = calculateWorkingDays(from, to, settings, {
+           weekends_covered: leaveTypeConfig.weekends_covered,
+           holiday_covered: leaveTypeConfig.holiday_covered
+         }, publicHolidays);
+         
+         if (existing.is_half_day) totalDays = 0.5;
+         data.total_days = totalDays;
+       }
+    }
+  }
+
+  // Admin-only date edit — log as UPDATED business event
+  const updated = await Leave.findOneAndUpdate({ _id: id, institution_id }, { $set: data }, { new: true }).lean();
+  if (updated) {
+    const emp = await Employee.findOne({ _id: updated.employee_id, institution_id }).lean();
+    const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
+    const eventLogService = require("../eventLog/service");
+    await eventLogService.logEvent({
+      institution_id,
+      user_id,
+      user_name: "Admin",
+      user_role: "HR Administrator",
+      module_name: "leave",
+      action_type: "UPDATED",
+      record_id: id,
+      description: `${empName} leave details updated`,
+      new_data: updated
+    });
+  }
+  return updated;
 };
 
 exports.deleteLeave = async (id, institution_id) => {

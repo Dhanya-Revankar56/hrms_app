@@ -95,11 +95,27 @@ const checkMovementRules = async (institution_id, employee_id, movement_date, ou
   }
 };
 
-exports.listMovements = async ({ institution_id, employee_id, status, movement_type, pagination }) => {
+exports.listMovements = async ({ institution_id, employee_id, status, movement_type, department, pagination }) => {
   const filter = { institution_id };
   if (employee_id) filter.employee_id = employee_id;
   if (status) filter.status = status;
   if (movement_type) filter.movement_type = movement_type;
+
+  if (department) {
+    const employees = await Employee.find({ 
+      institution_id, 
+      "work_detail.department": department 
+    }).select("_id").lean();
+    const employeeIds = employees.map(e => e._id.toString());
+    
+    if (filter.employee_id) {
+       if (!employeeIds.includes(filter.employee_id)) {
+         filter.employee_id = { $in: [] }; 
+       }
+    } else {
+       filter.employee_id = { $in: employeeIds };
+    }
+  }
 
   const page = pagination?.page || 1;
   const limit = pagination?.limit || 10;
@@ -159,7 +175,7 @@ exports.createMovement = async (data) => {
   }
 };
 
-exports.updateMovement = async (id, data, institution_id) => {
+exports.updateMovement = async (id, data, institution_id, user_id) => {
   const existing = await Movement.findOne({ _id: id, institution_id });
   if (!existing) throw new Error("Movement record not found");
 
@@ -207,6 +223,7 @@ exports.updateMovement = async (id, data, institution_id) => {
     const eventLogService = require("../eventLog/service");
     await eventLogService.logEvent({
       institution_id,
+      user_id,
       user_name: "Admin",
       user_role: "HR Administrator",
       module_name: "movement",

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
+import { isAdmin } from "../utils/auth";
 import { GET_EMPLOYEES, UPDATE_EMPLOYEE } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 import { formatDateForDisplay } from "../utils/dateUtils";
@@ -80,6 +81,7 @@ interface ManagedEmployee {
   salaryGrade: string;
   avatarColor: string;
   bankDetails: BankDetail[];
+  appRole: string;
 }
 
 interface FilterState {
@@ -304,7 +306,8 @@ function mapBackendToManaged(b: BackendEmployee): ManagedEmployee {
       account_no: bank.account_no || "",
       ifsc: bank.ifsc || "",
       bank_type: bank.bank_type || "Primary"
-    }))
+    })),
+    appRole: (b.app_role?.toLowerCase() === "hod" ? "HEAD OF DEPARTMENT" : (b.app_role || "employee")).toUpperCase(),
   };
 }
 
@@ -435,7 +438,8 @@ export default function EmployeeManagement() {
               department: editForm.hrDepartmentId,
               employee_type: editForm.employmentType,
               date_of_joining: editForm.joiningDate,
-            }
+            },
+            app_role: editForm.appRole,
           }
         }
       });
@@ -531,9 +535,11 @@ export default function EmployeeManagement() {
                       <button className="em-act-btn" title="View Profile" onClick={() => handleAction(emp, 'view')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
-                      <button className="em-act-btn" title="Edit Profile" onClick={() => handleAction(emp, 'edit')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                      </button>
+                      {isAdmin() && (
+                        <button className="em-act-btn" title="Edit Profile" onClick={() => handleAction(emp, 'edit')}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -575,7 +581,7 @@ export default function EmployeeManagement() {
                 </div>
               </div>
               <div style={{display:'flex', gap: 10}}>
-                {!isEditMode && <button className="ob-btn-primary" style={{height: 32, padding:'0 12px', fontSize: 12, borderRadius: 6, fontWeight: 700}} onClick={() => setIsEditMode(true)}>Edit Profile</button>}
+                {!isEditMode && isAdmin() && <button className="ob-btn-primary" style={{height: 32, padding:'0 12px', fontSize: 12, borderRadius: 6, fontWeight: 700}} onClick={() => setIsEditMode(true)}>Edit Profile</button>}
                 <button className="em-act-btn" style={{borderColor: '#e2e8f0', color: '#64748b'}} onClick={() => setDrawerEmp(null)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>
             </div>
@@ -646,6 +652,17 @@ export default function EmployeeManagement() {
                   />
                   <EditableField label="Employment Type" value={editForm.employmentType} isEdit={isEditMode} options={employeeTypes.filter(t=>t!=="All")} onChange={(v: string) => setEditForm({...editForm, employmentType: v})} />
                   <EditableField label="Work Location" value={editForm.workLocation} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, workLocation: v})} />
+                  <EditableField 
+                    label="System Role" 
+                    value={editForm.appRole} 
+                    isEdit={isEditMode} 
+                    options={[
+                      { value: 'ADMIN', label: 'ADMIN' },
+                      { value: 'HEAD OF DEPARTMENT', label: 'HEAD OF DEPARTMENT' },
+                      { value: 'EMPLOYEE', label: 'EMPLOYEE' }
+                    ]} 
+                    onChange={(v: string) => setEditForm({...editForm, appRole: v})} 
+                  />
                 </Section>
               )}
 

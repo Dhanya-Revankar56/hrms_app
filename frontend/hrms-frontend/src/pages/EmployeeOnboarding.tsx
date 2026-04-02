@@ -25,6 +25,7 @@ interface OnboardingEmployee {
   city: string; pinCode: string; status: StatusType;
   bankName: string; accountNo: string; ifsc: string;
   hasSecondaryBank: boolean; bankName2: string; accountNo2: string; ifsc2: string;
+  appRole: string;
 }
 
 interface SettingsData {
@@ -45,6 +46,7 @@ interface BackendEmployee {
   user_email: string;
   user_contact: string;
   app_status: string;
+  app_role: string;
   work_detail?: {
     department?: { id: string; name: string };
     designation?: { id: string; name: string };
@@ -77,7 +79,7 @@ const EMPTY_FORM: FormState = {
   addressLine1: "", addressLine2: "", country: "", state: "", city: "", pinCode: "",
   bankName: "", accountNo: "", ifsc: "",
   hasSecondaryBank: false, bankName2: "", accountNo2: "", ifsc2: "",
-  employeeImage: ""
+  employeeImage: "", appRole: "EMPLOYEE"
 };
 
 const PAGE_CSS = `
@@ -223,7 +225,7 @@ export default function EmployeeOnboarding() {
         user_email: form.email,
         user_contact: form.phone,
         employee_image: form.employeeImage,
-        app_role: "Employee",
+        app_role: form.appRole,
         reporting_to: form.reportingTo || null,
         personal_detail: {
           date_of_birth: form.dob,
@@ -318,6 +320,13 @@ export default function EmployeeOnboarding() {
                   {reportingManagers.map((m) => (
                     <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                   ))}
+                </select>
+              </Field>
+              <Field label="System Role" required>
+                <select name="appRole" value={form.appRole} onChange={handleChange} className="ob-select">
+                  <option value="ADMIN">ADMIN</option>
+                  <option value="HEAD OF DEPARTMENT">HEAD OF DEPARTMENT</option>
+                  <option value="EMPLOYEE">EMPLOYEE</option>
                 </select>
               </Field>
             </div>
@@ -463,12 +472,13 @@ export default function EmployeeOnboarding() {
                 <th>Department</th>
                 <th>Designation</th>
                 <th>Joining Date</th>
+                <th>Role</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {recentlyOnboarded.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "#94a3b8" }}>No employees onboarded yet.</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "#94a3b8" }}>No employees onboarded yet.</td></tr>
               ) : recentlyOnboarded.map((emp) => (
                 <tr key={emp.id}>
                   <td style={{ fontWeight: 600, fontFamily: "'Inter', sans-serif" }}>{emp.employee_id || "PENDING"}</td>
@@ -476,6 +486,7 @@ export default function EmployeeOnboarding() {
                   <td>{emp.work_detail?.department?.name || "—"}</td>
                   <td>{emp.work_detail?.designation?.name || "—"}</td>
                   <td>{formatDateForDisplay(emp.work_detail?.date_of_joining)}</td>
+                  <td><span className="ob-status-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>{emp.app_role?.toLowerCase() === "hod" ? "HEAD OF DEPARTMENT" : (emp.app_role?.toUpperCase() || "EMPLOYEE")}</span></td>
                   <td><span className="ob-status-badge ob-status-active">Active</span></td>
                 </tr>
               ))}

@@ -75,6 +75,9 @@ const normalizeData = (data) => {
   // Normalize Role
   if (result.app_role) {
     result.app_role = result.app_role.toLowerCase();
+    if (result.app_role === "head of department") {
+      result.app_role = "hod";
+    }
   }
 
   if (result.personal_detail) {

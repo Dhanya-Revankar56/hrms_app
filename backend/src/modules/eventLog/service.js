@@ -10,11 +10,26 @@ exports.logEvent = async (data) => {
   }
 };
 
-exports.listEventLogs = async ({ institution_id, module_name, action_type, user_id, date_from, date_to, pagination }) => {
+exports.listEventLogs = async ({ institution_id, module_name, action_type, user_id, record_id, date_from, date_to, pagination }) => {
   const filter = { institution_id };
   if (module_name) filter.module_name = module_name;
   if (action_type) filter.action_type = action_type;
-  if (user_id) filter.user_id = user_id;
+  // Role-based filtering logic (Actor OR Subject)
+  if (user_id || record_id) {
+    const orConditions = [];
+    
+    if (user_id) {
+      orConditions.push(Array.isArray(user_id) ? { user_id: { $in: user_id } } : { user_id });
+    }
+    
+    if (record_id) {
+      orConditions.push(Array.isArray(record_id) ? { record_id: { $in: record_id } } : { record_id });
+    }
+
+    if (orConditions.length > 0) {
+      filter.$or = orConditions;
+    }
+  }
   
   if (date_from || date_to) {
     filter.timestamp = {};

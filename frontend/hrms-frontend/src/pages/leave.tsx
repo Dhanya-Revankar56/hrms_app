@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE, UPDATE_LEAVE } from "../graphql/leaveQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
+import { isAdmin, hasRole } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -771,6 +772,8 @@ function UpdateLeaveModal({ req, onClose, onToast }: UpdateModalProps) {
   }, [fromDate, toDate]);
 
   const totalDays = useMemo(() => {
+    // For preview purposes in UI, show a simple count. 
+    // The backend will perform the authoritative calculation (respecting holidays/settings) on save.
     return daysData.reduce((acc, d) => acc + (d.type === "Full Day" ? 1 : 0.5), 0);
   }, [daysData]);
 
@@ -785,7 +788,8 @@ function UpdateLeaveModal({ req, onClose, onToast }: UpdateModalProps) {
         input: {
           from_date: fromDate,
           to_date: toDate,
-          total_days: totalDays,
+          // We pass total_days but the backend is now configured to recalculate if dates change
+          total_days: totalDays, 
           reason: reason
         }
       }
@@ -890,7 +894,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
               </div>
             </div>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div className="lv-dots-wrap">
               <button className="lv-dots-btn" onClick={() => setShowMenu(!showMenu)}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -899,19 +903,23 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
               </button>
               {showMenu && (
                 <div className="lv-dots-menu" onMouseLeave={() => setShowMenu(false)}>
-                  <button className="lv-dots-item" onClick={() => { onOpenUpdate(); setShowMenu(false); }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Update leave
-                  </button>
-                  <button className="lv-dots-item reject" onClick={() => {
-                    if (window.confirm("Are you sure you want to cancel this leave?")) {
-                      cancelLeave({ variables: { id: req.id } });
-                    }
-                    setShowMenu(false);
-                  }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    Cancel leave
-                  </button>
+                  {hasRole("ADMIN", "HOD") && (
+                    <button className="lv-dots-item" onClick={() => { onOpenUpdate(); setShowMenu(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Update leave
+                    </button>
+                  )}
+                  {hasRole("ADMIN", "HOD") && (
+                    <button className="lv-dots-item reject" onClick={() => {
+                      if (window.confirm("Are you sure you want to cancel this leave?")) {
+                        cancelLeave({ variables: { id: req.id } });
+                      }
+                      setShowMenu(false);
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                      Cancel leave
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -969,7 +977,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
           </div>
 
           {/* Actions for Dept Admin */}
-          {(req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
+          {hasRole("ADMIN", "HOD") && (req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
             <div className="lv-drawer-section">
               <div className="lv-drawer-section-title">Dept Admin Actions</div>
               <textarea
@@ -986,7 +994,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
           )}
 
           {/* Actions for Admin */}
-          {(req.approvals?.find(a => a.role === 'ADMIN')?.status || "pending").toLowerCase() === "pending" && (
+          {isAdmin() && (req.approvals?.find(a => a.role === 'ADMIN')?.status || "pending").toLowerCase() === "pending" && (
             <div className="lv-drawer-section">
               <div className="lv-drawer-section-title">Admin Actions</div>
               <textarea
@@ -1004,7 +1012,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
         </div>
 
         {/* Action: Cancel Leave (Only if not completed) */}
-        {req.status !== 'cancelled' && new Date(req.to_date) >= new Date() && (
+        {hasRole("ADMIN", "HOD") && req.status !== 'cancelled' && new Date(req.to_date) >= new Date() && (
            <div className="lv-drawer-section" style={{ marginTop: 0, padding: '0 24px 16px' }}>
               <button 
                 className="lv-drawer-btn lv-drawer-reject" 
