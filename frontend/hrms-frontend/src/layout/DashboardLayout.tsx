@@ -1,7 +1,7 @@
 // src/layout/DashboardLayout.tsx
 
 import  { useState, useEffect, type ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 const currentUser = {
   name: "Admin",
   role: "HR Administrator",
@@ -171,7 +171,7 @@ const LAYOUT_CSS = `
     height: 100vh;
     overflow: hidden;
     position: relative;
-    z-index: 20;
+    z-index: 50;
     box-shadow: 1px 0 0 rgba(255,255,255,.04), 4px 0 16px rgba(0,0,0,.18);
   }
 
@@ -866,7 +866,6 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState<boolean>(false);
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false);
   const [tenant, setTenant] = useState(localStorage.getItem('institution_id') || 'COLLEGE_A');
@@ -882,7 +881,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('institution_id');
-    navigate('/');
+    localStorage.removeItem('user');
+    // Use full page redirect to clear Apollo in-memory cache and re-evaluate ProtectedRoute
+    window.location.href = '/';
   };
 
   useEffect(() => {

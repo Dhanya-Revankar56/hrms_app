@@ -260,10 +260,10 @@ function mapBackendToManaged(b: BackendEmployee): ManagedEmployee {
     dob: b.personal_detail?.date_of_birth || "",
     bloodGroup: b.personal_detail?.blood_group || "",
     hrDepartment: b.work_detail?.department?.name || "No Department",
-    hrDepartmentId: b.work_detail?.department?.id || b.work_detail?.department?._id || "",
+    hrDepartmentId: b.work_detail?.department?.id || "",
     academicsDepartment: "No Department",
     designation: b.work_detail?.designation?.name || "Staff",
-    designationId: b.work_detail?.designation?.id || b.work_detail?.designation?._id || "",
+    designationId: b.work_detail?.designation?.id || "",
     employmentType: b.work_detail?.employee_type || "Regular",
     employmentSubType: b.work_detail?.employee_sub_type || "",
     category: b.personal_detail?.category || "",
@@ -363,8 +363,9 @@ export default function EmployeeManagement() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState<"Basic" | "Personal" | "Work" | "Bank">("Basic");
   const [editForm, setEditForm] = useState<ManagedEmployee | null>(null);
+  const [toast, setToast] = useState("");
 
-  const { data: employeesData, loading, refetch: refetchEmployees } = useQuery<{
+  const { data: employeesData, loading, error, refetch: refetchEmployees } = useQuery<{
     getAllEmployees: {
       items: BackendEmployee[];
       pageInfo: { totalPages: number; totalCount: number };
@@ -383,10 +384,10 @@ export default function EmployeeManagement() {
       }
     }
   });
+
+  /* Derive error message — avoids setState inside useEffect (react-hooks/set-state-in-effect) */
   const { data: settingsData } = useQuery<SettingsData>(GET_SETTINGS);
   const [updateEmployee, { loading: updating }] = useMutation(UPDATE_EMPLOYEE);
-  
-  const [toast, setToast] = useState("");
 
   const departments = useMemo(() => (settingsData?.settings?.departments || []), [settingsData]);
   const employeeTypes = useMemo<string[]>(() => ["All", ...(settingsData?.settings?.employee_types?.map((t) => t.name) || [])], [settingsData]);
@@ -395,6 +396,7 @@ export default function EmployeeManagement() {
     return (employeesData?.getAllEmployees?.items || []).map(mapBackendToManaged);
   }, [employeesData]);
 
+  const queryErrorMsg = error ? `Error: ${error.message}` : "";
   const totalPages = employeesData?.getAllEmployees?.pageInfo?.totalPages || 1;
   const totalCount = employeesData?.getAllEmployees?.pageInfo?.totalCount || 0;
 
@@ -449,7 +451,8 @@ export default function EmployeeManagement() {
     }
   };
 
-  if (loading && employees.length === 0) return <div className="em-container">Loading...</div>;
+  if (loading && !employeesData) return <div className="em-container">Loading...</div>;
+  if (error && !employeesData) return <div className="em-container">{queryErrorMsg || "Error loading employees. Please try again later."}</div>;
 
   return (
     <div className="em-container">
@@ -492,6 +495,7 @@ export default function EmployeeManagement() {
           <select className="em-select" value={filters.employmentType} onChange={e => setFilters({...filters, employmentType: e.target.value})}>
             {employeeTypes.map(t => <option key={t} value={t}>{t === "All" ? "All Types" : t}</option>)}
           </select>
+          {loading && <span style={{marginLeft: 'auto', fontSize: '12px', color: '#3b82f6', fontWeight: 600}}>Refreshing...</span>}
         </div>
 
         <div className="em-table-wrap">

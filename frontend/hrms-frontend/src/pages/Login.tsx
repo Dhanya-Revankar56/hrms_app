@@ -1,6 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const LOGIN_MUTATION = `
+  mutation Login($email: String!, $password: String!) {
+    login(email: $email, password: $password) {
+      token
+      user {
+        id
+        email
+        name
+        role
+        institution_id
+      }
+    }
+  }
+`;
+
 export default function Login() {
 
   const navigate = useNavigate();
@@ -23,21 +38,43 @@ export default function Login() {
       return;
     }
 
-    // MOCK CHECK: Prevent login if it's a simulated relieved user
-    // (In production, the backend returns this after checking app_status)
-    if (email.toLowerCase().includes("relieved")) {
-      setError("This account has been deactivated (Relieved). Login blocked.");
-      return;
-    }
-
     setError("");
     setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const response = await fetch("http://localhost:5000/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-institution-id": "COLLEGE_A",
+        },
+        body: JSON.stringify({
+          query: LOGIN_MUTATION,
+          variables: { email, password },
+        }),
+      });
 
-    setLoading(false);
+      const result = await response.json();
 
-    navigate("/dashboard");
+      if (result.errors) {
+        setError(result.errors[0]?.message || "Login failed. Please try again.");
+        return;
+      }
+
+      const { token, user } = result.data.login;
+
+      // Store token and institution in localStorage for Apollo Client
+      localStorage.setItem("token", token);
+      localStorage.setItem("institution_id", user.institution_id || "COLLEGE_A");
+      localStorage.setItem("user", JSON.stringify(user));
+
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Network error. Please check your connection.";
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
