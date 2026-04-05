@@ -2,6 +2,9 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_RELIEVINGS, CREATE_RELIEVING, UPDATE_RELIEVING } from "../graphql/relievingQueries";
 import { GET_EMPLOYEES } from "../graphql/employeeQueries";
+import { GET_DASHBOARD_STATS } from "../graphql/settingsQueries";
+import { GET_LEAVES } from "../graphql/leaveQueries";
+import { GET_MOVEMENTS } from "../graphql/movementQueries";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -45,8 +48,57 @@ interface Settlement {
   experienceLetterIssued: boolean;
 }
 
+interface RelievingEmployee {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  name?: string;
+  reporting_to_employee?: {
+    first_name: string;
+    last_name: string;
+  };
+  work_detail?: {
+    department?: { id: string; name: string };
+    designation?: { id: string; name: string };
+  };
+}
+
+interface BackendRelieving {
+  id: string;
+  employee_id: string;
+  employee_code: string;
+  resignation_date: string;
+  last_working_date: string;
+  notice_period_days: number;
+  reason: string;
+  status: ExitStatus;
+  exit_interview_done?: boolean;
+  assets_returned?: boolean;
+  relieve_letter_path?: string;
+  remarks?: string;
+  created_at: string;
+  employee?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    employee_id: string;
+    work_detail?: {
+      department?: { id: string; name: string };
+      designation?: { id: string; name: string };
+    };
+  };
+}
+
+interface RelievingData {
+  relievings: {
+    items: BackendRelieving[];
+    pageInfo: { totalCount: number; totalPages: number };
+  };
+}
+
 interface ExitRecord {
-  id: number;
+  id: string;
   empId: string;
   firstName: string;
   lastName: string;
@@ -124,12 +176,16 @@ function getInitials(first: string, last: string): string {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
-function formatDate(iso: string): string {
-  if (!iso) return "—";
-  const p = iso.split("-");
-  if (p.length !== 3) return iso;
+function formatDate(ts: string | number | Date | null | undefined): string {
+  if (!ts) return "—";
+  const d = isNaN(Number(ts)) ? new Date(ts) : new Date(Number(ts));
+  if (isNaN(d.getTime())) return String(ts);
+  
+  const day = d.getDate();
   const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${m[parseInt(p[1],10)-1]} ${p[2]}, ${p[0]}`;
+  const month = m[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
 }
 
 function calcNoticeDays(resign: string, last: string): number {
@@ -178,7 +234,7 @@ const CSS = `
   .er-section {
     background:#fff; border:1px solid #e2e8f0; border-radius:14px;
     box-shadow:0 1px 3px rgba(15,23,42,.05),0 4px 12px rgba(15,23,42,.04);
-    overflow:hidden; margin-bottom:20px;
+    overflow:visible; margin-bottom:20px;
   }
 
   /* ── Collapsible Form ── */
@@ -265,7 +321,7 @@ const CSS = `
   .er-filter-count   { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; margin-left:auto; flex-shrink:0; }
 
   /* ── Table ── */
-  .er-table-wrap { overflow-x:auto; }
+  .er-table-wrap { overflow-x:auto; } /* Removed min-height to reduce extra space below list */
   table.er-table { width:100%; border-collapse:collapse; }
   .er-table thead tr { background:#f8fafc; border-bottom:1.5px solid #e8edf5; }
   .er-table th {
@@ -277,9 +333,10 @@ const CSS = `
   .er-table th:hover { color:#1d4ed8; }
   .er-table th.er-sorted { color:#1d4ed8; }
   .er-th-inner { display:flex; align-items:center; gap:5px; }
-  .er-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background 0.1s; }
+  .er-table tbody tr { border-bottom:1px solid #f1f5f9; transition:background 0.1s; position:relative; }
   .er-table tbody tr:last-child { border-bottom:none; }
-  .er-table tbody tr:hover { background:#fafbfe; }
+  .er-table tbody tr:hover { background:#fafbfe; z-index:5; }
+  .er-table tbody tr:focus-within { z-index:100; } /* Ensure row with active menu is on top */
   .er-table td { padding:11px 13px; vertical-align:middle; }
 
   /* ── Emp ID cell — Inter monospace ── */
@@ -328,7 +385,7 @@ const CSS = `
   .er-badge-rejected  { background:#fef2f2; color:#dc2626; }
 
   /* ── 3-dot Action Menu ── */
-  .er-dots-wrap { position:relative; display:inline-flex; justify-content:center; }
+  .er-dots-wrap { position:relative; display:inline-flex; justify-content:center; perspective:1000px; }
   .er-dots-btn {
     width:30px; height:30px; border-radius:7px; border:1px solid #e2e8f0; background:#f8fafc;
     display:inline-flex; align-items:center; justify-content:center;
@@ -336,25 +393,31 @@ const CSS = `
   }
   .er-dots-btn:hover { background:#f1f5f9; border-color:#cbd5e1; color:#0f172a; }
   .er-dots-menu {
-    position:absolute; top:calc(100% + 6px); right:0; z-index:50;
-    background:#fff; border:1px solid #e2e8f0; border-radius:10px;
-    box-shadow:0 8px 24px rgba(15,23,42,.12); min-width:160px; overflow:hidden;
-    animation:erMenuIn .14s ease both;
+    position:absolute; top:50%; right:calc(100% + 8px); transform:translateY(-50%); z-index:2000;
+    background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+    box-shadow:0 12px 32px rgba(15,23,42,.18), 0 4px 12px rgba(15,23,42,.08);
+    min-width:180px; overflow:visible;
+    animation:erMenuInRel .15s cubic-bezier(0.16, 1, 0.3, 1) both;
+    display:flex; flex-direction:column;
+    pointer-events:auto;
   }
+  @keyframes erMenuInRel { from{opacity:0;transform:translateY(-50%) translateX(8px) scale(0.95)} to{opacity:1;transform:translateY(-50%) translateX(0) scale(1)} }
   @keyframes erMenuIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
   .er-dots-item {
-    display:flex; align-items:center; gap:9px;
-    padding:9px 14px;
-    font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:#334155;
+    padding:11px 16px;
+    font-family:'DM Sans',sans-serif; font-size:13.5px; font-weight:600; color:#334155;
     cursor:pointer; transition:background .1s; white-space:nowrap;
     background:none; border:none; width:100%; text-align:left;
+    display:flex; align-items:center; gap:10px;
   }
   .er-dots-item:hover { background:#f8fafc; }
   .er-dots-item.approve { color:#15803d; }
   .er-dots-item.approve:hover { background:#f0fdf4; }
   .er-dots-item.reject  { color:#dc2626; }
   .er-dots-item.reject:hover  { background:#fef2f2; }
-  .er-dots-divider { height:1px; background:#f1f5f9; margin:3px 0; }
+  .er-dots-item.relieve { color:#0f172a; }
+  .er-dots-item.relieve:hover { background:#f1f5f9; }
+  .er-dots-divider { height:1px; background:#f1f5f9; margin:4px 0; flex-shrink:0; }
 
   /* ── Empty State ── */
   .er-empty { padding:52px 24px; text-align:center; }
@@ -522,6 +585,15 @@ const CSS = `
   .er-progress-label { display:flex; justify-content:space-between; font-family:'DM Sans',sans-serif; font-size:11.5px; font-weight:600; color:#64748b; margin-bottom:6px; }
   .er-progress-track { height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
   .er-progress-fill  { height:100%; border-radius:99px; background:linear-gradient(90deg,#1d4ed8,#60a5fa); transition:width 0.4s ease; }
+
+  /* ── Pagination ── */
+  .er-pagination { padding: 16px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #fafbfe; }
+  .er-pag-info { font-family:'DM Sans',sans-serif; font-size: 13px; color: #64748b; font-weight: 500; }
+  .er-pag-btns { display: flex; gap: 8px; }
+  .er-pag-btn { padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font-family:'DM Sans',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; color: #334155; transition: 0.2s; }
+  .er-pag-btn:hover:not(:disabled) { background: #f8fafc; border-color: #1d4ed8; color: #1d4ed8; transform: translateY(-1px); }
+  .er-pag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .er-pag-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; box-shadow: 0 2px 8px rgba(29,78,216,0.2); }
 `;
 
 /* ─────────────────────────────────────────────
@@ -575,6 +647,19 @@ function VF({ label, value }: VFProps) {
   );
 }
 
+
+/* ─────────────────────────────────────────────
+   EXIT REQUEST FORM
+───────────────────────────────────────────── */
+interface CreateRelievingInput {
+  employee_id: string;
+  employee_code: string;
+  resignation_date: string;
+  last_working_date: string;
+  notice_period_days: number;
+  reason: string;
+}
+
 /* ─────────────────────────────────────────────
    3-DOT ACTION MENU
 ───────────────────────────────────────────── */
@@ -583,11 +668,13 @@ interface DotsMenuProps {
   onView: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onRelieve: () => void;
 }
-function DotsMenu({ rec, onView, onApprove, onReject }: DotsMenuProps) {
+function DotsMenu({ rec, onView, onApprove, onReject, onRelieve }: DotsMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const isPending = rec.status === "Pending Approval";
+  const canRelieve = rec.status === "Clearance In Progress";
 
   useEffect(() => {
     if (!open) return;
@@ -601,35 +688,45 @@ function DotsMenu({ rec, onView, onApprove, onReject }: DotsMenuProps) {
   }, [open]);
 
   return (
-    <div className="er-dots-wrap" ref={wrapRef}>
-      <button className="er-dots-btn" onClick={() => setOpen((v) => !v)}>
-        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-          <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+    <div className="er-dots-wrap" ref={wrapRef} style={{ zIndex: open ? 2000 : 1 }}>
+      <button className="er-dots-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}>
+        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="19" r="2.5"/>
         </svg>
       </button>
       {open && (
         <div className="er-dots-menu">
-          <button className="er-dots-item" onClick={() => { setOpen(false); onView(); }}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          <button className="er-dots-item" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onView(); }}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
             </svg>
-            View Details
+            View
           </button>
           {isPending && (
             <>
               <div className="er-dots-divider"/>
-              <button className="er-dots-item approve" onClick={() => { setOpen(false); onApprove(); }}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <button className="er-dots-item approve" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onApprove(); }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
                 </svg>
-                Approve Relieving
+                Confirm Relieve
               </button>
-              <button className="er-dots-item reject" onClick={() => { setOpen(false); onReject(); }}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <button className="er-dots-item reject" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onReject(); }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
-                Reject Request
+                Reject
+              </button>
+            </>
+          )}
+          {canRelieve && (
+            <>
+              <div className="er-dots-divider"/>
+              <button className="er-dots-item relieve" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onRelieve(); }}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Confirm Relieve
               </button>
             </>
           )}
@@ -639,17 +736,18 @@ function DotsMenu({ rec, onView, onApprove, onReject }: DotsMenuProps) {
   );
 }
 
+
 /* ─────────────────────────────────────────────
-   EXIT REQUEST FORM
+   RECORD EXIT MODAL
 ───────────────────────────────────────────── */
-interface ExitFormProps {
+interface RecordExitModalProps {
   open: boolean;
-  onToggle: () => void;
+  onClose: () => void;
   onToast: (msg: string) => void;
-  employees: any[];
-  createRelieving: any;
+  employees: RelievingEmployee[];
+  createRelieving: (options: { variables: { input: CreateRelievingInput } }) => void;
 }
-function ExitForm({ open, onToggle, onToast, employees, createRelieving }: ExitFormProps) {
+function RecordExitModal({ open, onClose, onToast, employees, createRelieving }: RecordExitModalProps) {
   const blank: FormState = {
     empId: "", resignDate: "", lastWorkingDay: "",
     exitReason: "Personal Reasons", exitReasonDetail: "", reportingManager: "",
@@ -657,8 +755,10 @@ function ExitForm({ open, onToggle, onToast, employees, createRelieving }: ExitF
   const [form, setForm] = useState<FormState>(blank);
   const [errors, setErrors] = useState<FormErrors>({});
 
+  if (!open) return null;
+
   const noticeDays = calcNoticeDays(form.resignDate, form.lastWorkingDay);
-  const selectedEmp = employees.find((e: any) => e.id === form.empId || e.employee_id === form.empId);
+  const selectedEmp = employees.find((e) => e.id === form.empId || e.employee_id === form.empId);
 
   function setF<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((p: FormState) => ({ ...p, [k]: v }));
@@ -691,121 +791,95 @@ function ExitForm({ open, onToggle, onToast, employees, createRelieving }: ExitF
         }
       }
     });
-    onToast(`Exit request submitted for ${selectedEmp.name}.`);
+    onToast(`Exit request submitted for ${selectedEmp.first_name} ${selectedEmp.last_name}.`);
     setForm({ ...blank });
     setErrors({});
-    onToggle();
+    onClose();
   }
 
   return (
-    <div className="er-section">
-      <div className={`er-form-header${open ? " open" : ""}`} onClick={onToggle}>
-        <div className="er-form-header-left">
-          <div className="er-form-icon">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#dc2626" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </div>
-          <div>
-            <div className="er-form-title">Record Exit Request</div>
-            <div className="er-form-sub">Submit a new employee resignation or exit record</div>
-          </div>
-        </div>
-        <svg className={`er-form-chevron${open ? " open" : ""}`} width="16" height="16" fill="none"
-          viewBox="0 0 24 24" stroke="#94a3b8" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-
-      {open && (
-        <div className="er-form-body">
-          <div className="er-form-grid">
-            <div>
-              <label className="er-label">Employee<span className="er-req">*</span></label>
-              <select className={`er-select${errors.empId ? " er-input-error" : ""}`}
-                value={form.empId} onChange={(e) => setF("empId", e.target.value)}>
-                <option value="">Select Employee…</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({emp.employee_id})</option>
-                ))}
-              </select>
-              {errors.empId && <div className="er-error-msg">{errors.empId}</div>}
-            </div>
-            <div>
-              <label className="er-label">Exit Reason<span className="er-req">*</span></label>
-              <select className="er-select" value={form.exitReason}
-                onChange={(e) => setF("exitReason", e.target.value as ExitReason)}>
-                {EXIT_REASONS.map((r: ExitReason) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="er-form-grid-3">
-            <div>
-              <label className="er-label">Resignation Date<span className="er-req">*</span></label>
-              <input type="date" className={`er-input${errors.resignDate ? " er-input-error" : ""}`}
-                value={form.resignDate} onChange={(e) => setF("resignDate", e.target.value)}/>
-              {errors.resignDate && <div className="er-error-msg">{errors.resignDate}</div>}
-            </div>
-            <div>
-              <label className="er-label">Last Working Day<span className="er-req">*</span></label>
-              <input type="date" className={`er-input${errors.lastWorkingDay ? " er-input-error" : ""}`}
-                value={form.lastWorkingDay} onChange={(e) => setF("lastWorkingDay", e.target.value)}/>
-              {errors.lastWorkingDay && <div className="er-error-msg">{errors.lastWorkingDay}</div>}
-            </div>
-            <div>
-              <label className="er-label">Notice Period (Auto)</label>
-              <div className="er-days-badge">
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {noticeDays > 0 ? `${noticeDays} days` : "—"}
-              </div>
-            </div>
-          </div>
-
-          <div className="er-form-grid">
-            <div>
-              <label className="er-label">Reporting Manager</label>
-              <input type="text" className="er-input"
-                placeholder={selectedEmp ? (selectedEmp.work_detail?.department?.name || "N/A") : "Auto-filled on employee selection"}
-                value={form.reportingManager || (selectedEmp ? (selectedEmp.reporting_to_employee ? `${selectedEmp.reporting_to_employee.first_name} ${selectedEmp.reporting_to_employee.last_name}` : "N/A") : "")}
-                onChange={(e) => setF("reportingManager", e.target.value)}
-                readOnly={!!selectedEmp}/>
-            </div>
-            <div>
-              <label className="er-label">Department</label>
-              <input type="text" className="er-input"
-                value={selectedEmp ? `${selectedEmp.work_detail?.department?.name || "N/A"} — ${selectedEmp.work_detail?.designation?.name || "N/A"}` : ""}
-                readOnly placeholder="Auto-filled on employee selection"/>
-            </div>
-          </div>
-
-          <div className="er-form-full">
-            <label className="er-label">Detailed Reason / Notes<span className="er-req">*</span></label>
-            <textarea className={`er-textarea${errors.exitReasonDetail ? " er-input-error" : ""}`}
-              placeholder="Describe specific reasons for resignation…"
-              value={form.exitReasonDetail}
-              onChange={(e) => setF("exitReasonDetail", e.target.value)}/>
-            {errors.exitReasonDetail && <div className="er-error-msg">{errors.exitReasonDetail}</div>}
-          </div>
-
-          <div className="er-form-actions">
-            <button className="er-btn er-btn-outline"
-              onClick={() => { setForm({ ...blank }); setErrors({}); onToggle(); }}>
-              Cancel
-            </button>
-            <button className="er-btn er-btn-primary" onClick={handleSubmit}>
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+    <div className="er-modal-overlay" onClick={onClose}>
+      <div className="er-modal" style={{ width: '580px' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="er-form-icon" style={{ background: '#fff1f2' }}>
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#e11d48" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              Submit Exit Request
-            </button>
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Record Exit Request</h3>
+              <p className="er-sub" style={{ margin: 0, fontSize: '12.5px' }}>Submit a new employee resignation record</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="er-form-grid">
+          <div>
+            <label className="er-label">Employee<span className="er-req">*</span></label>
+            <select className={`er-select${errors.empId ? " er-input-error" : ""}`}
+              value={form.empId} onChange={(e) => setF("empId", e.target.value)}>
+              <option value="">Select Employee…</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({emp.employee_id})</option>
+              ))}
+            </select>
+            {errors.empId && <div className="er-error-msg">{errors.empId}</div>}
+          </div>
+          <div>
+            <label className="er-label">Exit Reason<span className="er-req">*</span></label>
+            <select className="er-select" value={form.exitReason}
+              onChange={(e) => setF("exitReason", e.target.value as ExitReason)}>
+              {EXIT_REASONS.map((r: ExitReason) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
           </div>
         </div>
-      )}
+
+        <div className="er-form-grid-3">
+          <div>
+            <label className="er-label">Resignation Date<span className="er-req">*</span></label>
+            <input type="date" className={`er-input${errors.resignDate ? " er-input-error" : ""}`}
+              value={form.resignDate} onChange={(e) => setF("resignDate", e.target.value)}/>
+            {errors.resignDate && <div className="er-error-msg">{errors.resignDate}</div>}
+          </div>
+          <div>
+            <label className="er-label">Last Working Day<span className="er-req">*</span></label>
+            <input type="date" className={`er-input${errors.lastWorkingDay ? " er-input-error" : ""}`}
+              value={form.lastWorkingDay} onChange={(e) => setF("lastWorkingDay", e.target.value)}/>
+            {errors.lastWorkingDay && <div className="er-error-msg">{errors.lastWorkingDay}</div>}
+          </div>
+          <div>
+            <label className="er-label">Notice Period</label>
+            <div className="er-days-badge" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }}>
+              {noticeDays > 0 ? `${noticeDays} days` : "—"}
+            </div>
+          </div>
+        </div>
+
+        <div className="er-form-full">
+          <label className="er-label">Detailed Reason / Notes<span className="er-req">*</span></label>
+          <textarea className={`er-textarea${errors.exitReasonDetail ? " er-input-error" : ""}`}
+            style={{ height: '90px' }}
+            placeholder="Describe specific reasons for resignation…"
+            value={form.exitReasonDetail}
+            onChange={(e) => setF("exitReasonDetail", e.target.value)}/>
+          {errors.exitReasonDetail && <div className="er-error-msg">{errors.exitReasonDetail}</div>}
+        </div>
+
+        <div className="er-modal-actions" style={{ marginTop: '10px' }}>
+          <button className="er-modal-cancel" onClick={onClose}>Cancel</button>
+          <button className="er-modal-confirm" style={{ background: '#e11d48' }} onClick={handleSubmit}>
+            Submit Request
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -816,28 +890,28 @@ function ExitForm({ open, onToggle, onToast, employees, createRelieving }: ExitF
 interface DrawerProps {
   rec: ExitRecord;
   onClose: () => void;
-  onApprove: (id: number, remarks: string) => void;
-  onReject: (id: number, name: string, remarks: string) => void;
-  onRelieve: (id: number) => void;
+  onApprove: (id: string, remarks: string) => void;
+  onReject: (id: string, name: string, remarks: string) => void;
+  onRelieve: (id: string) => void;
   onClearanceUpdate: () => void;
-  onSettlementToggle: (id: number, key: keyof Settlement) => void;
-  onInterviewSave: (id: number, done: boolean, notes: string) => void;
+  onSettlementToggle: (id: string, key: keyof Settlement) => void;
+  onInterviewSave: (id: string, done: boolean, notes: string) => void;
 }
 
 function ExitDrawer({
   rec, onClose, onApprove, onReject, onRelieve,
   onClearanceUpdate, onSettlementToggle, onInterviewSave,
 }: DrawerProps) {
-  const [hrRemarks, setHrRemarks] = useState<string>(rec.hrRemarks);
+  const [hrRemarks, setHrRemarks] = useState<string>(rec.hrRemarks || "");
   const [clearanceRemarks, setClearanceRemarks] = useState<string[]>(
-    rec.clearances.map((c: Clearance) => c.remarks)
+    (rec.clearances || []).map((c: Clearance) => c.remarks || "")
   );
-  const [intDone, setIntDone] = useState<boolean>(rec.exitInterviewDone);
-  const [intNotes, setIntNotes] = useState<string>(rec.exitInterviewNotes);
+  const [intDone, setIntDone] = useState<boolean>(!!rec.exitInterviewDone);
+  const [intNotes, setIntNotes] = useState<string>(rec.exitInterviewNotes || "");
 
-  const approvedCount   = rec.clearances.filter((c: Clearance) => c.status === "Approved").length;
-  const totalClearances = rec.clearances.length;
-  const clearancePct    = Math.round((approvedCount / totalClearances) * 100);
+  const approvedCount   = (rec.clearances || []).filter((c: Clearance) => c.status === "Approved").length;
+  const totalClearances = (rec.clearances || []).length;
+  const clearancePct    = totalClearances > 0 ? Math.round((approvedCount / totalClearances) * 100) : 0;
 
   const settleKeys: Array<[keyof Settlement, string]> = [
     ["salarySettled",          "Salary Settlement"],
@@ -847,9 +921,9 @@ function ExitDrawer({
     ["noDuesIssued",           "No Dues Certificate"],
     ["experienceLetterIssued", "Experience Letter"],
   ];
-  const settledCount = settleKeys.filter(([k]) => rec.settlement[k]).length;
+  const settledCount = settleKeys.filter(([k]) => rec.settlement?.[k]).length;
 
-  const allClear = approvedCount === totalClearances;
+  const allClear = totalClearances > 0 && approvedCount === totalClearances;
   const canRelieve = rec.status === "Clearance In Progress" && allClear && settledCount === settleKeys.length;
 
   return (
@@ -1047,7 +1121,7 @@ function ExitDrawer({
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                Approve Exit
+                Confirm Relieve
               </button>
             </>
           )}
@@ -1059,7 +1133,7 @@ function ExitDrawer({
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {canRelieve ? "Mark as Relieved" : "Clearances Pending"}
+              {canRelieve ? "Confirm Relieve" : "Clearances Pending"}
             </button>
           )}
           {(rec.status === "Relieved" || rec.status === "Approved" || rec.status === "Rejected") && (
@@ -1070,6 +1144,36 @@ function ExitDrawer({
         </div>
       </div>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   CONFIRM RELIEVE MODAL
+───────────────────────────────────────────── */
+interface ConfirmRelieveModalProps {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+function ConfirmRelieveModal({ name, onConfirm, onCancel }: ConfirmRelieveModalProps) {
+  return (
+    <div className="er-modal-overlay" onClick={onCancel}>
+      <div className="er-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <div className="er-modal-icon" style={{ background:"#f0fdf4", color:"#15803d" }}>
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3>Confirm Relieving?</h3>
+        <p>Are you sure you want to confirm relieving for <strong>{name}</strong>? This action will update their official status.</p>
+        <div className="er-modal-actions">
+          <button className="er-modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="er-modal-confirm" style={{ background:"#15803d" }} onClick={onConfirm}>
+            Yes, Confirm Relieve
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1114,7 +1218,7 @@ export default function EmployeeRelieving() {
     search: "", department: "All", status: "All", dateFrom: "",
   });
 
-  const { data, refetch } = useQuery<any>(GET_RELIEVINGS, {
+  const { data, refetch } = useQuery<RelievingData>(GET_RELIEVINGS, {
     variables: {
       pagination: { page: currentPage, limit: itemsPerPage },
       status: filters.status === "All" ? undefined : filters.status,
@@ -1123,7 +1227,7 @@ export default function EmployeeRelieving() {
     fetchPolicy: "network-only"
   });
 
-  const { data: empData } = useQuery<any>(GET_EMPLOYEES, {
+  const { data: empData } = useQuery<{ getAllEmployees: { items: RelievingEmployee[] } }>(GET_EMPLOYEES, {
     variables: { pagination: { page: 1, limit: 1000 } }
   });
   const fetchedEmployees = empData?.getAllEmployees?.items || [];
@@ -1144,8 +1248,8 @@ export default function EmployeeRelieving() {
   });
 
   const records: ExitRecord[] = useMemo(() => {
-    return (data?.relievings?.items || []).map((r: any) => ({
-      id: parseInt(r.id),
+    return (data?.relievings?.items || []).map((r: BackendRelieving) => ({
+      id: r.id,
       empId: r.employee_code || r.employee_id,
       firstName: r.employee?.first_name || "Unknown",
       lastName: r.employee?.last_name || "",
@@ -1159,7 +1263,7 @@ export default function EmployeeRelieving() {
       resignDate: r.resignation_date,
       lastWorkingDay: r.last_working_date,
       noticePeriod: r.notice_period_days,
-      exitReason: r.reason || "Other",
+      exitReason: (r.reason || "Other") as ExitReason,
       exitReasonDetail: r.remarks || "",
       status: r.status,
       appliedDate: r.created_at || "",
@@ -1185,7 +1289,8 @@ export default function EmployeeRelieving() {
   const [drawerRec, setDrawerRec] = useState<ExitRecord | null>(null);
   const [formOpen, setFormOpen]   = useState<boolean>(false);
   const [toast, setToast]         = useState<string>("");
-  const [rejectTarget, setRejectTarget] = useState<{ id: any; name: string; remarks: string } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string } | null>(null);
+  const [relieveTarget, setRelieveTarget] = useState<{ id: string; name: string; status: ExitStatus; remarks?: string } | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -1240,28 +1345,28 @@ export default function EmployeeRelieving() {
   }
 
   /* Approve */
-  function handleApprove(id: number, remarks: string) {
-    updateRelieving({
-      variables: {
-        id: id.toString(),
-        input: { status: "Approved", remarks }
-      }
-    });
-    if (drawerRec?.id === id) setDrawerRec(null);
-    showToast("Exit request approved. Clearance process initiated.");
+  function initiateApprove(id: string, name: string, remarks: string) {
+    setRelieveTarget({ id, name, status: "Pending Approval", remarks });
   }
 
   /* Reject */
-  function initiateReject(id: number, name: string, remarks: string) {
+  function initiateReject(id: string, name: string, remarks: string) {
     setRejectTarget({ id, name, remarks });
   }
   function confirmReject() {
     if (!rejectTarget) return;
     updateRelieving({
       variables: {
-        id: rejectTarget.id.toString(),
+        id: rejectTarget.id,
         input: { status: "Rejected", remarks: rejectTarget.remarks }
-      }
+      },
+      refetchQueries: [
+        { query: GET_RELIEVINGS },
+        { query: GET_DASHBOARD_STATS },
+        { query: GET_EMPLOYEES },
+        { query: GET_LEAVES },
+        { query: GET_MOVEMENTS }
+      ]
     });
     if (drawerRec?.id === rejectTarget.id) setDrawerRec(null);
     showToast("Exit request rejected.");
@@ -1269,12 +1374,23 @@ export default function EmployeeRelieving() {
   }
 
   /* Relieve */
-  function handleRelieve(id: number) {
+  function initiateRelieve(id: string, name: string) {
+    setRelieveTarget({ id, name, status: "Clearance In Progress" });
+  }
+
+  function handleRelieve(id: string) {
     updateRelieving({
       variables: {
-        id: id.toString(),
+        id: id,
         input: { status: "Relieved" }
-      }
+      },
+      refetchQueries: [
+        { query: GET_RELIEVINGS },
+        { query: GET_DASHBOARD_STATS },
+        { query: GET_EMPLOYEES },
+        { query: GET_LEAVES },
+        { query: GET_MOVEMENTS }
+      ]
     });
     if (drawerRec?.id === id) setDrawerRec(null);
     showToast("Employee marked as Relieved. All clearances complete.");
@@ -1286,18 +1402,18 @@ export default function EmployeeRelieving() {
   }
 
   /* Settlement toggle */
-  function handleSettlementToggle(id: number, key: keyof Settlement) {
+  function handleSettlementToggle(id: string, key: keyof Settlement) {
     // For now, no specific backend field for this, but can map to assets_returned if it fits
     if (key === 'noDuesIssued') {
-       updateRelieving({ variables: { id: id.toString(), input: { assets_returned: true } } });
+       updateRelieving({ variables: { id, input: { assets_returned: true } } });
     }
   }
 
   /* Interview save */
-  function handleInterviewSave(id: number, done: boolean, notes: string) {
+  function handleInterviewSave(id: string, done: boolean, notes: string) {
     updateRelieving({
       variables: {
-        id: id.toString(),
+        id,
         input: { exit_interview_done: done, remarks: notes }
       }
     });
@@ -1332,6 +1448,15 @@ export default function EmployeeRelieving() {
         </div>
       </div>
 
+      {/* Record Exit Modal — triggered by header button */}
+      <RecordExitModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onToast={showToast}
+        employees={fetchedEmployees}
+        createRelieving={createRelieving}
+      />
+
       {/* Stat Cards */}
       <div className="er-stats">
         {([
@@ -1356,14 +1481,6 @@ export default function EmployeeRelieving() {
         ))}
       </div>
 
-      {/* Form */}
-      <ExitForm
-        open={formOpen}
-        onToggle={() => setFormOpen((v: boolean) => !v)}
-        onToast={showToast}
-        employees={fetchedEmployees}
-        createRelieving={createRelieving}
-      />
 
       {/* Table Section */}
       <div className="er-section">
@@ -1433,7 +1550,7 @@ export default function EmployeeRelieving() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((rec: ExitRecord, idx: number) => (
+                {filtered.map((rec: ExitRecord, idx) => (
                   <tr key={rec.id} className={idx < 5 ? "er-row-in" : ""}>
 
                     {/* Emp ID — Inter */}
@@ -1471,8 +1588,9 @@ export default function EmployeeRelieving() {
                       <DotsMenu
                         rec={rec}
                         onView={() => setDrawerRec(rec)}
-                        onApprove={() => handleApprove(rec.id, "")}
+                        onApprove={() => initiateApprove(rec.id, `${rec.firstName} ${rec.lastName}`, "")}
                         onReject={() => initiateReject(rec.id, `${rec.firstName} ${rec.lastName}`, "")}
+                        onRelieve={() => initiateRelieve(rec.id, `${rec.firstName} ${rec.lastName}`)}
                       />
                     </td>
 
@@ -1485,13 +1603,13 @@ export default function EmployeeRelieving() {
 
         {/* Pagination UI */}
         {totalPages > 1 && (
-          <div className="lv-pagination">
-            <div className="lv-pag-info">
+          <div className="er-pagination">
+            <div className="er-pag-info">
               Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
             </div>
-            <div className="lv-pag-btns">
+            <div className="er-pag-btns">
               <button 
-                className="lv-pag-btn" 
+                className="er-pag-btn" 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
                 disabled={currentPage === 1}
               >
@@ -1500,14 +1618,14 @@ export default function EmployeeRelieving() {
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                 <button 
                   key={p} 
-                  className={`lv-pag-btn ${p === currentPage ? 'active' : ''}`} 
+                  className={`er-pag-btn ${p === currentPage ? 'active' : ''}`} 
                   onClick={() => setCurrentPage(p)}
                 >
                   {p}
                 </button>
               ))}
               <button 
-                className="lv-pag-btn" 
+                className="er-pag-btn" 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
                 disabled={currentPage === totalPages}
               >
@@ -1523,12 +1641,12 @@ export default function EmployeeRelieving() {
         <ExitDrawer
           rec={drawerRec}
           onClose={() => setDrawerRec(null)}
-          onApprove={(id: number, remarks: string) => { handleApprove(id, remarks); }}
-          onReject={(id: number, name: string, remarks: string) => {
+          onApprove={(id: string, remarks: string) => { initiateApprove(id, `${drawerRec.firstName} ${drawerRec.lastName}`, remarks); }}
+          onReject={(id: string, name: string, remarks: string) => {
             initiateReject(id, name, remarks);
             setDrawerRec(null);
           }}
-          onRelieve={(id: number) => { handleRelieve(id); }}
+          onRelieve={(id: string) => { initiateRelieve(id, `${drawerRec.firstName} ${drawerRec.lastName}`); }}
           onClearanceUpdate={handleClearanceUpdate}
           onSettlementToggle={handleSettlementToggle}
           onInterviewSave={handleInterviewSave}
@@ -1541,6 +1659,19 @@ export default function EmployeeRelieving() {
           name={rejectTarget.name}
           onConfirm={confirmReject}
           onCancel={() => setRejectTarget(null)}
+        />
+      )}
+
+      {/* Confirm Relieve Modal */}
+      {relieveTarget && (
+        <ConfirmRelieveModal
+          name={relieveTarget.name}
+          onConfirm={() => {
+            handleRelieve(relieveTarget.id);
+            setRelieveTarget(null);
+            setDrawerRec(null);
+          }}
+          onCancel={() => setRelieveTarget(null)}
         />
       )}
 

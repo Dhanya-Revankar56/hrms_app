@@ -25,6 +25,33 @@ interface OnboardingEmployee {
   city: string; pinCode: string; status: StatusType;
   bankName: string; accountNo: string; ifsc: string;
   hasSecondaryBank: boolean; bankName2: string; accountNo2: string; ifsc2: string;
+  appRole: string;
+}
+
+interface SettingsData {
+  settings: {
+    departments: { id: string; name: string }[];
+    designations: { id: string; name: string }[];
+    employee_categories: { id: string; name: string }[];
+    employee_types: { id: string; name: string }[];
+    leave_types: { name: string; total_days: number }[];
+  };
+}
+
+interface BackendEmployee {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  user_email: string;
+  user_contact: string;
+  app_status: string;
+  app_role: string;
+  work_detail?: {
+    department?: { id: string; name: string };
+    designation?: { id: string; name: string };
+    date_of_joining?: string;
+  };
 }
 
 type FormState = Omit<OnboardingEmployee, "id" | "status">;
@@ -52,7 +79,7 @@ const EMPTY_FORM: FormState = {
   addressLine1: "", addressLine2: "", country: "", state: "", city: "", pinCode: "",
   bankName: "", accountNo: "", ifsc: "",
   hasSecondaryBank: false, bankName2: "", accountNo2: "", ifsc2: "",
-  employeeImage: ""
+  employeeImage: "", appRole: "EMPLOYEE"
 };
 
 const PAGE_CSS = `
@@ -118,8 +145,8 @@ function Field({ label, error, required = false, children }: { label: string; er
 
 export default function EmployeeOnboarding() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: settingsData } = useQuery<any>(GET_SETTINGS);
-  const { data: employeesData, refetch: refetchEmployees } = useQuery<any>(GET_EMPLOYEES, {
+  const { data: settingsData } = useQuery<SettingsData>(GET_SETTINGS);
+  const { data: employeesData, refetch: refetchEmployees } = useQuery<{ getAllEmployees: { items: BackendEmployee[] } }>(GET_EMPLOYEES, {
     fetchPolicy: 'network-only'
   });
   const [createEmployee, { loading }] = useMutation(CREATE_EMPLOYEE);
@@ -135,7 +162,7 @@ export default function EmployeeOnboarding() {
   
   // The user requested that we list users from User Management in the dropdown. 
   // We'll show all users as they map to "employees".
-  const reportingManagers = allEmployees.filter((e: any) => e.app_status === "active");
+  const reportingManagers = allEmployees.filter((e) => e.app_status === "active");
 
   const recentlyOnboarded = allEmployees.slice(0, 5); // Newest employees first from the backend sort
 
@@ -198,7 +225,7 @@ export default function EmployeeOnboarding() {
         user_email: form.email,
         user_contact: form.phone,
         employee_image: form.employeeImage,
-        app_role: "Employee",
+        app_role: form.appRole,
         reporting_to: form.reportingTo || null,
         personal_detail: {
           date_of_birth: form.dob,
@@ -226,7 +253,7 @@ export default function EmployeeOnboarding() {
         refetchEmployees();
         setTimeout(() => setToast(""), 3000);
       }
-    } catch (e: any) { setToast(e.message); }
+    } catch (e: unknown) { setToast(e instanceof Error ? e.message : String(e)); }
   }
 
   return (
@@ -278,21 +305,28 @@ export default function EmployeeOnboarding() {
               <Field label="HR Department" required error={errors.hrDepartment}>
                 <select name="hrDepartment" value={form.hrDepartment} onChange={handleChange} className="ob-select">
                   <option value="">Select HR Dept</option>
-                  {departments.map((d:any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </Field>
               <Field label="Designation" required error={errors.designation}>
                 <select name="designation" value={form.designation} onChange={handleChange} className="ob-select">
                   <option value="">Select Designation</option>
-                  {designations.map((d:any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {designations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </Field>
               <Field label="Reporting To">
                 <select name="reportingTo" value={form.reportingTo} onChange={handleChange} className="ob-select">
                   <option value="">Select Manager</option>
-                  {reportingManagers.map((m: any) => (
+                  {reportingManagers.map((m) => (
                     <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                   ))}
+                </select>
+              </Field>
+              <Field label="System Role" required>
+                <select name="appRole" value={form.appRole} onChange={handleChange} className="ob-select">
+                  <option value="ADMIN">ADMIN</option>
+                  <option value="HEAD OF DEPARTMENT">HEAD OF DEPARTMENT</option>
+                  <option value="EMPLOYEE">EMPLOYEE</option>
                 </select>
               </Field>
             </div>
@@ -303,13 +337,13 @@ export default function EmployeeOnboarding() {
               <Field label="Employee Type">
                 <select name="employmentType" value={form.employmentType} onChange={handleChange} className="ob-select">
                   <option value="">Select Type</option>
-                  {empTypes.map((t:any) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                  {empTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
                 </select>
               </Field>
               <Field label="Employee Category">
                 <select name="category" value={form.category} onChange={handleChange} className="ob-select">
                   <option value="">Select Category</option>
-                  {categories.map((c:any) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </Field>
             </div>
@@ -438,19 +472,21 @@ export default function EmployeeOnboarding() {
                 <th>Department</th>
                 <th>Designation</th>
                 <th>Joining Date</th>
+                <th>Role</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {recentlyOnboarded.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: "32px", color: "#94a3b8" }}>No employees onboarded yet.</td></tr>
-              ) : recentlyOnboarded.map((emp: any) => (
+                <tr><td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "#94a3b8" }}>No employees onboarded yet.</td></tr>
+              ) : recentlyOnboarded.map((emp) => (
                 <tr key={emp.id}>
                   <td style={{ fontWeight: 600, fontFamily: "'Inter', sans-serif" }}>{emp.employee_id || "PENDING"}</td>
                   <td style={{ fontWeight: 700 }}>{emp.first_name} {emp.last_name}</td>
                   <td>{emp.work_detail?.department?.name || "—"}</td>
                   <td>{emp.work_detail?.designation?.name || "—"}</td>
                   <td>{formatDateForDisplay(emp.work_detail?.date_of_joining)}</td>
+                  <td><span className="ob-status-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>{emp.app_role?.toLowerCase() === "hod" ? "HEAD OF DEPARTMENT" : (emp.app_role?.toUpperCase() || "EMPLOYEE")}</span></td>
                   <td><span className="ob-status-badge ob-status-active">Active</span></td>
                 </tr>
               ))}

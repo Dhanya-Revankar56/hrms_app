@@ -307,7 +307,7 @@ const CloseIcon = () => (
 );
 
 export default function LeaveTypesSection() {
-  const { data, loading, refetch } = useQuery<any>(GET_SETTINGS, {
+  const { data, loading, refetch } = useQuery<{ settings: { leave_types: LeaveType[] } }>(GET_SETTINGS, {
     fetchPolicy: 'network-only'
   });
   const [upsertLeaveType, { loading: saveLoading }] = useMutation(UPSERT_LEAVE_TYPE, {
@@ -400,8 +400,8 @@ export default function LeaveTypesSection() {
           }
         }
       });
-    } catch (e: any) {
-      showToast(e.message);
+    } catch (e) {
+       showToast(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -409,8 +409,8 @@ export default function LeaveTypesSection() {
     if (!confirm("Remove this leave type?")) return;
     try {
       await deleteLeaveType({ variables: { id } });
-    } catch (e: any) {
-      showToast(e.message);
+    } catch (e) {
+       showToast(e instanceof Error ? e.message : String(e));
     }
   }
 

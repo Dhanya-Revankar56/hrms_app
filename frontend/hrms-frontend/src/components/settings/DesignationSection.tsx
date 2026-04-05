@@ -238,7 +238,7 @@ const CSS = `
 `;
 
 export default function DesignationsSection() {
-  const { data, loading, refetch } = useQuery<any>(GET_SETTINGS, {
+  const { data, loading, refetch } = useQuery<{ settings: { designations: Designation[] } }>(GET_SETTINGS, {
     fetchPolicy: 'network-only'
   });
   const designations: Designation[] = data?.settings?.designations || [];
@@ -284,8 +284,8 @@ export default function DesignationsSection() {
           } 
         }
       });
-    } catch (e: any) {
-      showToast(e.message);
+    } catch (e) {
+       showToast(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -293,8 +293,8 @@ export default function DesignationsSection() {
     if (!confirm("Remove this designation?")) return;
     try {
       await deleteDesignation({ variables: { id } });
-    } catch (e: any) {
-      showToast(e.message);
+    } catch (e) {
+       showToast(e instanceof Error ? e.message : String(e));
     }
   }
 

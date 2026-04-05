@@ -151,7 +151,21 @@ const CSS = `
 `;
 
 export default function UserManagementSection() {
-  const { data: employeesData, refetch } = useQuery<any>(GET_EMPLOYEES, { fetchPolicy: 'network-only' });
+  const { data: employeesData, refetch } = useQuery<{
+    getAllEmployees: {
+      items: Array<{
+        id: string;
+        first_name: string;
+        last_name: string;
+        user_email: string;
+        app_role?: string;
+        app_status?: string;
+        work_detail?: {
+          department?: { name: string };
+        };
+      }>;
+    };
+  }>(GET_EMPLOYEES, { fetchPolicy: 'network-only' });
   const [updateEmployee] = useMutation(UPDATE_EMPLOYEE);
   
   const [activeTab, setActiveTab] = useState<"Users" | "Admin">("Users");
@@ -165,13 +179,13 @@ export default function UserManagementSection() {
 
   const users: ManagedUser[] = useMemo(() => {
     if (!employeesData?.getAllEmployees?.items) return [];
-    return employeesData.getAllEmployees.items.map((e: any) => ({
+    return employeesData.getAllEmployees.items.map((e) => ({
       id: e.id,
       name: `${e.first_name} ${e.last_name}`,
       role: mapBackendRoleToUI(e.app_role || "employee"),
       status: e.app_status === "active" ? "Active" : "Inactive",
       email: e.user_email,
-      department: e.work_detail?.department || "No Department assigned"
+      department: e.work_detail?.department?.name || "No Department assigned"
     }));
   }, [employeesData]);
 

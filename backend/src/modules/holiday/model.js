@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const holidaySchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy support
     name: { type: String, required: true },
     date: { type: Date, required: true },
     type: { type: String, enum: ["public", "restricted", "other"], default: "public" },
@@ -14,6 +16,9 @@ const holidaySchema = new mongoose.Schema(
   }
 );
 
-holidaySchema.index({ institution_id: 1, date: 1 }, { unique: true });
+holidaySchema.index({ tenant_id: 1, date: 1 }, { unique: true });
+
+// Apply tenant isolation
+tenantPlugin(holidaySchema);
 
 module.exports = mongoose.model("Holiday", holidaySchema);

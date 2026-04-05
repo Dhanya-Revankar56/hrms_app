@@ -5,7 +5,7 @@
   "main": "check_leaves.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky install"
+    "prepare": "husky install || true"
   },
   "repository": {
     "type": "git",
@@ -23,6 +23,10 @@
     "husky": "^8.0.0",
     "lint-staged": "^16.4.0"
   },
+  "workspaces": [
+    "backend",
+    "frontend/hrms-frontend"
+  ],
   "lint-staged": {
     "frontend/hrms-frontend/src/**/*.{ts,tsx}": [
       "npm --prefix frontend/hrms-frontend run lint"

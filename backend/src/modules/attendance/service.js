@@ -1,7 +1,9 @@
 const Attendance = require("./model");
+const { withTenant, applyTenantFilter } = require("../../utils/tenantUtils");
+const AuditLog = require("../audit/model");
 
-exports.listAttendance = async ({ institution_id, employee_id, status, from_date, to_date, pagination }) => {
-  const filter = { institution_id };
+exports.listAttendance = async ({ employee_id, status, from_date, to_date, pagination }) => {
+  const filter = withTenant({});
   if (employee_id) filter.employee_id = employee_id;
   if (status) filter.status = status;
   if (from_date && to_date) {
@@ -28,30 +30,53 @@ exports.listAttendance = async ({ institution_id, employee_id, status, from_date
   };
 };
 
-exports.getAttendanceById = async (id, institution_id) => {
-  const rec = await Attendance.findOne({ _id: id, institution_id }).lean();
+exports.getAttendanceById = async (id) => {
+  const filter = withTenant({ _id: id });
+  const rec = await Attendance.findOne(filter).lean();
   if (!rec) throw new Error("Attendance record not found");
   return rec;
 };
 
 exports.createAttendance = async (data) => {
-  const record = new Attendance(data);
+  const filter = withTenant({});
+  const record = new Attendance({ ...data, ...filter });
   const saved = await record.save();
   return saved.toObject();
 };
 
-exports.updateAttendance = async (id, data, institution_id) => {
+exports.updateAttendance = async (id, data, context) => {
+  const filter = withTenant({ _id: id });
   const updated = await Attendance.findOneAndUpdate(
-    { _id: id, institution_id },
+    filter,
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
+
   if (!updated) throw new Error("Attendance record not found");
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "ATTENDANCE_UPDATED",
+    user_id: context?.user?.id || context?.req?.user?.id,
+    tenant_id: filter.tenant_id,
+    metadata: { attendance_id: id, status: updated.status }
+  });
+
   return updated;
 };
 
-exports.deleteAttendance = async (id, institution_id) => {
-  const deleted = await Attendance.findOneAndDelete({ _id: id, institution_id });
+exports.deleteAttendance = async (id, context) => {
+  const filter = withTenant({ _id: id });
+  const deleted = await Attendance.findOneAndDelete(filter).lean();
   if (!deleted) throw new Error("Attendance record not found");
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "ATTENDANCE_DELETED",
+    user_id: context?.user?.id || context?.req?.user?.id,
+    tenant_id: filter.tenant_id,
+    metadata: { attendance_id: id }
+  });
+
   return { success: true, message: "Attendance record deleted successfully" };
 };

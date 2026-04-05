@@ -10,6 +10,10 @@ const typeDefs = gql`
     pan_no: String
     pf_no: String
     esic_no: String
+    religion: String
+    father_name: String
+    category: String
+    personal_category: String
   }
 
   type Department {
@@ -30,6 +34,8 @@ const typeDefs = gql`
     designation: Designation
     department: Department
     employee_type: String
+    employee_sub_type: String
+    hiring_source: String
     reporting_to: ID
   }
 
@@ -62,6 +68,8 @@ const typeDefs = gql`
     app_status: String
     app_role: String
     is_active: Boolean
+    relieved_at: String
+    relieved_reason: String
     reporting_to: ID
     created_at: String
     updated_at: String
@@ -78,6 +86,10 @@ const typeDefs = gql`
     pan_no: String
     pf_no: String
     esic_no: String
+    religion: String
+    father_name: String
+    category: String
+    personal_category: String
   }
 
   input WorkDetailInput {
@@ -85,6 +97,8 @@ const typeDefs = gql`
     designation: String
     department: String
     employee_type: String
+    employee_sub_type: String
+    hiring_source: String
     reporting_to: ID
   }
 
@@ -129,6 +143,8 @@ const typeDefs = gql`
     app_status: String
     app_role: String
     is_active: Boolean
+    relieved_at: String
+    relieved_reason: String
     reporting_to: ID
   }
 

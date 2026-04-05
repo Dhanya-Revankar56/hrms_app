@@ -127,6 +127,26 @@ const HOLIDAY_CSS = `
   .hl-btn-delete { background: #fff1f2; color: #e11d48; border: none; padding: 10px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
 `;
 
+interface Holiday {
+  id: string;
+  name: string;
+  date: string;
+  type: "public" | "restricted" | "other";
+  description?: string;
+  is_active?: boolean;
+}
+
+interface SelectedDay {
+  day: number;
+  id?: string;
+}
+
+interface HolidayFormData {
+  name: string;
+  type: string;
+  description: string;
+}
+
 export default function Holidays() {
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [monthYear, setMonthYear] = useState(() => {
@@ -134,24 +154,24 @@ export default function Holidays() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   
-  const [selectedDay, setSelectedDay] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: "", type: "public", description: "" });
+  const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null);
+  const [formData, setFormData] = useState<HolidayFormData>({ name: "", type: "public", description: "" });
 
   const [yearNum, monthNum] = monthYear.split("-").map(Number);
 
-  const { data, refetch } = useQuery<{ holidays: any[] }>(GET_HOLIDAYS, {
+  const { data, refetch } = useQuery<{ holidays: Holiday[] }>(GET_HOLIDAYS, {
     variables: { year: yearNum, month: monthNum },
     fetchPolicy: "network-only"
   });
 
-  const { data: settingsData } = useQuery<{ settings: any }>(GET_SETTINGS);
+  const { data: settingsData } = useQuery<{ settings: { working_days: string[] } }>(GET_SETTINGS);
 
   const [createHoliday] = useMutation(CREATE_HOLIDAY);
   const [updateHoliday] = useMutation(UPDATE_HOLIDAY);
   const [deleteHoliday] = useMutation(DELETE_HOLIDAY);
 
-  const holidaysList = data?.holidays || [];
-  const workingDaysConfig = settingsData?.settings?.working_days || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const holidaysList = useMemo(() => data?.holidays || [], [data]);
+  const workingDaysConfig = useMemo(() => settingsData?.settings?.working_days || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], [settingsData]);
 
   /* ─────────────────────────────────────────────
      CALENDAR HELPERS
@@ -191,7 +211,7 @@ export default function Holidays() {
       const d = new Date(yearNum, monthNum - 1, i);
       const dayName = d.toLocaleDateString("en-US", { weekday: "long" });
       const isWeekend = !workingDaysConfig.includes(dayName);
-      const isHoliday = holidaysList.some((h: any) => new Date(h.date).getDate() === i);
+      const isHoliday = holidaysList.some((h: Holiday) => new Date(h.date).getDate() === i);
 
       if (!isWeekend && !isHoliday) {
         working++;
@@ -205,7 +225,7 @@ export default function Holidays() {
      HANDLERS
   ───────────────────────────────────────────── */
   const handleOpenUpdate = (day: number) => {
-    const existing = holidaysList.find((h: any) => new Date(h.date).getDate() === day);
+    const existing = holidaysList.find((h: Holiday) => new Date(h.date).getDate() === day);
     setSelectedDay({ day, id: existing?.id });
     setFormData({
       name: existing?.name || "",
@@ -215,6 +235,7 @@ export default function Holidays() {
   };
 
   const handleSave = async () => {
+    if (!selectedDay) return;
     try {
       const dateStr = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(selectedDay.day).padStart(2, '0')}`;
       if (selectedDay.id) {
@@ -224,19 +245,19 @@ export default function Holidays() {
       }
       refetch();
       setSelectedDay(null);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : String(err));
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to remove this holiday?")) return;
+    if (!selectedDay?.id || !confirm("Are you sure you want to remove this holiday?")) return;
     try {
       await deleteHoliday({ variables: { id: selectedDay.id } });
       refetch();
       setSelectedDay(null);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -297,7 +318,7 @@ export default function Holidays() {
             ))}
             
             {daysInMonth.map((d, index) => {
-              const h = d.currentMonth ? holidaysList.find((hl: any) => new Date(hl.date).getDate() === d.day) : null;
+              const h = d.currentMonth ? holidaysList.find((hl: Holiday) => new Date(hl.date).getDate() === d.day) : null;
               return (
                 <div 
                   key={index} 
@@ -334,7 +355,7 @@ export default function Holidays() {
                   </td>
                 </tr>
               ) : (
-                holidaysList.map((h: any) => (
+                holidaysList.map((h: Holiday) => (
                   <tr key={h.id}>
                     <td style={{ fontWeight: 600 }}>{new Date(h.date).toLocaleDateString("en-US", { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                     <td style={{ fontWeight: 700 }}>{h.name}</td>

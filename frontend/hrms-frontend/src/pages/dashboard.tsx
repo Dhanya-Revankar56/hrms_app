@@ -73,10 +73,49 @@ const getDaysUntil = (isoStr: string) => {
   return `In ${diff} days`;
 };
 
+interface Holiday {
+  id: string;
+  name: string;
+  date: string;
+  type?: "public" | "restricted" | "other";
+}
+
+interface DashboardStats {
+  totalEmployees: number;
+  onLeaveToday: number;
+  presentToday: number;
+  absentToday: number;
+  pendingApprovals: number;
+  pendingLeaves: number;
+  pendingMovements: number;
+  upcomingHolidays: Holiday[];
+  onLeaveEmployees: Array<{
+    id: string;
+    name: string;
+    department: string;
+    leave_type: string;
+  }>;
+}
+
+interface JoineeEmployee {
+  id: string;
+  first_name: string;
+  last_name: string;
+  work_detail?: {
+    designation?: { name: string };
+    department?: { name: string };
+  };
+}
+
+interface Department {
+  id: string;
+  name: string;
+}
+
 export default function Dashboard() {
-  const { data: statsData } = useQuery<any>(GET_DASHBOARD_STATS, { fetchPolicy: "network-only" });
-  const { data: employeesData } = useQuery<any>(GET_EMPLOYEES, { fetchPolicy: "network-only" });
-  const { data: settingsData } = useQuery<any>(GET_SETTINGS, { fetchPolicy: "network-only" });
+  const { data: statsData } = useQuery<{ dashboardStats: DashboardStats }>(GET_DASHBOARD_STATS, { fetchPolicy: "network-only" });
+  const { data: employeesData } = useQuery<{ getAllEmployees: { items: JoineeEmployee[] } }>(GET_EMPLOYEES, { fetchPolicy: "network-only" });
+  const { data: settingsData } = useQuery<{ settings: { departments: Department[] } }>(GET_SETTINGS, { fetchPolicy: "network-only" });
 
   const stats = statsData?.dashboardStats || {
     totalEmployees: 0, onLeaveToday: 0, presentToday: 0,
@@ -84,7 +123,7 @@ export default function Dashboard() {
     pendingMovements: 0, upcomingHolidays: [], onLeaveEmployees: []
   };
   const departmentsCount = settingsData?.settings?.departments?.length || 0;
-  const upcomingHolidays: any[] = stats.upcomingHolidays || [];
+  const upcomingHolidays = stats.upcomingHolidays || [];
 
   const statCards = [
     { id: "total",       label: "Total Employees", value: stats.totalEmployees,  icon: "people",      color: "#1d4ed8", bgColor: "#eff6ff", trend: "Real-time",         trendUp: true  },
@@ -94,7 +133,7 @@ export default function Dashboard() {
     { id: "departments", label: "Departments",     value: departmentsCount,      icon: "building",    color: "#7c3aed", bgColor: "#f5f3ff", trend: "All active",        trendUp: true  },
   ];
 
-  const recentEmployees = (employeesData?.getAllEmployees?.items || []).slice(0, 5).map((emp: any) => ({
+  const recentEmployees = (employeesData?.getAllEmployees?.items || []).slice(0, 5).map((emp: JoineeEmployee) => ({
     id: emp.id,
     name: `${emp.first_name} ${emp.last_name}`,
     role: emp.work_detail?.designation?.name || "Employee",
@@ -164,7 +203,7 @@ export default function Dashboard() {
               {stats.onLeaveToday === 0 ? (
                 <div className="dash-row-sub" style={{ padding: "20px 0" }}>Everyone is present today!</div>
               ) : (
-                (stats.onLeaveEmployees || []).map((emp: any) => (
+                (stats.onLeaveEmployees || []).map((emp) => (
                   <div key={emp.id} className="on-leave-row">
                     <div className="on-leave-avatar" style={{ background: getColor(emp.name) }}>
                       {getInitials(emp.name)}
@@ -197,7 +236,7 @@ export default function Dashboard() {
               {recentEmployees.length === 0 ? (
                 <div className="dash-row-sub" style={{ padding: "20px 0" }}>No recent joinees.</div>
               ) : (
-                recentEmployees.map((emp: any) => (
+                recentEmployees.map((emp) => (
                   <div key={emp.id} className="dash-row-item">
                     <div className="dash-avatar" style={{ background: emp.avatarColor }}>{emp.avatarInitials}</div>
                     <div>
@@ -238,7 +277,7 @@ export default function Dashboard() {
               {upcomingHolidays.length === 0 ? (
                 <div className="dash-row-sub" style={{ padding: "20px 0" }}>No upcoming holidays scheduled.</div>
               ) : (
-                upcomingHolidays.map((h: any) => (
+                upcomingHolidays.map((h: Holiday) => (
                   <div key={h.id} className="dash-row-item">
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>🚩</div>
                     <div style={{ flex: 1, minWidth: 0 }}>

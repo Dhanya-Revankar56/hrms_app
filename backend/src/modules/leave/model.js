@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const leaveSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy
     employee_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -26,7 +28,7 @@ const leaveSchema = new mongoose.Schema(
     // Dept Admin Approval
     dept_admin_status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "cancelled"],
       default: "pending",
     },
     dept_admin_id: { type: String, default: "" },
@@ -36,7 +38,7 @@ const leaveSchema = new mongoose.Schema(
     // Admin Approval
     admin_status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "cancelled"],
       default: "pending",
     },
     admin_id: { type: String, default: "" },
@@ -46,10 +48,10 @@ const leaveSchema = new mongoose.Schema(
     // Structured Approvals
     approvals: [
       {
-        role: { type: String, enum: ["HOD", "ADMIN"], required: true },
+        role: { type: String, enum: ["HEAD OF DEPARTMENT", "ADMIN"], required: true },
         status: {
           type: String,
-          enum: ["pending", "approved", "rejected"],
+          enum: ["pending", "approved", "rejected", "cancelled"],
           default: "pending",
         },
         updated_at: { type: Date },
@@ -71,5 +73,8 @@ const leaveSchema = new mongoose.Schema(
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
+
+// Apply tenant isolation
+tenantPlugin(leaveSchema);
 
 module.exports = mongoose.model("Leave", leaveSchema);

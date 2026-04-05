@@ -1,4 +1,8 @@
 const Employee = require("./model");
+const User = require("../auth/user.model");
+const AuditLog = require("../audit/model");
+const { withTenant } = require("../../utils/tenantUtils");
+const { getTenantId } = require("../../middleware/tenantContext");
 const counterService = require("../counter/service");
 
 /**
@@ -7,16 +11,23 @@ const counterService = require("../counter/service");
  * They can be reused by different resolvers or even external triggers.
  */
 
-exports.listEmployees = async ({ institution_id, status, department, search, pagination }) => {
-  const filter = { institution_id, is_active: { $ne: false } };
-  if (status) filter.app_status = status;
+exports.listEmployees = async ({ status, department, search, pagination }) => {
+  const filter = withTenant({});
+  if (status === "relieved") {
+    filter.status = "relieved";
+  } else {
+    filter.is_active = { $ne: false };
+    if (status) filter.status = status;
+    else filter.status = { $ne: "relieved" };
+  }
   if (department) filter["work_detail.department"] = department;
   if (search) {
+    const q = { $regex: search, $options: "i" };
     filter.$or = [
-      { first_name: { $regex: search, $options: "i" } },
-      { last_name: { $regex: search, $options: "i" } },
-      { employee_id: { $regex: search, $options: "i" } },
-      { user_email: { $regex: search, $options: "i" } },
+      { name: q },
+      { first_name: q },
+      { last_name: q },
+      { employee_id: q }
     ];
   }
 
@@ -52,8 +63,9 @@ exports.listEmployees = async ({ institution_id, status, department, search, pag
   };
 };
 
-exports.getEmployeeById = async (id, institution_id) => {
-  const emp = await Employee.findOne({ _id: id, institution_id, is_active: { $ne: false } })
+exports.getEmployeeById = async (id) => {
+  const filter = withTenant({ _id: id });
+  const emp = await Employee.findOne(filter)
     .populate("work_detail.department")
     .populate("work_detail.designation")
     .lean();
@@ -67,7 +79,12 @@ const normalizeData = (data) => {
   
   // Normalize Role
   if (result.app_role) {
-    result.app_role = result.app_role.toLowerCase();
+    const rawRole = result.app_role.toLowerCase().trim();
+    if (rawRole === "head of department" || rawRole === "hod") {
+      result.app_role = "HEAD OF DEPARTMENT";
+    } else {
+      result.app_role = rawRole.toUpperCase();
+    }
   }
 
   if (result.personal_detail) {
@@ -112,37 +129,110 @@ const normalizeData = (data) => {
   return result;
 };
 
-exports.createEmployee = async (data) => {
+exports.createEmployee = async (data, context) => {
   const normalized = normalizeData(data);
+  const tenant_id = getTenantId();
   
-  // Atomic ID Generation
-  if (!normalized.employee_id) {
-    const nextSeq = await counterService.getNextID(normalized.institution_id, "employee");
-    normalized.employee_id = `EMP-${String(nextSeq).padStart(3, "0")}`;
-  }
+  if (!tenant_id) throw new Error("Tenant context is required for employee creation.");
 
-  const emp = new Employee(normalized);
-  const saved = await emp.save();
-  return saved.toObject();
+  // 🛡 1. Atomic User (Auth) Creation
+  const existingUser = await User.findOne({ email: normalized.user_email.toLowerCase(), tenant_id });
+  if (existingUser) throw new Error(`User with email ${normalized.user_email} already exists in this institution.`);
+
+  const user = new User({
+    email: normalized.user_email.toLowerCase(),
+    password: normalized.password || "reset123", // Default password
+    role: (normalized.app_role || "EMPLOYEE").toUpperCase(),
+    tenant_id
+  });
+  const savedUser = await user.save();
+
+  try {
+    // 🏷 2. Employee Profile Creation
+    if (!normalized.employee_id) {
+      const nextSeq = await counterService.getNextID(tenant_id, "employee");
+      normalized.employee_id = `EMP-${String(nextSeq).padStart(3, "0")}`;
+    }
+
+    const emp = new Employee({
+      ...normalized,
+      name: normalized.name || `${normalized.first_name || ""} ${normalized.last_name || ""}`.trim(),
+      user_id: savedUser._id,
+      tenant_id
+    });
+    const savedEmp = await emp.save();
+
+    // 🛡 3. Audit Log
+    await AuditLog.create({
+      action: "EMPLOYEE_CREATED",
+      user_id: context?.user?.id || savedUser._id,
+      tenant_id,
+      metadata: { employee_id: savedEmp.employee_id, name: emp.name, email: normalized.user_email }
+    });
+
+    return savedEmp.toObject();
+  } catch (error) {
+    // 🛡 Rollback pseudo-transaction
+    await User.deleteOne({ _id: savedUser._id });
+    throw error;
+  }
 };
 
-exports.updateEmployee = async (id, data, institution_id) => {
+exports.updateEmployee = async (id, data, context) => {
+  const filter = withTenant({ _id: id });
+  const existing = await Employee.findOne(filter).lean();
+  if (!existing) throw new Error("Employee not found or access denied");
+
   const normalized = normalizeData(data);
+  
+  // 🛡 1. Sync Authentication Data if changed
+  if (normalized.user_email || normalized.app_role) {
+    const userUpdate = {};
+    if (normalized.user_email) userUpdate.email = normalized.user_email.toLowerCase();
+    if (normalized.app_role) userUpdate.role = normalized.app_role.toUpperCase();
+    
+    await User.updateOne({ _id: existing.user_id }, { $set: userUpdate });
+  }
+
+  // 🏷 2. Update Business Profile
   const updated = await Employee.findOneAndUpdate(
-    { _id: id, institution_id, is_active: { $ne: false } },
+    { ...filter, is_active: { $ne: false } },
     { $set: normalized },
     { new: true, runValidators: true }
   ).lean();
+
   if (!updated) throw new Error("Employee not found or access denied");
+
+  // 🛡 3. Audit Log
+  await AuditLog.create({
+    action: "EMPLOYEE_UPDATED",
+    user_id: context?.user?.id || context?.req?.user?.id,
+    tenant_id: existing.tenant_id,
+    metadata: { employee_id: id, changes: Object.keys(data) }
+  });
+
   return updated;
 };
 
-exports.deleteEmployee = async (id, institution_id) => {
-  const updated = await Employee.findOneAndUpdate(
-    { _id: id, institution_id },
-    { $set: { is_active: false } },
-    { new: true }
-  );
-  if (!updated) throw new Error("Employee not found or access denied");
-  return { success: true, message: "Employee archived successfully" };
+exports.deleteEmployee = async (id, context) => {
+  const filter = withTenant({ _id: id });
+  
+  const emp = await Employee.findOne(filter);
+  if (!emp) throw new Error("Employee not found or access denied");
+
+  // 🛡 1. Atomic Deactivation
+  await Promise.all([
+    Employee.updateOne({ _id: id }, { $set: { is_active: false, status: "relieved" } }),
+    User.updateOne({ _id: emp.user_id }, { $set: { isActive: false } })
+  ]);
+
+  // 🛡 2. Audit Log
+  await AuditLog.create({
+    action: "EMPLOYEE_DELETED",
+    user_id: context?.user?.id || context?.req?.user?.id,
+    tenant_id: emp.tenant_id,
+    metadata: { employee_id: id, name: emp.name }
+  });
+
+  return { success: true, message: "Employee and associated account archived successfully" };
 };

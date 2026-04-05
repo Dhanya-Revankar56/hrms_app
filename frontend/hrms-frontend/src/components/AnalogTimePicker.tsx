@@ -8,36 +8,49 @@ interface AnalogTimePickerProps {
 }
 
 export default function AnalogTimePicker({ initialTime, onSave, onCancel }: AnalogTimePickerProps) {
+  const parseInitialTime = (time?: string) => {
+    if (!time) return { h: 9, m: 0, ampm: "AM" as const };
+    const [h, m] = time.split(":").map(Number);
+    return {
+      h: h % 12 || 12,
+      m: m || 0,
+      ampm: (h >= 12 ? "PM" : "AM") as "AM" | "PM"
+    };
+  };
+
   const [mode, setMode] = useState<"hours" | "minutes">("hours");
-  const [ampm, setAmPm] = useState<"AM" | "PM">("AM");
-  const [hours, setHours] = useState(9);
-  const [minutes, setMinutes] = useState(0);
+  const [ampm, setAmPm] = useState<"AM" | "PM">(() => parseInitialTime(initialTime).ampm);
+  const [hours, setHours] = useState(() => parseInitialTime(initialTime).h);
+  const [minutes, setMinutes] = useState(() => parseInitialTime(initialTime).m);
   const [isDragging, setIsDragging] = useState(false);
   const clockRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (initialTime) {
-      const [h, m] = initialTime.split(":").map(Number);
-      setAmPm(h >= 12 ? "PM" : "AM");
-      setHours(h % 12 || 12);
-      setMinutes(m || 0);
-    }
-  }, [initialTime]);
+  const [prevInitialTime, setPrevInitialTime] = useState(initialTime);
+
+  if (initialTime !== prevInitialTime) {
+    const { h, m, ampm: a } = parseInitialTime(initialTime);
+    setAmPm(a);
+    setHours(h);
+    setMinutes(m);
+    setMode("hours");
+    setPrevInitialTime(initialTime);
+  }
 
 
-  const calculateTimeFromEvent = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+  const calculateTimeFromEvent = React.useCallback((e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
     if (!clockRef.current) return;
     const rect = clockRef.current.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     
     let mx, my;
-    if ("touches" in e) {
+    if ("touches" in e && e.touches.length > 0) {
       mx = e.touches[0].clientX;
       my = e.touches[0].clientY;
     } else {
-      mx = (e as MouseEvent).clientX;
-      my = (e as MouseEvent).clientY;
+      const mouseEvent = e as unknown as MouseEvent | React.MouseEvent;
+      mx = mouseEvent.clientX;
+      my = mouseEvent.clientY;
     }
 
     const dx = mx - cx;
@@ -52,7 +65,7 @@ export default function AnalogTimePicker({ initialTime, onSave, onCancel }: Anal
       const m = Math.round(angle / 6) % 60;
       setMinutes(m);
     }
-  };
+  }, [mode]);
 
   const onMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -84,14 +97,14 @@ export default function AnalogTimePicker({ initialTime, onSave, onCancel }: Anal
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onMouseUp);
     };
-  }, [isDragging, mode]);
+  }, [isDragging, mode, calculateTimeFromEvent]);
 
-  const handleSave = () => {
+  const handleSave = React.useCallback(() => {
     let h24 = hours % 12;
     if (ampm === "PM") h24 += 12;
     const result = `${String(h24).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
     onSave(result);
-  };
+  }, [hours, minutes, ampm, onSave]);
 
   const hourAngle = (hours % 12) * 30;
   const minuteAngle = minutes * 6;

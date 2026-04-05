@@ -189,7 +189,11 @@ const CSS = `
    COMPONENT
  ───────────────────────────────────────────── */
 export default function MovementRegisterSection() {
-  const { data, loading } = useQuery<{ settings: any }>(GET_SETTINGS);
+  const { data, loading } = useQuery<{
+    settings: {
+      movement_settings: MovementSettings;
+    }
+  }>(GET_SETTINGS);
   const [upsertSettings, { loading: saving }] = useMutation(UPSERT_SETTINGS, {
     refetchQueries: [{ query: GET_SETTINGS }],
   });

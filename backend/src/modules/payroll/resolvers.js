@@ -1,32 +1,22 @@
 const payrollService = require("./service");
 
-const requireTenant = (ctx) => {
-  if (!ctx.institution_id) {
-    throw new Error("Missing x-institution-id header.");
-  }
-  return ctx.institution_id;
-};
-
+// 🛡 Multi-Tenant Payroll Resolvers
 const resolvers = {
   Query: {
     salaryRecord: async (_, { employee_id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await payrollService.getSalaryRecord(employee_id, institution_id);
+      return await payrollService.getSalaryRecord(employee_id);
     },
     payslips: async (_, { employee_id, pagination }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await payrollService.getPayslips(employee_id, institution_id, pagination);
+      return await payrollService.getPayslips(employee_id, pagination);
     },
   },
 
   Mutation: {
     updateSalaryRecord: async (_, { employee_id, input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await payrollService.updateSalaryRecord(employee_id, input, institution_id);
+      return await payrollService.updateSalaryRecord(employee_id, input);
     },
     generatePayslip: async (_, { employee_id, month, amount }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await payrollService.generatePayslip({ employee_id, month, amount }, institution_id);
+      return await payrollService.generatePayslip({ employee_id, month, amount });
     },
   },
 

@@ -1,5 +1,5 @@
 // src/pages/DepartmentsSection.tsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface Department {
   id: number;
@@ -7,16 +7,11 @@ interface Department {
 }
 
 export function DepartmentsSection() {
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([
+    { id: 1, name: "Human Resources" },
+    { id: 2, name: "Engineering" },
+  ]);
   const [newName, setNewName] = useState("");
-
-  useEffect(() => {
-    const data: Department[] = [
-      { id: 1, name: "Human Resources" },
-      { id: 2, name: "Engineering" },
-    ];
-    setDepartments(data);
-  }, []);
 
   const handleAdd = () => {
     if (!newName.trim()) return;

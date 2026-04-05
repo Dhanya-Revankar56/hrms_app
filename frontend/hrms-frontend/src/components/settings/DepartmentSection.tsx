@@ -211,7 +211,7 @@ const CSS = `
 `;
 
 export default function DepartmentsSection() {
-  const { data, loading, refetch } = useQuery<any>(GET_SETTINGS, {
+  const { data, loading, refetch } = useQuery<{ settings: { departments: Department[] } }>(GET_SETTINGS, {
     fetchPolicy: 'network-only'
   });
   const [upsertDepartment, { loading: addLoading }] = useMutation(UPSERT_DEPARTMENT, {
@@ -251,8 +251,8 @@ export default function DepartmentsSection() {
       await upsertDepartment({
         variables: { input: { name: name.trim(), short_name: code.trim().toUpperCase() } }
       });
-    } catch (e: any) {
-      showToast(e.message);
+    } catch (e) {
+       showToast(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -260,8 +260,8 @@ export default function DepartmentsSection() {
     if (!confirm("Remove this department?")) return;
     try {
       await deleteDepartment({ variables: { id } });
-    } catch (e: any) {
-      showToast(e.message);
+    } catch (e) {
+       showToast(e instanceof Error ? e.message : String(e));
     }
   }
 

@@ -1,19 +1,17 @@
 // src/components/settings/AppearanceSection.tsx
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export type ThemeOption = "light" | "dark" | "system";
 
 export default function AppearanceSection() {
-  const [theme, setTheme] = useState<ThemeOption>("system");
-
-  // Load saved theme on mount
-  useEffect(() => {
+  const [theme, setTheme] = useState<ThemeOption>(() => {
     const saved = localStorage.getItem("hrms_theme") as ThemeOption;
     if (saved && ["light", "dark", "system"].includes(saved)) {
-      setTheme(saved);
+      return saved;
     }
-  }, []);
+    return "system";
+  });
 
   const handleThemeChange = (newTheme: ThemeOption) => {
     setTheme(newTheme);

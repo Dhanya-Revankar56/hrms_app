@@ -103,3 +103,16 @@ export const DELETE_LEAVE = gql`
     }
   }
 `;
+
+export const UPDATE_LEAVE = gql`
+  mutation UpdateLeave($id: ID!, $input: UpdateLeaveInput!) {
+    updateLeave(id: $id, input: $input) {
+      id
+      status
+      from_date
+      to_date
+      total_days
+      reason
+    }
+  }
+`;

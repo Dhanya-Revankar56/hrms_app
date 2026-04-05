@@ -1,47 +1,58 @@
 const movementService = require("./service");
+const Employee = require("../employee/model");
 const employeeService = require("../employee/service");
 
-const requireTenant = (ctx) => {
-  if (!ctx.institution_id) {
-    throw new Error("Missing x-institution-id header.");
-  }
-  return ctx.institution_id;
-};
-
+// 🛡 Multi-Tenant Movement Resolvers
 const resolvers = {
   Query: {
-    movements: async (_, { employee_id, status, movement_type, pagination }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await movementService.listMovements({ institution_id, employee_id, status, movement_type, pagination });
+    movements: async (_, { employee_id, status, movement_type, department, pagination }, ctx) => {
+      const role = ctx.user?.role;
+      let filterId = employee_id;
+      let filterDept = department;
+
+      if (role === "EMPLOYEE") {
+        const empRecord = await Employee.findOne({ user_id: ctx.user.id }).select("_id").lean();
+        filterId = empRecord?._id;
+      } else if (role === "HEAD OF DEPARTMENT") {
+        const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
+          .select("work_detail.department")
+          .lean();
+        filterDept = hodRecord?.work_detail?.department?.toString();
+      }
+
+      return await movementService.listMovements({ 
+        employee_id: filterId, 
+        status, 
+        movement_type, 
+        department: filterDept, 
+        pagination 
+      });
     },
     movement: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await movementService.getMovementById(id, institution_id);
+      return await movementService.getMovementById(id);
     },
   },
 
   Mutation: {
     createMovement: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await movementService.createMovement({ ...input, institution_id });
+      return await movementService.createMovement(input, ctx);
     },
     updateMovement: async (_, { id, input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await movementService.updateMovement(id, input, institution_id);
+      return await movementService.updateMovement(id, input, ctx);
     },
     deleteMovement: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await movementService.deleteMovement(id, institution_id);
+      return await movementService.deleteMovement(id, ctx);
     },
   },
 
   Movement: {
     id: (parent) => parent._id?.toString() || parent.id,
+    tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
     movement_date: (parent) => {
       if (!parent.movement_date) return null;
       try {
         return new Date(parent.movement_date).toISOString();
-      } catch (e) {
+      } catch (_e) {
         return parent.movement_date;
       }
     },
