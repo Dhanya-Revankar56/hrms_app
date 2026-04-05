@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const eventLogSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String }, // Legacy
     user_id: { type: String },
     user_name: { type: String },
     user_role: { type: String },
@@ -18,5 +20,9 @@ const eventLogSchema = new mongoose.Schema(
   },
   { timestamps: false }
 );
+
+
+// Apply tenant isolation
+tenantPlugin(eventLogSchema);
 
 module.exports = mongoose.model("EventLog", eventLogSchema);

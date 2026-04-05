@@ -1,24 +1,21 @@
 const Relieving = require("./model");
+const Employee = require("../employee/model");
+const User = require("../auth/user.model");
+const AuditLog = require("../audit/model");
+const { withTenant } = require("../../utils/tenantUtils");
 
-exports.listRelievings = async ({ institution_id, employee_id, status, department, pagination }) => {
-  const filter = { institution_id };
-  if (employee_id) filter.employee_id = employee_id;
+exports.listRelievings = async ({ employee_id, status, department, pagination }) => {
+  const filter = withTenant({});
   if (status) filter.status = status;
+  if (employee_id) filter.employee_id = employee_id;
 
+  // 🛡 Optional: Filter by department (requires lookup if not indexed in Relieving)
   if (department) {
-    const employees = await Employee.find({ 
-      institution_id, 
-      "work_detail.department": department 
-    }).select("_id").lean();
-    const employeeIds = employees.map(e => e._id.toString());
-    
-    if (filter.employee_id) {
-       if (!employeeIds.includes(filter.employee_id)) {
-         filter.employee_id = { $in: [] }; 
-       }
-    } else {
-       filter.employee_id = { $in: employeeIds };
-    }
+    const employeesInDept = await Employee.find(withTenant({ "work_detail.department": department }))
+      .select("_id")
+      .lean();
+    const empIds = employeesInDept.map(e => e._id);
+    filter.employee_id = { $in: empIds };
   }
 
   const page = pagination?.page || 1;
@@ -26,7 +23,12 @@ exports.listRelievings = async ({ institution_id, employee_id, status, departmen
   const skip = (page - 1) * limit;
 
   const [items, totalCount] = await Promise.all([
-    Relieving.find(filter).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+    Relieving.find(filter)
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("employee_id")
+      .lean(),
     Relieving.countDocuments(filter)
   ]);
 
@@ -41,122 +43,51 @@ exports.listRelievings = async ({ institution_id, employee_id, status, departmen
   };
 };
 
-exports.getRelievingById = async (id, institution_id) => {
-  const rec = await Relieving.findOne({ _id: id, institution_id }).lean();
-  if (!rec) throw new Error("Relieving record not found");
-  return rec;
-};
-
-const Employee = require("../employee/model");
-const Leave = require("../leave/model");
-const MovementRegister = require("../movement/model");
-const eventLogService = require("../eventLog/service");
-
-exports.createRelieving = async (data) => {
-  const { institution_id, employee_id } = data;
-
-  // 1. Check if employee exists and isn't already relieved
-  const emp = await Employee.findOne({ _id: employee_id, institution_id });
-  if (!emp) throw new Error("Employee not found");
-  if (emp.app_status === "relieved") throw new Error("Employee is already relieved");
-
-  // 2. Save Relieving document with default status (no event log — create is not a business event)
-  const record = new Relieving({ ...data, status: "Pending Approval" });
+exports.applyForRelieving = async (data, context) => {
+  const filter = withTenant({});
+  const record = new Relieving({ ...data, ...filter });
   const saved = await record.save();
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "RELIEVING_APPLY",
+    user_id: context?.user?.id || data.employee_id,
+    tenant_id: filter.tenant_id,
+    metadata: { relieving_id: saved._id, date: data.relieved_at }
+  });
 
   return saved.toObject();
 };
 
-exports.updateRelieving = async (id, data, institution_id) => {
-  const existing = await Relieving.findOne({ _id: id, institution_id });
-  if (!existing) throw new Error("Relieving record not found");
+exports.updateRelievingStatus = async (id, status, context) => {
+  const filter = withTenant({ _id: id });
+  const relieving = await Relieving.findOne(filter);
+  if (!relieving) throw new Error("Relieving request not found");
 
   const updated = await Relieving.findOneAndUpdate(
-    { _id: id, institution_id },
-    { $set: data },
-    { new: true, runValidators: true }
+    filter,
+    { $set: { status, updatedAt: new Date() } },
+    { new: true }
   ).lean();
 
-  // 1. If status is "Relieved", perform side effects (Idempotent cleanup)
-  if (updated.status === "Relieved") {
-    const emp = await Employee.findOne({ _id: updated.employee_id, institution_id });
+  // 🛡 1. If approved, deactivate Employee and User
+  if (status === "Approved") {
+    const emp = await Employee.findOne(withTenant({ _id: relieving.employee_id }));
     if (emp) {
-      emp.app_status = "relieved";
-      emp.is_active = false;
-      await emp.save();
+      await Promise.all([
+        Employee.updateOne({ _id: emp._id }, { $set: { status: "relieved", is_active: false } }),
+        User.updateOne({ _id: emp.user_id }, { $set: { isActive: false } })
+      ]);
     }
-
-    // 2. Cancel ALL leaves for the relieved employee (except terminal ones)
-    const cancelledLeaves = await Leave.updateMany(
-      {
-        $or: [
-          { employee_id: updated.employee_id },
-          { employee_id: updated.employee_id.toString() }
-        ],
-        institution_id: updated.institution_id,
-        status: { $nin: ["cancelled", "rejected", "closed"] }
-      },
-      {
-        $set: {
-          status: "cancelled",
-          dept_admin_status: "cancelled",
-          admin_status: "cancelled",
-          admin_remarks: "Employee relieved from application - Automated Synchronization",
-          admin_date: new Date(),
-          "approvals.$[].status": "cancelled",
-          "approvals.$[].remarks": "Cancelled due to employee relieving",
-          "approvals.$[].updated_at": new Date()
-        }
-      }
-    );
-
-    // 3. Cancel ALL movements for the relieved employee (except terminal ones)
-    const cancelledMovements = await MovementRegister.updateMany(
-      {
-        $or: [
-          { employee_id: updated.employee_id },
-          { employee_id: updated.employee_id.toString() }
-        ],
-        institution_id: updated.institution_id,
-        status: { $nin: ["cancelled", "rejected", "completed"] }
-      },
-      {
-        $set: {
-          status: "cancelled",
-          dept_admin_status: "cancelled",
-          admin_status: "cancelled",
-          admin_remarks: "Employee relieved from application - Automated Synchronization",
-          admin_date: new Date()
-        }
-      }
-    );
-
-    console.log(`Synchronization complete for employee ${updated.employee_id}. Leaves: ${cancelledLeaves.modifiedCount}, Movements: ${cancelledMovements.modifiedCount}`);
-
-    // Event Log — Business Event: Employee Relieved (ONLY on final relieving action)
-    const empRecord = await Employee.findOne({ _id: updated.employee_id, institution_id }).lean();
-    const empName = empRecord
-      ? `${empRecord.first_name} ${empRecord.last_name}`
-      : updated.employee_id;
-
-    await eventLogService.logEvent({
-      institution_id,
-      user_name: "Admin",
-      user_role: "HR Administrator",
-      module_name: "relieving",
-      action_type: "RELIEVED",
-      record_id: id,
-      description: `${empName} has been relieved`,
-      old_data: existing,
-      new_data: updated
-    });
   }
 
-  return updated;
-};
+  // 🛡 2. Audit Log
+  await AuditLog.create({
+    action: "RELIEVING_STATUS_UPDATED",
+    user_id: context?.user?.id || context?.req?.user?.id,
+    tenant_id: filter.tenant_id,
+    metadata: { relieving_id: id, status }
+  });
 
-exports.deleteRelieving = async (id, institution_id) => {
-  const deleted = await Relieving.findOneAndDelete({ _id: id, institution_id });
-  if (!deleted) throw new Error("Relieving record not found");
-  return { success: true, message: "Relieving record deleted successfully" };
+  return updated;
 };

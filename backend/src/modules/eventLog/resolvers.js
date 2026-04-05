@@ -2,49 +2,41 @@ const eventLogService = require("./service");
 const Employee = require("../employee/model");
 const { GraphQLJSON } = require('graphql-type-json');
 
-const requireTenant = (ctx) => {
-  if (!ctx.institution_id) {
-    throw new Error("Missing x-institution-id header.");
-  }
-  return ctx.institution_id;
-};
-
+// 🛡 Multi-Tenant EventLog Resolvers
 const resolvers = {
   JSON: GraphQLJSON,
   Query: {
     eventLogs: async (_, args, ctx) => {
-      const institution_id = requireTenant(ctx);
       const role = ctx.user?.role;
-      
-      let listArgs = { ...args, institution_id };
+      let listArgs = { ...args };
 
       if (role === "EMPLOYEE") {
-        // Employee: Only their own actions or actions about them
+        // Employee: Only their own actions (as user_id) or actions about them (as record_id)
+        const empRecord = await Employee.findOne({ user_id: ctx.user.id }).select("_id").lean();
+        const empId = empRecord?._id?.toString();
+        
         listArgs.user_id = ctx.user.id;
-        listArgs.record_id = ctx.user.id;
+        listArgs.record_id = empId;
       } else if (role === "HEAD OF DEPARTMENT") {
-        // HOD: Only actions by/about employees in their department
-        const hodRecord = await Employee.findOne({ _id: ctx.user.id, institution_id })
+        const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
           .select("work_detail.department")
           .lean();
         const hodDeptId = hodRecord?.work_detail?.department?.toString();
         
         if (hodDeptId) {
           const employees = await Employee.find({ 
-            institution_id, 
             "work_detail.department": hodDeptId 
-          }).select("_id").lean();
-          const employeeIds = employees.map(e => e._id.toString());
-          listArgs.user_id = employeeIds;
-          listArgs.record_id = employeeIds;
+          }).select("_id user_id").lean();
+          
+          listArgs.user_id = employees.map(e => e.user_id?.toString()).filter(id => id);
+          listArgs.record_id = employees.map(e => e._id.toString());
         } else {
           listArgs.user_id = []; 
           listArgs.record_id = [];
         }
       } else if (role === "ADMIN") {
-        // Admin: use original args (allow them to filter by user_id if they want)
         listArgs.user_id = args.user_id;
-        listArgs.record_id = undefined; // Don't filter by subject unless explicitly added later
+        listArgs.record_id = args.record_id;
       }
 
       return await eventLogService.listEventLogs(listArgs);

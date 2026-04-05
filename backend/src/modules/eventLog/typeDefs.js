@@ -14,6 +14,8 @@ const typeDefs = gql`
     old_data: JSON
     new_data: JSON
     changes: JSON
+    tenant_id: String
+    institution_id: String
     ip_address: String
     timestamp: String
   }

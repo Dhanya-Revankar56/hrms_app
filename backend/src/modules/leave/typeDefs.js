@@ -11,7 +11,8 @@ const typeDefs = gql`
 
   type Leave {
     id: ID!
-    institution_id: String!
+    tenant_id: String
+    institution_id: String
     employee_id: String!
     employee_code: String
     employee: Employee

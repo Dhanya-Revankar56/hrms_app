@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "@apollo/client/react";
 import { isAdmin } from "../utils/auth";
 import { GET_EMPLOYEES, UPDATE_EMPLOYEE } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
-import { formatDateForDisplay } from "../utils/dateUtils";
+import { formatDateForDisplay, formatDateForInput, formatDateForBackend } from "../utils/dateUtils";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -147,7 +147,8 @@ interface SettingsData {
   settings: {
     departments: Array<{ id: string; name: string }>;
     designations: Array<{ id: string; name: string }>;
-    employee_types: Array<{ name: string }>;
+    employee_types: Array<{ id: string; name: string }>;
+    employee_categories: Array<{ id: string; name: string }>;
   };
 }
 
@@ -158,6 +159,14 @@ const AVATAR_COLORS: string[] = [
   "#1d4ed8", "#059669", "#7c3aed", "#d97706",
   "#0891b2", "#dc2626", "#db2777", "#0f766e",
 ];
+
+const TITLES = ["Dr.", "Mr.", "Mrs.", "Shri.", "Smt."];
+const HIRING_SOURCES = ["Advertisement", "LinkedIN", "Referral", "Job Portal"];
+const BLOOD_GROUPS   = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
+const RELIGIONS      = ["Buddhists", "Christian", "Hindu", "Jains", "Muslim", "Others", "Sikhs"];
+const GENDERS        = ["Male", "Female", "Other"];
+const MARITAL_STATUS = ["Single", "Married", "Divorced", "Widowed"];
+const APP_ROLES      = ["ADMIN", "HEAD OF DEPARTMENT", "EMPLOYEE"];
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap');
@@ -233,12 +242,15 @@ const CSS = `
   .em-section-title { font-size: 13px; font-weight: 700; color: #3b82f6; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; }
   .em-section-line { height: 1px; background: #eff6ff; flex: 1; }
 
-  .em-drawer-field { margin-bottom: 4px; }
-  .em-drawer-input { width: 100%; height: 38px; padding: 0 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #f8fafc; outline: none; font-size: 13.5px; box-sizing: border-box; transition: 0.2s; font-family: inherit; }
-  .em-drawer-input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .em-drawer-field { margin-bottom: 16px; }
+  .em-drawer-lbl { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em; }
+  .em-drawer-input, .em-drawer-select { width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #f8fafc; outline: none; font-size: 14px; color: #334155; transition: 0.2s; font-family: inherit; box-sizing: border-box; }
+  .em-drawer-input:focus, .em-drawer-select:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .em-drawer-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
 
-  .ob-btn { height: 40px; padding: 0 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; font-family: 'DM Sans', sans-serif; }
-  .ob-btn-primary { background: #1d4ed8; color: #fff; }
+  .ob-btn { height: 40px; padding: 0 24px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 13.5px; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'DM Sans', sans-serif; }
+  .ob-btn-primary { background: #3b82f6; color: #fff; box-shadow: 0 2px 6px rgba(59,130,246,0.25); }
+  .ob-btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
   .ob-btn-primary:hover { background: #1e40af; }
 
   .em-toast { position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: #fff; padding: 12px 20px; border-radius: 8px; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideUp 0.3s ease; }
@@ -319,22 +331,36 @@ function getInitials(first: string, last: string): string {
    COMPONENTS
  ───────────────────────────────────────────── */
 
-function EditableField({ label, value, isEdit, type = "text", options, onChange }: { label: string; value: string; isEdit: boolean; type?: string; options?: (string | {value: string; label: string})[]; onChange: (v: string) => void }) {
+interface EditableFieldProps {
+  label: string;
+  value: string;
+  isEdit: boolean;
+  onChange: (val: string) => void;
+  type?: string;
+  options?: { label: string; value: string }[] | string[];
+}
+
+function EditableField({ label, value, isEdit, onChange, type = "text", options }: EditableFieldProps) {
   return (
     <div className="em-drawer-field">
-      <div className="em-view-label">{label}</div>
+      <label className="em-drawer-lbl">{label}</label>
       {isEdit ? (
         options ? (
-          <select className="em-drawer-input" value={value} onChange={e => onChange(e.target.value)}>
+          <select className="em-drawer-select" value={value} onChange={e => onChange(e.target.value)}>
             <option value="">Select {label}</option>
-            {options.map(o => {
-              const val = typeof o === 'string' ? o : o.value;
-              const lbl = typeof o === 'string' ? o : o.label;
+            {options.map(opt => {
+              const lbl = typeof opt === "string" ? opt : opt.label;
+              const val = typeof opt === "string" ? opt : opt.value;
               return <option key={val} value={val}>{lbl}</option>;
             })}
           </select>
         ) : (
-          <input className="em-drawer-input" type={type} value={value} onChange={e => onChange(e.target.value)} />
+          <input 
+            className="em-drawer-input" 
+            type={type} 
+            value={type === "date" ? formatDateForInput(value) : value} 
+            onChange={e => onChange(e.target.value)} 
+          />
         )
       ) : (
         <div className="em-view-val">{type === "date" ? formatDateForDisplay(value) : (value || "—")}</div>
@@ -342,6 +368,7 @@ function EditableField({ label, value, isEdit, type = "text", options, onChange 
     </div>
   );
 }
+
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -425,21 +452,27 @@ export default function EmployeeManagement() {
             last_name: editForm.lastName,
             user_email: editForm.officialEmail,
             user_contact: editForm.phone,
+            app_role: editForm.appRole,
             personal_detail: {
-              date_of_birth: editForm.dob,
+              date_of_birth: formatDateForBackend(editForm.dob),
               gender: editForm.gender,
               marital_status: editForm.maritalStatus,
               blood_group: editForm.bloodGroup,
+              religion: editForm.religion,
+              father_name: editForm.fatherName,
               aadhar_no: editForm.aadhaar,
               pan_no: editForm.pan,
+              pf_no: editForm.pfNumber,
+              esic_no: editForm.esicNumber,
+              category: editForm.category,
             },
             work_detail: {
               designation: editForm.designationId,
               department: editForm.hrDepartmentId,
               employee_type: editForm.employmentType,
-              date_of_joining: editForm.joiningDate,
-            },
-            app_role: editForm.appRole,
+              date_of_joining: formatDateForBackend(editForm.joiningDate),
+              hiring_source: editForm.hiringSource,
+            }
           }
         }
       });
@@ -602,98 +635,82 @@ export default function EmployeeManagement() {
             </div>
 
             <div className="em-drawer-body">
+              {/* Basic Tab */}
               {activeTab === "Basic" && (
                 <Section title="Basic Contact Information">
-                  <EditableField label="Title" value={editForm.title} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, title: v})} />
-                  <EditableField label="First Name" value={editForm.firstName} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, firstName: v})} />
-                  <EditableField label="Last Name" value={editForm.lastName} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, lastName: v})} />
-                  <EditableField label="Official Email" value={editForm.officialEmail} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, officialEmail: v})} />
-                  <EditableField label="Phone Number" value={editForm.phone} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, phone: v})} />
+                  <EditableField label="Title" value={editForm.title} isEdit={isEditMode} onChange={v => setEditForm({...editForm, title: v})} options={TITLES} />
+                  <EditableField label="First Name" value={editForm.firstName} isEdit={isEditMode} onChange={v => setEditForm({...editForm, firstName: v})} />
+                  <EditableField label="Last Name" value={editForm.lastName} isEdit={isEditMode} onChange={v => setEditForm({...editForm, lastName: v})} />
+                  <EditableField label="Official Email" value={editForm.officialEmail} isEdit={isEditMode} onChange={v => setEditForm({...editForm, officialEmail: v})} />
+                  <EditableField label="Phone Number" value={editForm.phone} isEdit={isEditMode} onChange={v => setEditForm({...editForm, phone: v})} />
+                  <EditableField label="System Role" value={editForm.appRole} isEdit={isEditMode} onChange={v => setEditForm({...editForm, appRole: v})} options={APP_ROLES} />
                 </Section>
               )}
 
+              {/* Personal Tab */}
               {activeTab === "Personal" && (
-                <Section title="Personal Details">
-                  <EditableField label="Date of Birth" value={editForm.dob} isEdit={isEditMode} type="date" onChange={(v: string) => setEditForm({...editForm, dob: v})} />
-                  <EditableField label="Gender" value={editForm.gender} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, gender: v})} />
-                  <EditableField label="Father's Name" value={editForm.fatherName} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, fatherName: v})} />
-                  <EditableField label="Marital Status" value={editForm.maritalStatus} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, maritalStatus: v})} />
-                  <EditableField label="Blood Group" value={editForm.bloodGroup} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, bloodGroup: v})} />
-                  <EditableField label="Religion" value={editForm.religion} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, religion: v})} />
-                  <EditableField label="Caste" value={editForm.caste} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, caste: v})} />
-                  <EditableField label="Category" value={editForm.category} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, category: v})} />
-                  <EditableField label="Aadhaar No" value={editForm.aadhaar} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, aadhaar: v})} />
-                  <EditableField label="PAN No" value={editForm.pan} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, pan: v})} />
+                <Section title="Personal Identifiers">
+                  <EditableField label="Date of Birth" value={editForm.dob} isEdit={isEditMode} onChange={v => setEditForm({...editForm, dob: v})} type="date" />
+                  <EditableField label="Gender" value={editForm.gender} isEdit={isEditMode} onChange={v => setEditForm({...editForm, gender: v})} options={GENDERS} />
+                  <EditableField label="Marital Status" value={editForm.maritalStatus} isEdit={isEditMode} onChange={v => setEditForm({...editForm, maritalStatus: v})} options={MARITAL_STATUS} />
+                  <EditableField label="Blood Group" value={editForm.bloodGroup} isEdit={isEditMode} onChange={v => setEditForm({...editForm, bloodGroup: v})} options={BLOOD_GROUPS} />
+                  <EditableField label="Religion" value={editForm.religion} isEdit={isEditMode} onChange={v => setEditForm({...editForm, religion: v})} options={RELIGIONS} />
+                  <EditableField label="Father's Name" value={editForm.fatherName} isEdit={isEditMode} onChange={v => setEditForm({...editForm, fatherName: v})} />
+                  <EditableField label="Aadhaar Number" value={editForm.aadhaar} isEdit={isEditMode} onChange={v => setEditForm({...editForm, aadhaar: v})} />
+                  <EditableField label="PAN Number" value={editForm.pan} isEdit={isEditMode} onChange={v => setEditForm({...editForm, pan: v})} />
                 </Section>
               )}
 
+              {/* Work Tab */}
               {activeTab === "Work" && (
                 <Section title="Employment & Work">
-                  <EditableField label="Joining Date" value={editForm.joiningDate} isEdit={isEditMode} type="date" onChange={(v: string) => setEditForm({...editForm, joiningDate: v})} />
-                  <EditableField 
-                    label="Department" 
-                    value={editForm.hrDepartmentId} 
-                    isEdit={isEditMode} 
-                    options={departments.map((d)=>({ value: d.id, label: d.name }))} 
-                    onChange={(v: string) => {
-                      const dept = departments.find((d) => d.id === v);
-                      setEditForm({...editForm, hrDepartmentId: v, hrDepartment: dept?.name || ""});
-                    }} 
-                  />
-                  <EditableField 
-                    label="Designation" 
-                    value={editForm.designationId} 
-                    isEdit={isEditMode} 
-                    options={(settingsData?.settings?.designations || []).map((d)=>({ value: d.id, label: d.name }))} 
-                    onChange={(v: string) => {
-                      const desg = settingsData?.settings?.designations?.find((d) => d.id === v);
-                      setEditForm({...editForm, designationId: v, designation: desg?.name || ""});
-                    }} 
-                  />
-                  <EditableField label="Employment Type" value={editForm.employmentType} isEdit={isEditMode} options={employeeTypes.filter(t=>t!=="All")} onChange={(v: string) => setEditForm({...editForm, employmentType: v})} />
-                  <EditableField label="Work Location" value={editForm.workLocation} isEdit={isEditMode} onChange={(v: string) => setEditForm({...editForm, workLocation: v})} />
-                  <EditableField 
-                    label="System Role" 
-                    value={editForm.appRole} 
-                    isEdit={isEditMode} 
-                    options={[
-                      { value: 'ADMIN', label: 'ADMIN' },
-                      { value: 'HEAD OF DEPARTMENT', label: 'HEAD OF DEPARTMENT' },
-                      { value: 'EMPLOYEE', label: 'EMPLOYEE' }
-                    ]} 
-                    onChange={(v: string) => setEditForm({...editForm, appRole: v})} 
-                  />
+                  <EditableField label="Joining Date" value={editForm.joiningDate} isEdit={isEditMode} onChange={v => setEditForm({...editForm, joiningDate: v})} type="date" />
+                  <EditableField label="Department" value={editForm.hrDepartmentId} isEdit={isEditMode} onChange={v => {
+                    const dept = departments.find(d => d.id === v);
+                    setEditForm({...editForm, hrDepartmentId: v, hrDepartment: dept?.name || ""});
+                  }} options={departments.map(d => ({ label: d.name, value: d.id }))} />
+                  <EditableField label="Designation" value={editForm.designationId} isEdit={isEditMode} onChange={v => {
+                    const desg = settingsData?.settings?.designations.find(d => d.id === v);
+                    setEditForm({...editForm, designationId: v, designation: desg?.name || ""});
+                  }} options={settingsData?.settings?.designations.map(d => ({ label: d.name, value: d.id }))} />
+                  <EditableField label="Employment Type" value={editForm.employmentType} isEdit={isEditMode} onChange={v => setEditForm({...editForm, employmentType: v})} options={settingsData?.settings?.employee_types.map(t => t.name)} />
+                  <EditableField label="Employee Category" value={editForm.category} isEdit={isEditMode} onChange={v => setEditForm({...editForm, category: v})} options={settingsData?.settings?.employee_categories.map(c => c.name)} />
+                  <EditableField label="Hiring Source" value={editForm.hiringSource} isEdit={isEditMode} onChange={v => setEditForm({...editForm, hiringSource: v})} options={HIRING_SOURCES} />
+                  <EditableField label="Work Location" value={editForm.workLocation} isEdit={isEditMode} onChange={v => setEditForm({...editForm, workLocation: v})} />
                 </Section>
               )}
 
+              {/* Bank Tab */}
               {activeTab === "Bank" && (
-                <Section title="Bank Detail">
-                  {editForm.bankDetails?.length > 0 ? (
-                    editForm.bankDetails.map((bank, idx) => (
-                      <div key={idx} style={{gridColumn: 'span 2', background: '#f1f5f9', padding: '12px', borderRadius: '8px', marginBottom: '12px'}}>
-                        <div style={{fontWeight: 700, fontSize: '12px', color: '#64748b', marginBottom: '8px'}}>{bank.bank_type} Account</div>
-                        <div className="em-grid">
-                          <EditableField label="Bank Name" value={bank.bank_name} isEdit={isEditMode} onChange={(v: string) => {
-                            const newBanks = [...editForm.bankDetails];
-                            newBanks[idx] = {...newBanks[idx], bank_name: v};
-                            setEditForm({...editForm, bankDetails: newBanks});
-                          }} />
-                          <EditableField label="Account No" value={bank.account_no} isEdit={isEditMode} onChange={(v: string) => {
-                            const newBanks = [...editForm.bankDetails];
-                            newBanks[idx] = {...newBanks[idx], account_no: v};
-                            setEditForm({...editForm, bankDetails: newBanks});
-                          }} />
-                          <EditableField label="IFSC Code" value={bank.ifsc} isEdit={isEditMode} onChange={(v: string) => {
-                            const newBanks = [...editForm.bankDetails];
-                            newBanks[idx] = {...newBanks[idx], ifsc: v};
-                            setEditForm({...editForm, bankDetails: newBanks});
-                          }} />
+                <Section title="Bank Details">
+                  <div className="em-grid" style={{ gridColumn: 'span 2' }}>
+                    {editForm.bankDetails?.length > 0 ? (
+                      editForm.bankDetails.map((bank, idx) => (
+                        <div key={idx} style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '12px', gridColumn: 'span 2' }}>
+                          <div style={{ fontWeight: 700, fontSize: '11px', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>{bank.bank_type} Account</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <EditableField label="Bank Name" value={bank.bank_name} isEdit={isEditMode} onChange={v => {
+                              const newBanks = [...editForm.bankDetails];
+                              newBanks[idx] = { ...newBanks[idx], bank_name: v };
+                              setEditForm({ ...editForm, bankDetails: newBanks });
+                            }} />
+                            <EditableField label="Account No" value={bank.account_no} isEdit={isEditMode} onChange={v => {
+                              const newBanks = [...editForm.bankDetails];
+                              newBanks[idx] = { ...newBanks[idx], account_no: v };
+                              setEditForm({ ...editForm, bankDetails: newBanks });
+                            }} />
+                            <EditableField label="IFSC Code" value={bank.ifsc} isEdit={isEditMode} onChange={v => {
+                              const newBanks = [...editForm.bankDetails];
+                              newBanks[idx] = { ...newBanks[idx], ifsc: v };
+                              setEditForm({ ...editForm, bankDetails: newBanks });
+                            }} />
+                          </div>
                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{gridColumn: 'span 2', textAlign: 'center', padding: '20px', color: '#94a3b8'}}>No bank details provided.</div>
-                  )}
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: '13px', gridColumn: 'span 2' }}>No bank details provided.</div>
+                    )}
+                  </div>
                 </Section>
               )}
             </div>

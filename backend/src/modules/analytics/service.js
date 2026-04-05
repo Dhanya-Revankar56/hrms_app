@@ -2,26 +2,25 @@ const Employee = require("../employee/model");
 const Attendance = require("../attendance/model");
 const Leave = require("../leave/model");
 const Department = require("../settings/department.model");
+const { withTenant } = require("../../utils/tenantUtils");
 
-exports.getHrAnalytics = async (institution_id, user = null) => {
+exports.getHrAnalytics = async (user = null) => {
   const role = user?.role;
   const userId = user?.id;
 
-  const baseFilter = { institution_id };
+  const baseFilter = withTenant({});
   let deptId = null;
 
   if (role === "EMPLOYEE") {
     baseFilter._id = userId;
   } else if (role === "HEAD OF DEPARTMENT") {
-    const hodRecord = await Employee.findOne({ _id: userId, institution_id })
+    const hodRecord = await Employee.findOne(withTenant({ user_id: userId }))
       .select("work_detail.department")
       .lean();
     deptId = hodRecord?.work_detail?.department?.toString();
     if (deptId) {
       baseFilter["work_detail.department"] = deptId;
     } else {
-      // No department found, return empty stats if not admin/employee but HOD? 
-      // safer to return nothing if HOD without department
       baseFilter._id = { $in: [] };
     }
   }
@@ -32,7 +31,7 @@ exports.getHrAnalytics = async (institution_id, user = null) => {
   // 1. Employee Stats
   const [employees, allDepts] = await Promise.all([
     Employee.find({ ...baseFilter, is_active: { $ne: false } }).lean(),
-    Department.find({ institution_id }).lean()
+    Department.find(withTenant({})).lean()
   ]);
 
   const deptMap = allDepts.reduce((acc, d) => {
@@ -62,18 +61,17 @@ exports.getHrAnalytics = async (institution_id, user = null) => {
   };
 
   // 2. Attendance Stats
-  const attendanceFilter = { institution_id, date: { $gte: today } };
-  const leaveFilter = { institution_id };
+  const attendanceFilter = withTenant({ date: { $gte: today } });
+  const leaveFilter = withTenant({});
 
   if (role === "EMPLOYEE") {
     attendanceFilter.employee_id = userId;
     leaveFilter.employee_id = userId;
   } else if (role === "HEAD OF DEPARTMENT" && deptId) {
-    const employees = await Employee.find({ 
-      institution_id, 
+    const employeesInRange = await Employee.find(withTenant({ 
       "work_detail.department": deptId 
-    }).select("_id").lean();
-    const ids = employees.map(e => e._id.toString());
+    })).select("_id").lean();
+    const ids = employeesInRange.map(e => e._id.toString());
     attendanceFilter.employee_id = { $in: ids };
     leaveFilter.employee_id = { $in: ids };
   } else if (role === "HEAD OF DEPARTMENT" && !deptId) {
@@ -89,14 +87,14 @@ exports.getHrAnalytics = async (institution_id, user = null) => {
   const attendanceStats = {
     todayPresent: todayAttendance.filter(a => a.status === "Present").length,
     todayAbsent: todayAttendance.filter(a => a.status === "Absent").length,
-    weeklyTrend: [] // Mock or simple last 7 days aggregation if needed
+    weeklyTrend: [] 
   };
 
   // 3. Leave Stats
   const leaveStats = {
-    pending: leaves.filter(l => l.status === "pending").length,
-    approved: leaves.filter(l => l.status === "approved").length,
-    rejected: leaves.filter(l => l.status === "rejected").length,
+    pending: leaves.filter(l => l.status === "pending" || l.status === "Pending").length,
+    approved: leaves.filter(l => l.status === "approved" || l.status === "Approved").length,
+    rejected: leaves.filter(l => l.status === "rejected" || l.status === "Rejected").length,
     typeBreakdown: Object.entries(
       leaves.reduce((acc, l) => {
         const t = l.leave_type || "Other";

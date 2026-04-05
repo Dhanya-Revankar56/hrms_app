@@ -1,42 +1,36 @@
 const holidayService = require("./service");
 
-const requireTenant = (ctx) => {
-  if (!ctx.institution_id) {
-    throw new Error("Missing x-institution-id header.");
-  }
-  return ctx.institution_id;
-};
-
+// 🛡 Multi-Tenant Holiday Resolvers
 const resolvers = {
   Query: {
     holidays: async (_, { year, month }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await holidayService.listHolidays({ institution_id, year, month });
+      const result = await holidayService.listHolidays({ year, month });
+      return result.items || [];
     },
     holiday: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await holidayService.getHolidayById(id, institution_id);
+      return await holidayService.getHolidayById(id);
     },
   },
 
   Mutation: {
     createHoliday: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await holidayService.createHoliday({ ...input, institution_id });
+      return await holidayService.createHoliday(input);
     },
     updateHoliday: async (_, { id, input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await holidayService.updateHoliday(id, input, institution_id);
+      return await holidayService.updateHoliday(id, input);
     },
     deleteHoliday: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await holidayService.deleteHoliday(id, institution_id);
+      return await holidayService.deleteHoliday(id);
     },
   },
 
   Holiday: {
     id: (parent) => parent._id?.toString() || parent.id,
-    date: (parent) => (parent.date instanceof Date ? parent.date.toISOString() : parent.date),
+    tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
+    date: (parent) => {
+      const dt = parent.date || parent.holiday_date;
+      return dt instanceof Date ? dt.toISOString() : dt;
+    },
   },
 };
 

@@ -1,8 +1,10 @@
 const EventLog = require("./model");
+const { withTenant } = require("../../utils/tenantUtils");
 
 exports.logEvent = async (data) => {
   try {
-    const log = new EventLog(data);
+    const filter = withTenant({});
+    const log = new EventLog({ ...data, ...filter });
     await log.save();
     return log.toObject();
   } catch (err) {
@@ -10,8 +12,8 @@ exports.logEvent = async (data) => {
   }
 };
 
-exports.listEventLogs = async ({ institution_id, module_name, action_type, user_id, record_id, date_from, date_to, pagination }) => {
-  const filter = { institution_id };
+exports.listEventLogs = async ({ module_name, action_type, user_id, record_id, date_from, date_to, pagination }) => {
+  const filter = withTenant({});
   if (module_name) filter.module_name = module_name;
   if (action_type) filter.action_type = action_type;
   // Role-based filtering logic (Actor OR Subject)

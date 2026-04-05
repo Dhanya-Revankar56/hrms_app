@@ -57,3 +57,15 @@ export const formatDateForDisplay = (dateValue: string | Date | number | null | 
     return String(dateValue).split('T')[0] || placeholder;
   }
 };
+
+export const formatDateForBackend = (dateValue: string | Date | number | null | undefined): string | null => {
+  if (!dateValue || dateValue === "—") return null;
+  
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  } catch {
+    return null;
+  }
+};

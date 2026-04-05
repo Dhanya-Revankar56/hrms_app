@@ -3,26 +3,6 @@
 import  { useState, useEffect, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getRole, type AppRole } from "../utils/auth";
-const user = () => {
-  const u = {
-    name: localStorage.getItem('user_name') || "User",
-    role: localStorage.getItem('user_role') || "Employee",
-    initials: (localStorage.getItem('user_name') || "U").charAt(0).toUpperCase()
-  };
-  try {
-     const raw = localStorage.getItem('user');
-     if (raw) {
-       const parsed = JSON.parse(raw);
-       u.name = parsed.name || u.name;
-       u.role = parsed.role || u.role;
-       u.initials = (parsed.name || "U").charAt(0).toUpperCase();
-     }
-  } catch {
-    // Silently handle JSON parsing errors
-  }
-  return u;
-};
-const currentUser = user();
 
 const LAYOUT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
@@ -898,11 +878,53 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false);
   const [tenant, setTenant] = useState(localStorage.getItem('institution_id') || 'COLLEGE_A');
 
+  // ✨ Reactive User Resolution (Fix: No more stale global role)
+  const getUser = () => {
+    const u = {
+      name: localStorage.getItem('user_name') || "User",
+      role: localStorage.getItem('user_role') || "Employee",
+      initials: (localStorage.getItem('user_name') || "U").charAt(0).toUpperCase()
+    };
+    try {
+       const raw = localStorage.getItem('user');
+       if (raw) {
+         const parsed = JSON.parse(raw);
+         u.name = parsed.name || u.name;
+         u.role = parsed.role || u.role;
+         u.initials = (parsed.name || "U").charAt(0).toUpperCase();
+       }
+    } catch { /* Fail safe */ }
+    return u;
+  };
+  const currentUser = getUser();
+
   const handleTenantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTenant = e.target.value;
+    
+    // 🛡 Multi-Tenancy Identity Check
+    // If the new tenant is different from the token's tenant, logout for safety
+    const userJson = localStorage.getItem('user');
+    let shouldLogout = false;
+    try {
+      if (userJson) {
+        const parsed = JSON.parse(userJson);
+        // Compare with institution_id from the user payload (synchronous check)
+        if (parsed.institution_id && parsed.institution_id !== newTenant) {
+          shouldLogout = true;
+        }
+      }
+    } catch {
+      shouldLogout = true;
+    }
+
+    if (shouldLogout) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+
     localStorage.setItem('institution_id', newTenant);
     setTenant(newTenant);
-    // Reload page to clear Apollo cache and fetch new tenant data
+    // Reload page to clear Apollo cache and fetch new tenant data (or redirect to Login)
     window.location.reload();
   };
 

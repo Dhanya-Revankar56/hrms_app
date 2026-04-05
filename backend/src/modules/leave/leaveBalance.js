@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 
 const leaveBalanceSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy
     employee_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -20,5 +21,10 @@ const leaveBalanceSchema = new mongoose.Schema(
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
+
+const { applyTenantPlugin } = require("../../middleware/tenantPlugin");
+
+// Apply plugin for multi-tenant isolation
+applyTenantPlugin(leaveBalanceSchema);
 
 module.exports = mongoose.model("LeaveBalance", leaveBalanceSchema);

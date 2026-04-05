@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const movementSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy
     employee_id: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: "Employee",
       index: true,
@@ -62,5 +64,8 @@ movementSchema.virtual("employee", {
   foreignField: "_id",
   justOne: true,
 });
+
+// Apply tenant isolation
+tenantPlugin(movementSchema);
 
 module.exports = mongoose.model("MovementRegister", movementSchema);

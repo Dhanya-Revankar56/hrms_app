@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const relievingSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy
     employee_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -37,5 +39,9 @@ const relievingSchema = new mongoose.Schema(
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
+
+
+// Apply tenant isolation
+tenantPlugin(relievingSchema);
 
 module.exports = mongoose.model("Relieving", relievingSchema);

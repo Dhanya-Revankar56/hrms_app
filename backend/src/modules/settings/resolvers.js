@@ -1,30 +1,21 @@
 const settingsService = require("./service");
 const { requireRole } = require("../../middleware/auth");
-
-const requireTenant = (ctx) => {
-  if (!ctx.institution_id) {
-    throw new Error("Missing x-institution-id header.");
-  }
-  return ctx.institution_id;
-};
-
+const { withTenant } = require("../../utils/tenantUtils");
 const Employee = require("../employee/model");
 const Leave = require("../leave/model");
 const Attendance = require("../attendance/model");
 const MovementRegister = require("../movement/model");
 const Holiday = require("../holiday/model");
 
+// 🛡 Multi-Tenant Settings Resolvers
 const resolvers = {
   Query: {
     settings: async (_, __, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.getSettings(institution_id);
+      return await settingsService.getSettings();
     },
     dashboardStats: async (_, __, ctx) => {
-      const institution_id = requireTenant(ctx);
-      
       // 0. Get Active Employee IDs for filtering
-      const activeEmployees = await Employee.find({ institution_id, is_active: true }).select("_id").lean();
+      const activeEmployees = await Employee.find(withTenant({ is_active: true })).select("_id").lean();
       const activeEmpIds = activeEmployees.map(e => e._id);
       const totalEmployees = activeEmpIds.length;
       
@@ -33,75 +24,62 @@ const resolvers = {
       const tomorrow = new Date(today);
       tomorrow.setDate(today.getDate() + 1);
 
-      // 1. On Leave Today (Only active employees)
-      const leavesToday = await Leave.find({
-        institution_id,
+      // 1. On Leave Today
+      const leavesToday = await Leave.find(withTenant({
         employee_id: { $in: activeEmpIds },
         status: { $in: ["approved", "Approved"] },
         from_date: { $lte: tomorrow },
         to_date: { $gte: today }
-      }).populate({
+      })).populate({
         path: "employee_id",
         populate: { path: "work_detail.department" }
       }).lean();
 
+      // ... mapper logic ...
       const onLeaveEmployees = leavesToday.map(l => ({
         id: l.employee_id?._id?.toString() || l._id.toString(),
-        name: l.employee_id ? `${l.employee_id.first_name} ${l.employee_id.last_name}` : "Unknown Employee",
+        name: l.employee_id ? `${l.employee_id.first_name || ""} ${l.employee_id.last_name || ""}`.trim() : "Unknown",
         department: l.employee_id?.work_detail?.department?.name || "N/A",
         leave_type: l.leave_type
       }));
 
-      // 2. Present Today (Only active employees)
-      const presentCount = await Attendance.countDocuments({
-        institution_id,
+      // 2. Present Today
+      const presentCount = await Attendance.countDocuments(withTenant({
         employee_id: { $in: activeEmpIds },
         date: { $gte: today, $lt: tomorrow },
         status: { $in: ["present", "late", "half_day"] }
-      });
+      }));
 
-      // 3. Pending Approvals (Only active employees)
-      const pendingLeaveEmpIds = await Leave.distinct("employee_id", { 
-        institution_id, 
+      // 3. Pending Approvals
+      const pendingLeaveEmpIds = await Leave.distinct("employee_id", withTenant({ 
         employee_id: { $in: activeEmpIds },
         status: { $in: ["pending", "Pending"] } 
-      });
-      const pendingMovementEmpIds = await MovementRegister.distinct("employee_id", { 
-        institution_id, 
+      }));
+      const pendingMovementEmpIds = await MovementRegister.distinct("employee_id", withTenant({ 
         employee_id: { $in: activeEmpIds },
         status: { $in: ["pending", "Pending"] } 
-      });
+      }));
       
-      const pendingLeavesCount = await Leave.countDocuments({ 
-        institution_id, 
+      const pendingLeavesCount = await Leave.countDocuments(withTenant({ 
         employee_id: { $in: activeEmpIds },
         status: { $in: ["pending", "Pending"] } 
-      });
-      const pendingMovementsCount = await MovementRegister.countDocuments({ 
-        institution_id, 
+      }));
+      const pendingMovementsCount = await MovementRegister.countDocuments(withTenant({ 
         employee_id: { $in: activeEmpIds },
         status: { $in: ["pending", "Pending"] } 
-      });
+      }));
 
+      // ... set mapping ...
       const allPendingEmpIds = new Set([
         ...pendingLeaveEmpIds.map(id => id.toString()),
         ...pendingMovementEmpIds.map(id => id.toString())
       ]);
 
       // 4. Upcoming Holidays
-      const upcomingHolidaysRaw = await Holiday.find({
-        institution_id,
+      const upcomingHolidaysRaw = await Holiday.find(withTenant({
         is_active: true,
         date: { $gte: today }
-      }).sort({ date: 1 }).limit(5).lean();
-
-      const upcomingHolidays = upcomingHolidaysRaw.map(h => ({
-        id: h._id.toString(),
-        name: h.name,
-        date: h.date.toISOString(),
-        type: h.type || "public",
-        description: h.description || ""
-      }));
+      })).sort({ date: 1 }).limit(5).lean();
 
       return {
         totalEmployees,
@@ -112,64 +90,63 @@ const resolvers = {
         pendingApprovals: allPendingEmpIds.size,
         pendingLeaves: pendingLeavesCount,
         pendingMovements: pendingMovementsCount,
-        upcomingHolidays
+        upcomingHolidays: upcomingHolidaysRaw.map(h => {
+          const hd = h.holiday_date || h.date;
+          return {
+            id: h._id.toString(),
+            name: h.name,
+            date: hd instanceof Date ? hd.toISOString() : new Date(hd).toISOString(),
+            type: h.type || "public",
+            description: h.description || ""
+          };
+        })
       };
     }
   },
 
   Mutation: {
     upsertSettings: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
       requireRole(ctx.user, ["ADMIN"]);
-      return await settingsService.upsertSettings(institution_id, input);
+      return await settingsService.updateSettings(input, ctx);
     },
     // Master Data Mutations
     upsertDepartment: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.upsertMasterData(institution_id, "departments", input);
+      return await settingsService.upsertMasterData("departments", input);
     },
     deleteDepartment: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.deleteMasterData(institution_id, "departments", id);
+      return await settingsService.deleteMasterData("departments", id);
     },
     upsertDesignation: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.upsertMasterData(institution_id, "designations", input);
+      return await settingsService.upsertMasterData("designations", input);
     },
     deleteDesignation: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.deleteMasterData(institution_id, "designations", id);
+      return await settingsService.deleteMasterData("designations", id);
     },
     upsertLeaveType: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.upsertMasterData(institution_id, "leave_types", input);
+      return await settingsService.upsertMasterData("leave_types", input);
     },
     deleteLeaveType: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.deleteMasterData(institution_id, "leave_types", id);
+      return await settingsService.deleteMasterData("leave_types", id);
     },
     upsertEmployeeCategory: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.upsertMasterData(institution_id, "employee_categories", input);
+      return await settingsService.upsertMasterData("employee_categories", input);
     },
     deleteEmployeeCategory: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.deleteMasterData(institution_id, "employee_categories", id);
+      return await settingsService.deleteMasterData("employee_categories", id);
     },
     upsertEmployeeType: async (_, { input }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.upsertMasterData(institution_id, "employee_types", input);
+      return await settingsService.upsertMasterData("employee_types", input);
     },
     deleteEmployeeType: async (_, { id }, ctx) => {
-      const institution_id = requireTenant(ctx);
-      return await settingsService.deleteMasterData(institution_id, "employee_types", id);
+      return await settingsService.deleteMasterData("employee_types", id);
     },
   },
 
   Settings: {
-    id: (parent) => parent._id.toString(),
+    id: (parent) => parent._id?.toString() || parent.id,
+    tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
     departments: async (parent) => {
-      const items = await settingsService.listMasterData(parent.institution_id, "departments");
+      const items = await settingsService.listMasterData("departments");
       return items.map(d => ({
         id: d._id.toString(),
         name: d.name,
@@ -179,7 +156,7 @@ const resolvers = {
       }));
     },
     designations: async (parent) => {
-      const items = await settingsService.listMasterData(parent.institution_id, "designations");
+      const items = await settingsService.listMasterData("designations");
       return items.map(d => ({
         id: d._id.toString(),
         name: d.name,
@@ -189,7 +166,7 @@ const resolvers = {
       }));
     },
     leave_types: async (parent) => {
-      const items = await settingsService.listMasterData(parent.institution_id, "leave_types");
+      const items = await settingsService.listMasterData("leave_types");
       return items.map(d => ({
         id: d._id.toString(),
         name: d.name,
@@ -213,7 +190,7 @@ const resolvers = {
       }));
     },
     employee_categories: async (parent) => {
-      const items = await settingsService.listMasterData(parent.institution_id, "employee_categories");
+      const items = await settingsService.listMasterData("employee_categories");
       return items.map(d => ({
         id: d._id.toString(),
         name: d.name,
@@ -223,7 +200,7 @@ const resolvers = {
       }));
     },
     employee_types: async (parent) => {
-      const items = await settingsService.listMasterData(parent.institution_id, "employee_types");
+      const items = await settingsService.listMasterData("employee_types");
       return items.map(d => ({
         id: d._id.toString(),
         name: d.name,

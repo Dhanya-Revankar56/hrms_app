@@ -59,7 +59,8 @@ const typeDefs = gql`
 
   type Settings {
     id: ID!
-    institution_id: String!
+    tenant_id: String
+    institution_id: String
     institution_name: String
     institution_short_name: String
     institution_code: String

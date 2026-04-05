@@ -1,34 +1,42 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const tenantPlugin = require("../../middleware/tenantPlugin");
+
+// 🛡 Load dependencies to ensure Mongoose registration
+require("../settings/department.model");
+require("../settings/designation.model");
 
 const employeeSchema = new mongoose.Schema(
   {
-    // 🔐 Multi-tenancy
+    // 🛡 Strict Multi-tenancy
+    tenant_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      index: true
+    },
+    // 🏷 Legacy Support (Keep for migration phase)
     institution_id: {
       type: String,
+      index: true
+    },
+    // 🆔 Auth Link
+    user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
       index: true
     },
     // 🆔 Business ID
     employee_id: {
       type: String,
-      unique: true,
+      required: true,
       index: true
     },
     // 👤 Basic Info
-    first_name: { type: String, required: true },
-    last_name: { type: String, required: true },
-    user_email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true
-    },
-    password: {
-      type: String,
-      select: false // Always hidden unless explicitly selected
-    },
+    name: { type: String, required: true },
+    first_name: { type: String }, // Legacy
+    last_name: { type: String }, // Legacy
     user_contact: {
       type: String,
       match: /^[0-9]{10}$/
@@ -38,16 +46,16 @@ const employeeSchema = new mongoose.Schema(
     personal_detail: {
       date_of_birth: { type: Date },
       gender: { type: String, enum: ["Male", "Female", "Other"] },
-      marital_status: { type: String, enum: ["Single", "Married"] },
+      marital_status: { type: String, enum: ["Single", "Married", "Divorced", "Widowed"] },
       blood_group: { type: String },
       aadhar_no: { type: String },
       pan_no: { type: String },
-      pf_no: { type: String },
-      esic_no: { type: String }
+      religion: { type: String },
+      category: { type: String }
     },
     // 💼 Work Details
     work_detail: {
-      date_of_joining: { type: Date },
+      joining_date: { type: Date },
       department: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Department"
@@ -58,8 +66,7 @@ const employeeSchema = new mongoose.Schema(
       },
       employee_type: {
         type: String,
-        // Broadening enum to accommodate actual settings data
-        enum: ["Permanent", "Contract", "Intern", "Regular", "Contarct", "Probation", "Trainee"]
+        enum: ["Permanent", "Contract", "Intern", "Regular", "Probation", "Trainee", "Full-Time", "Part-Time"]
       },
       reporting_to: {
         type: mongoose.Schema.Types.ObjectId,
@@ -75,16 +82,12 @@ const employeeSchema = new mongoose.Schema(
         bank_type: { type: String, enum: ["Primary", "Secondary"] }
       }
     ],
-    // 📊 Status & Role
-    app_status: {
+    // 📊 Status
+    status: {
       type: String,
       enum: ["active", "inactive", "on-leave", "relieved"],
-      default: "active"
-    },
-    app_role: {
-      type: String,
-      enum: ["employee", "hod", "admin"],
-      default: "employee"
+      default: "active",
+      index: true
     },
     // 🛑 Relieving Details
     relieved_at: { type: Date },
@@ -92,34 +95,15 @@ const employeeSchema = new mongoose.Schema(
     // 🛠 Audit Fields
     is_active: { type: Boolean, default: true },
     created_at: { type: Date, default: Date.now },
-    updated_at: { type: Date, default: Date.now },
-    created_by: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
-    updated_by: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" }
+    updated_at: { type: Date, default: Date.now }
   },
   {
-    timestamps: false // Manual timestamps as per your audit requirement
+    timestamps: false
   }
 );
 
-// 🔥 Compound Index (Ensures ID uniqueness per college)
-employeeSchema.index({ institution_id: 1, employee_id: 1 }, { unique: true });
-
-// 🔐 Password Hashing Hook
-employeeSchema.pre("save", async function (next) {
-  if (!this.isModified("password") || !this.password) return next();
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
-
-// 🔓 Compare Password Method
-employeeSchema.methods.comparePassword = async function (candidatePassword) {
-  if (!this.password) return false;
-  return await bcrypt.compare(candidatePassword, this.password);
-};
+// 🔥 Compound Index (Ensures ID uniqueness per tenant)
+// Apply tenant isolation
+tenantPlugin(employeeSchema);
 
 module.exports = mongoose.model("Employee", employeeSchema);

@@ -9,13 +9,14 @@ const authTypeDefs = gql`
   type AuthUser {
     id: ID!
     email: String!
-    name: String!
+    name: String
     role: String!
-    institution_id: String!
+    tenant_id: String
+    tenant_code: String
   }
 
   extend type Mutation {
-    login(email: String!, password: String!): LoginResponse!
+    login(email: String!, password: String!, tenant_code: String!): LoginResponse!
   }
 `;
 

@@ -13,12 +13,12 @@ const httpLink = createHttpLink({
 const authLink = setContext((_, { headers }) => {
   // Get the token and institution ID from localStorage
   const token = localStorage.getItem('token');
-  const institutionId = localStorage.getItem('institution_id') || 'COLLEGE_A';
+  const institutionId = localStorage.getItem('institution_id');
   
   return {
     headers: {
       ...headers,
-      'x-institution-id': institutionId,
+      'x-institution-id': institutionId || "",
       authorization: token ? `Bearer ${token}` : "",
     }
   }

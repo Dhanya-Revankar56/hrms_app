@@ -321,7 +321,7 @@ const CSS = `
   .er-filter-count   { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#64748b; white-space:nowrap; margin-left:auto; flex-shrink:0; }
 
   /* ── Table ── */
-  .er-table-wrap { overflow-x:auto; min-height:420px; padding-bottom:60px; } /* Added min-height and padding to prevent menu clipping */
+  .er-table-wrap { overflow-x:auto; } /* Removed min-height to reduce extra space below list */
   table.er-table { width:100%; border-collapse:collapse; }
   .er-table thead tr { background:#f8fafc; border-bottom:1.5px solid #e8edf5; }
   .er-table th {
@@ -585,6 +585,15 @@ const CSS = `
   .er-progress-label { display:flex; justify-content:space-between; font-family:'DM Sans',sans-serif; font-size:11.5px; font-weight:600; color:#64748b; margin-bottom:6px; }
   .er-progress-track { height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
   .er-progress-fill  { height:100%; border-radius:99px; background:linear-gradient(90deg,#1d4ed8,#60a5fa); transition:width 0.4s ease; }
+
+  /* ── Pagination ── */
+  .er-pagination { padding: 16px 24px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #fafbfe; }
+  .er-pag-info { font-family:'DM Sans',sans-serif; font-size: 13px; color: #64748b; font-weight: 500; }
+  .er-pag-btns { display: flex; gap: 8px; }
+  .er-pag-btn { padding: 6px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font-family:'DM Sans',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; color: #334155; transition: 0.2s; }
+  .er-pag-btn:hover:not(:disabled) { background: #f8fafc; border-color: #1d4ed8; color: #1d4ed8; transform: translateY(-1px); }
+  .er-pag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .er-pag-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; box-shadow: 0 2px 8px rgba(29,78,216,0.2); }
 `;
 
 /* ─────────────────────────────────────────────
@@ -1594,13 +1603,13 @@ export default function EmployeeRelieving() {
 
         {/* Pagination UI */}
         {totalPages > 1 && (
-          <div className="lv-pagination">
-            <div className="lv-pag-info">
+          <div className="er-pagination">
+            <div className="er-pag-info">
               Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
             </div>
-            <div className="lv-pag-btns">
+            <div className="er-pag-btns">
               <button 
-                className="lv-pag-btn" 
+                className="er-pag-btn" 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
                 disabled={currentPage === 1}
               >
@@ -1609,14 +1618,14 @@ export default function EmployeeRelieving() {
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                 <button 
                   key={p} 
-                  className={`lv-pag-btn ${p === currentPage ? 'active' : ''}`} 
+                  className={`er-pag-btn ${p === currentPage ? 'active' : ''}`} 
                   onClick={() => setCurrentPage(p)}
                 >
                   {p}
                 </button>
               ))}
               <button 
-                className="lv-pag-btn" 
+                className="er-pag-btn" 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
                 disabled={currentPage === totalPages}
               >

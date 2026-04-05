@@ -3,7 +3,8 @@ const { gql } = require("apollo-server-express");
 const typeDefs = gql`
   type Holiday {
     id: ID!
-    institution_id: String!
+    tenant_id: String
+    institution_id: String
     name: String!
     date: String!
     type: String
