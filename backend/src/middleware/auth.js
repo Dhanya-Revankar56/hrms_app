@@ -63,7 +63,9 @@ const getUserFromToken = (req) => {
     try {
       require('fs').appendFileSync(require('path').join(process.cwd(), 'audit_log.txt'), 
         `[${new Date().toISOString()}] Email: ${decoded.email} | Role: ${decoded.role} | Header: ${headerTenantCode} | Final: ${tenantId}\n`);
-    } catch(e) {}
+    } catch(e) {
+      // Diagnostic failure shouldn't block the request
+    }
 
     return {
       id: decoded.user_id,

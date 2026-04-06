@@ -1,6 +1,7 @@
 const Employee = require("./model");
 const employeeService = require("./service");
 const { requireRole } = require("../../middleware/auth");
+const { withTenant } = require("../../utils/tenantUtils");
 
 // 🛡 Multi-Tenant Employee Resolvers
 const resolvers = {

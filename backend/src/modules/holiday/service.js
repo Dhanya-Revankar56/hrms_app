@@ -51,7 +51,7 @@ exports.createHoliday = async (data, context) => {
     saved = await holiday.save();
   } catch (error) {
     if (error.code === 11000) {
-      throw new Error(`A holiday on this date already exists for this campus.`);
+      throw new Error(`A holiday on this date already exists for this campus.`, { cause: error });
     }
     throw error;
   }

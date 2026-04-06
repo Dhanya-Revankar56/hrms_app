@@ -30,6 +30,9 @@
   "lint-staged": {
     "frontend/hrms-frontend/src/**/*.{ts,tsx}": [
       "npm --prefix frontend/hrms-frontend run lint"
+    ],
+    "backend/**/*.js": [
+      "npm --prefix backend run lint"
     ]
   }
 }
