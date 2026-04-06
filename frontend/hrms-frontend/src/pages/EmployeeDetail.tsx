@@ -98,14 +98,14 @@ const CSS = `
   .ed-salary-val { font-size: 14px; color: #1e293b; font-weight: 700; }
 
   /* Leave Breakdown */
-  .ed-leave-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .ed-leave-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 14px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-  .ed-leave-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); border-color: #3b82f6; }
-  .ed-leave-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+  .ed-leave-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .ed-leave-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 10px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .ed-leave-card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px -2px rgba(0,0,0,0.08); border-color: #3b82f6; }
+  .ed-leave-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
   .ed-leave-info { flex: 1; min-width: 0; }
-  .ed-leave-type { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ed-leave-stats { font-size: 15px; font-weight: 800; color: #1e293b; margin-bottom: 2px; }
-  .ed-leave-used { font-size: 11px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .ed-leave-type { font-size: 9.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ed-leave-stats { font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 1px; }
+  .ed-leave-used { font-size: 10px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 3px; }
   .ed-used-val { color: #3b82f6; font-weight: 700; }
 
   .ed-filter-bar { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -1020,10 +1020,10 @@ export default function EmployeeDetail() {
                       <td>{formatDateForDisplay(l.requested_date || l.created_at || "")}</td>
                     <td>
                       <span className="ed-pill" style={{
-                        background: (l.approvals?.find((a) => a.role === 'HOD')?.status === 'approved' ? '#dcfce7' : l.approvals?.find((a) => a.role === 'HOD')?.status === 'rejected' ? '#fee2e2' : '#fef9c3'),
-                        color: (l.approvals?.find((a) => a.role === 'HOD')?.status === 'approved' ? '#166534' : l.approvals?.find((a) => a.role === 'HOD')?.status === 'rejected' ? '#991b1b' : '#854d0e')
+                        background: (l.approvals?.find((a) => a.role === 'HEAD OF DEPARTMENT')?.status === 'approved' ? '#dcfce7' : l.approvals?.find((a) => a.role === 'HEAD OF DEPARTMENT')?.status === 'rejected' ? '#fee2e2' : '#fef9c3'),
+                        color: (l.approvals?.find((a) => a.role === 'HEAD OF DEPARTMENT')?.status === 'approved' ? '#166534' : l.approvals?.find((a) => a.role === 'HEAD OF DEPARTMENT')?.status === 'rejected' ? '#991b1b' : '#854d0e')
                       }}>
-                        {l.approvals?.find((a) => a.role === 'HOD')?.status || 'pending'}
+                        {l.approvals?.find((a) => a.role === 'HEAD OF DEPARTMENT')?.status || 'pending'}
                       </span>
                     </td>
                     <td>

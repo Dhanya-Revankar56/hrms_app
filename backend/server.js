@@ -57,9 +57,8 @@ async function startServer() {
     const user = req ? getUserFromToken(req) : null;
     const tenantId = user?.tenant_id || null;
 
-    // Reject all requests missing tenant_id (after login) if not on public paths
-    // Note: Public paths like login can use skipTenant: true in the plugin
-    runWithTenant(tenantId, () => next());
+    // Use the new multi-property context for the plugin
+    runWithTenant({ tenantId, role: user?.role }, () => next());
   });
 
   // Mount GraphQL

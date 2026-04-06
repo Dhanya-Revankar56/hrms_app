@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE, UPDATE_LEAVE } from "../graphql/leaveQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
-import { isAdmin, hasRole } from "../utils/auth";
+import { isAdmin, hasRole, isHod } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -718,8 +718,8 @@ interface DrawerProps {
   req: LeaveRequest;
   onClose: () => void;
   onCancel?: (id: string) => void;
-  onApprove: (id: string, remarks: string, role: 'HOD' | 'ADMIN') => void;
-  onReject:  (id: string, remarks: string, role: 'HOD' | 'ADMIN') => void;
+  onApprove: (id: string, remarks: string, role: string) => void;
+  onReject:  (id: string, remarks: string, role: string) => void;
 }
 
 /* ─────────────────────────────────────────────
@@ -964,7 +964,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
                {req.approvals?.map(appr => (
                  <div className="lv-approval-step" key={appr.role}>
                     <div className="lv-step-header">
-                      <div className="lv-step-title">{appr.role === 'HOD' ? 'Department Admin Status' : 'Admin Status'}</div>
+                      <div className="lv-step-title">{appr.role === 'HEAD OF DEPARTMENT' ? 'Department Admin Status' : 'Admin Status'}</div>
                       <StepBadge status={appr.status}/>
                     </div>
                     {appr.remarks && (
@@ -977,7 +977,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
           </div>
 
           {/* Actions for Dept Admin */}
-          {hasRole("ADMIN", "HOD") && (req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
+          {isHod() && (req.approvals?.find(a => a.role === 'HEAD OF DEPARTMENT')?.status || "pending").toLowerCase() === "pending" && (
             <div className="lv-drawer-section">
               <div className="lv-drawer-section-title">Dept Admin Actions</div>
               <textarea
@@ -987,8 +987,8 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
                 onChange={(e) => setRemarks(e.target.value)}
               />
               <div style={{display:'flex', gap: 10, marginTop:10}}>
-                <button className="lv-drawer-btn lv-drawer-reject" onClick={() => onReject(req.id, remarks, 'HOD')}>Reject as Dept Admin</button>
-                <button className="lv-drawer-btn lv-drawer-approve" onClick={() => onApprove(req.id, remarks, 'HOD')}>Approve as Dept Admin</button>
+                <button className="lv-drawer-btn lv-drawer-reject" onClick={() => onReject(req.id, remarks, 'HEAD OF DEPARTMENT')}>Reject as Dept Admin</button>
+                <button className="lv-drawer-btn lv-drawer-approve" onClick={() => onApprove(req.id, remarks, 'HEAD OF DEPARTMENT')}>Approve as Dept Admin</button>
               </div>
             </div>
           )}
@@ -1053,7 +1053,7 @@ export default function Leave() {
   const [drawerReq, setDrawerReq] = useState<LeaveRequest | null>(null);
   const [toast, setToast]         = useState<string>("");
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string; level: 'HOD' | 'ADMIN' } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string; level: string } | null>(null);
 
   /* Local Search Term for Debouncing */
   const [searchTerm, setSearchTerm] = useState(filters.search);
@@ -1136,7 +1136,7 @@ export default function Leave() {
       if (sortField === "empId")      { va = a.employee_code; vb = b.employee_code; }
       if (sortField === "leaveType")  { va = a.leave_type;  vb = b.leave_type; }
       if (sortField === "startDate")  { va = a.from_date;   vb = b.from_date; }
-      if (sortField === "deptStatus") { va = a.approvals?.find(x => x.role === 'HOD')?.status; vb = b.approvals?.find(x => x.role === 'HOD')?.status; }
+      if (sortField === "deptStatus") { va = a.approvals?.find(x => x.role === 'HEAD OF DEPARTMENT')?.status; vb = b.approvals?.find(x => x.role === 'HEAD OF DEPARTMENT')?.status; }
       if (sortField === "hrStatus")   { va = a.approvals?.find(x => x.role === 'ADMIN')?.status; vb = b.approvals?.find(x => x.role === 'ADMIN')?.status; }
       if (sortField === "finalStatus") { va = a.status; vb = b.status; }
       
@@ -1188,7 +1188,7 @@ export default function Leave() {
   }
 
   /* Reject */
-  function initiateReject(id: string, name: string, remarks: string, role: 'HOD' | 'ADMIN') {
+  function initiateReject(id: string, name: string, remarks: string, role: string) {
     setRejectTarget({ id, name, remarks, level: role });
   }
   function confirmReject() {
@@ -1401,7 +1401,7 @@ export default function Leave() {
                       <td>
                         <span className="lv-doc-no">—</span>
                       </td>
-                      <td><StepBadge status={req.approvals?.find(a => a.role === 'HOD')?.status || "Pending"}/></td>
+                      <td><StepBadge status={req.approvals?.find(a => a.role === 'HEAD OF DEPARTMENT')?.status || "Pending"}/></td>
                       <td><StepBadge status={req.approvals?.find(a => a.role === 'ADMIN')?.status || "Pending"}/></td>
                       <td><OverallStatusBadge req={req}/></td>
                     </tr>
@@ -1446,11 +1446,11 @@ export default function Leave() {
                  });
                }
             }}
-            onApprove={(id: string, remarks: string, role: 'HOD' | 'ADMIN') => { 
+            onApprove={(id: string, remarks: string, role: string) => { 
               handleApprove(id, remarks, role); 
               setDrawerReq(null); 
             }}
-            onReject={(id: string, remarks: string, role: 'HOD' | 'ADMIN') => {
+            onReject={(id: string, remarks: string, role: string) => {
               initiateReject(id, `${drawerReq.employee?.first_name || ""} ${drawerReq.employee?.last_name || ""}`.trim() || "Employee", remarks, role);
               setDrawerReq(null);
             }}

@@ -2,7 +2,7 @@ const Relieving = require("./model");
 const Employee = require("../employee/model");
 const User = require("../auth/user.model");
 const AuditLog = require("../audit/model");
-const { withTenant } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 
 exports.listRelievings = async ({ employee_id, status, department, pagination }) => {
   const filter = withTenant({});
@@ -43,7 +43,15 @@ exports.listRelievings = async ({ employee_id, status, department, pagination })
   };
 };
 
-exports.applyForRelieving = async (data, context) => {
+exports.getRelievingById = async (id) => {
+  const relieving = await Relieving.findOne(withTenant({ _id: id }))
+    .populate("employee_id")
+    .lean();
+  if (!relieving) throw new Error("Relieving request not found");
+  return relieving;
+};
+
+exports.createRelieving = async (data, context) => {
   const filter = withTenant({});
   const record = new Relieving({ ...data, ...filter });
   const saved = await record.save();
@@ -51,31 +59,31 @@ exports.applyForRelieving = async (data, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "RELIEVING_APPLY",
-    user_id: context?.user?.id || data.employee_id,
+    user_id: getUserIdFromCtx(context) || data.employee_id,
     tenant_id: filter.tenant_id,
-    metadata: { relieving_id: saved._id, date: data.relieved_at }
+    metadata: { relieving_id: saved._id, date: data.resignation_date }
   });
 
   return saved.toObject();
 };
 
-exports.updateRelievingStatus = async (id, status, context) => {
+exports.updateRelieving = async (id, input, context) => {
   const filter = withTenant({ _id: id });
   const relieving = await Relieving.findOne(filter);
   if (!relieving) throw new Error("Relieving request not found");
 
   const updated = await Relieving.findOneAndUpdate(
     filter,
-    { $set: { status, updatedAt: new Date() } },
+    { $set: { ...input, updatedAt: new Date() } },
     { new: true }
   ).lean();
 
   // 🛡 1. If approved, deactivate Employee and User
-  if (status === "Approved") {
+  if (input.status === "Approved" || input.status === "Relieved") {
     const emp = await Employee.findOne(withTenant({ _id: relieving.employee_id }));
     if (emp) {
       await Promise.all([
-        Employee.updateOne({ _id: emp._id }, { $set: { status: "relieved", is_active: false } }),
+        Employee.updateOne({ _id: emp._id }, { $set: { app_status: "relieved", is_active: false } }),
         User.updateOne({ _id: emp.user_id }, { $set: { isActive: false } })
       ]);
     }
@@ -83,11 +91,16 @@ exports.updateRelievingStatus = async (id, status, context) => {
 
   // 🛡 2. Audit Log
   await AuditLog.create({
-    action: "RELIEVING_STATUS_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    action: "RELIEVING_UPDATED",
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
-    metadata: { relieving_id: id, status }
+    metadata: { relieving_id: id, status: input.status || relieving.status }
   });
 
   return updated;
+};
+
+exports.deleteRelieving = async (id) => {
+  const result = await Relieving.deleteOne(withTenant({ _id: id }));
+  return { success: result.deletedCount > 0, message: result.deletedCount > 0 ? "Deleted successfully" : "Not found" };
 };

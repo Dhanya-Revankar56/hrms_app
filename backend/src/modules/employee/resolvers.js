@@ -12,7 +12,7 @@ const resolvers = {
 
       // 👤 EMPLOYEE → return only their own record
       if (role === "EMPLOYEE") {
-        const self = await Employee.findOne({ user_id: ctx.user.id }) 
+        const self = await Employee.findOne(withTenant({ user_id: ctx.user.id })) 
           .populate("work_detail.department")
           .populate("work_detail.designation")
           .lean();
@@ -56,16 +56,16 @@ const resolvers = {
   Mutation: {
     createEmployee: async (_, { input }, ctx) => {
       requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT"]);
-      return await employeeService.createEmployee(input);
+      return await employeeService.createEmployee(input, ctx);
     },
 
     updateEmployee: async (_, { id, input }, ctx) => {
-      return await employeeService.updateEmployee(id, input);
+      return await employeeService.updateEmployee(id, input, ctx);
     },
 
     deleteEmployee: async (_, { id }, ctx) => {
       requireRole(ctx.user, ["ADMIN"]);
-      return await employeeService.deleteEmployee(id);
+      return await employeeService.deleteEmployee(id, ctx);
     },
   },
 

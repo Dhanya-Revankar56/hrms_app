@@ -48,7 +48,7 @@ const resolvers = {
     },
     updateLeaveApproval: async (_, { id, role, status, remarks }, ctx) => {
       requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT"]);
-      return await leaveService.updateLeaveApproval({ id, role, status, remarks, user_id: ctx.user.id });
+      return await leaveService.updateLeaveApproval({ id, role, status, remarks }, ctx);
     },
     cancelLeave: async (_, { id }, ctx) => {
       return await leaveService.cancelLeave(id, ctx);
@@ -57,9 +57,7 @@ const resolvers = {
       return await leaveService.createLeave(input, ctx);
     },
     updateLeave: async (_, { id, input }, ctx) => {
-      // NOTE: Leave service expects (id, data, institution_id, user_id) 
-      // But institution_id is deprecated. We can pass null or undefined and tenantPlugin will handle scoping.
-      return await leaveService.updateLeave(id, input, null, ctx?.user?.id);
+      return await leaveService.updateLeave(id, input, ctx);
     },
     deleteLeave: async (_, { id }, ctx) => {
       return await leaveService.deleteLeave(id, ctx);

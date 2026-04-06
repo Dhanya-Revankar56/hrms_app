@@ -83,9 +83,13 @@ interface BackendRelieving {
     first_name: string;
     last_name: string;
     employee_id: string;
+    user_email?: string;
+    user_contact?: string;
     work_detail?: {
       department?: { id: string; name: string };
       designation?: { id: string; name: string };
+      date_of_joining?: string;
+      reporting_to?: string;
     };
   };
 }
@@ -1211,18 +1215,17 @@ function RejectModal({ name, onConfirm, onCancel }: RejectModalProps) {
 /* ─────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────── */
-export default function EmployeeRelieving() {
+export default function Relieving() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const [filters, setFilters] = useState<FilterState>({
     search: "", department: "All", status: "All", dateFrom: "",
   });
 
-  const { data, refetch } = useQuery<RelievingData>(GET_RELIEVINGS, {
+  const { data, loading, error, refetch } = useQuery<RelievingData>(GET_RELIEVINGS, {
     variables: {
       pagination: { page: currentPage, limit: itemsPerPage },
       status: filters.status === "All" ? undefined : filters.status,
-      // search and department could be added to backend later
     },
     fetchPolicy: "network-only"
   });
@@ -1255,17 +1258,17 @@ export default function EmployeeRelieving() {
       lastName: r.employee?.last_name || "",
       department: r.employee?.work_detail?.department?.name || "N/A",
       designation: r.employee?.work_detail?.designation?.name || "N/A",
-      avatarColor: "#6366f1", // Default color
-      officialEmail: "N/A",
-      phone: "N/A",
-      reportingManager: "N/A",
-      joiningDate: "N/A",
+      avatarColor: "#2563eb", // Consistent blue as requested
+      officialEmail: r.employee?.user_email || "N/A",
+      phone: r.employee?.user_contact || "N/A",
+      reportingManager: r.employee?.work_detail?.reporting_to ? "Manager Assigned" : "Admin",
+      joiningDate: r.employee?.work_detail?.date_of_joining || "N/A",
       resignDate: r.resignation_date,
       lastWorkingDay: r.last_working_date,
-      noticePeriod: r.notice_period_days,
+      noticePeriod: r.notice_period_days || 0,
       exitReason: (r.reason || "Other") as ExitReason,
       exitReasonDetail: r.remarks || "",
-      status: r.status,
+      status: (r.status as ExitStatus) || "Pending Approval",
       appliedDate: r.created_at || "",
       approvedBy: "N/A",
       approvedOn: "N/A",
@@ -1419,6 +1422,30 @@ export default function EmployeeRelieving() {
     });
     showToast("Exit interview status saved.");
   }
+
+
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'70vh', background:'#fff' }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:'40px', height:'40px', border:'3px solid #f1f5f9', borderTopColor:'#1d4ed8', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }} />
+        <p style={{ fontFamily:"'DM Sans',sans-serif", color:'#64748b', fontSize:14, fontWeight:500 }}>Loading relieving records...</p>
+      </div>
+      <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ padding:40, textAlign:'center', background:'#fff', minHeight:'60vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:50, height:50, background:'#fef2f2', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#dc2626" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <h3 style={{ fontFamily:"'DM Sans',sans-serif", color:'#0f172a', margin:0 }}>Failed to load data</h3>
+      <p style={{ fontFamily:"'DM Sans',sans-serif", color:'#64748b', fontSize:14, marginTop:8, maxWidth:400 }}>{error.message || "An unexpected error occurred while fetching exit requests."}</p>
+      <button onClick={() => refetch()} style={{ marginTop:20, padding:'10px 20px', borderRadius:9, background:'#1d4ed8', color:'#fff', border:'none', cursor:'pointer', fontWeight:700, fontSize:13, boxShadow:'0 4px 12px rgba(29,78,216,0.2)' }}>Try Again</button>
+    </div>
+  );
 
   /* ── RENDER ── */
   return (

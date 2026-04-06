@@ -35,13 +35,13 @@ const resolvers = {
 
   Mutation: {
     createRelieving: async (_, { input }, ctx) => {
-      return await relievingService.createRelieving(input);
+      return await relievingService.createRelieving(input, ctx);
     },
     updateRelieving: async (_, { id, input }, ctx) => {
-      return await relievingService.updateRelieving(id, input);
+      return await relievingService.updateRelieving(id, input, ctx);
     },
     deleteRelieving: async (_, { id }, ctx) => {
-      return await relievingService.deleteRelieving(id);
+      return await relievingService.deleteRelieving(id, ctx);
     },
   },
 

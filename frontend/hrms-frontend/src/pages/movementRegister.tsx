@@ -6,7 +6,7 @@ import { GET_MOVEMENTS, CREATE_MOVEMENT, UPDATE_MOVEMENT } from "../graphql/move
 import { GET_EMPLOYEES } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 import AnalogTimePicker from "../components/AnalogTimePicker";
-import { isAdmin, hasRole } from "../utils/auth";
+import { isAdmin, hasRole, isHod } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -535,6 +535,15 @@ function NewModal({ onClose, onToast }: ModalP) {
     if (!form.returnTime)  e.returnTime  = "Required.";
     if (form.outTime && form.returnTime && form.returnTime <= form.outTime)
       e.returnTime = "Must be after out time.";
+    
+    // Duration Limit Check (1 hour / 60 mins)
+    if (form.outTime && form.returnTime) {
+      const [oh, om] = form.outTime.split(":").map(Number);
+      const [ih, im] = form.returnTime.split(":").map(Number);
+      const diff = (ih * 60 + im) - (oh * 60 + om);
+      if (diff > 60) e.returnTime = "Max duration is 1 hour (60 mins).";
+    }
+
     if (!form.reasonDetail.trim()) e.reasonDetail = "Required.";
     setErrs(e);
     return Object.keys(e).length === 0;
@@ -909,7 +918,7 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
           </div>
 
           {/* Actions - DEPT ADMIN */}
-          {hasRole("ADMIN", "HOD") && (!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
+          {isHod() && (!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
             <div className="mr-sec">
               <div className="mr-sec-t" style={{color:'#1d4ed8', borderBottom:'1px solid #eff6ff'}}>Dept Admin Actions</div>
               <textarea className="mr-rem" placeholder="Dept Admin remarks…"

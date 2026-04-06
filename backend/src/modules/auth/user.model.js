@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
+      unique: true, // 🛡 Enforce global uniqueness across all tenants
       lowercase: true,
       trim: true
     },

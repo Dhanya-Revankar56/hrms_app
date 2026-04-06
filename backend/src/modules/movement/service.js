@@ -4,7 +4,7 @@ const Leave = require("../leave/model");
 const Holiday = require("../holiday/model");
 const Employee = require("../employee/model");
 const AuditLog = require("../audit/model");
-const { withTenant } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 
 /**
  * Validates movement request against institutional settings
@@ -72,6 +72,16 @@ const checkMovementRules = async (employee_id, movement_date, out_time, in_time)
   if (count >= ms.limit_count) {
     throw new Error(`You have reached the movement limit for this ${ms.limit_frequency.toLowerCase()} (${ms.limit_count}).`);
   }
+
+  // 4. Duration Check
+  if (out_time && in_time) {
+    const [oh, om] = out_time.split(":").map(Number);
+    const [ih, im] = in_time.split(":").map(Number);
+    const durationMins = (ih * 60 + im) - (oh * 60 + om);
+    if (durationMins > (ms.max_duration_mins || 60)) {
+      throw new Error(`Movement duration cannot exceed ${ms.max_duration_mins || 60} minutes. Your request is ${durationMins} minutes.`);
+    }
+  }
 };
 
 exports.listMovements = async ({ employee_id, status, movement_type, department, pagination }) => {
@@ -130,7 +140,7 @@ exports.createMovement = async (data, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "MOVEMENT_APPLY",
-    user_id: context?.user?.id || data.user_id,
+    user_id: getUserIdFromCtx(context) || data.employee_id,
     tenant_id: filter.tenant_id,
     metadata: { movement_id: saved._id, date: data.movement_date }
   });
@@ -138,25 +148,47 @@ exports.createMovement = async (data, context) => {
   return saved.toObject();
 };
 
+/**
+ * Logic to compute the overall movement status based on individual approvals
+ */
+const computeMovementStatus = (movement) => {
+  // If status is already terminal (completed/cancelled), keep it
+  if (["completed", "cancelled"].includes(movement.status)) return movement.status;
+
+  const ds = (movement.dept_admin_status || "pending").toLowerCase();
+  const as = (movement.admin_status || "pending").toLowerCase();
+
+  if (ds === "rejected" || as === "rejected") return "rejected";
+  if (ds === "approved" || as === "approved") return "approved";
+  return "pending";
+};
+
 exports.updateMovement = async (id, data, context) => {
   const filter = withTenant({ _id: id });
-  const updated = await Movement.findOneAndUpdate(
-    filter,
-    { $set: data },
-    { new: true, runValidators: true }
-  ).lean();
+  const movement = await Movement.findOne(filter);
+  if (!movement) throw new Error("Movement record not found");
 
-  if (!updated) throw new Error("Movement record not found");
+  // Apply updates from incoming data
+  Object.keys(data).forEach((key) => {
+    movement[key] = data[key];
+    if (key === "dept_admin_status") movement.dept_admin_date = new Date();
+    if (key === "admin_status")      movement.admin_date = new Date();
+  });
+
+  // Sync overall status
+  movement.status = computeMovementStatus(movement);
+
+  const updated = await movement.save();
 
   // 🛡 Audit Log
   await AuditLog.create({
     action: "MOVEMENT_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { movement_id: id, status: updated.status }
   });
 
-  return updated;
+  return updated.toObject();
 };
 
 exports.deleteMovement = async (id, context) => {
@@ -167,7 +199,7 @@ exports.deleteMovement = async (id, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "MOVEMENT_DELETED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { movement_id: id }
   });

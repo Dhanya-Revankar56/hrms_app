@@ -1,7 +1,7 @@
 const Employee = require("./model");
 const User = require("../auth/user.model");
 const AuditLog = require("../audit/model");
-const { withTenant } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 const { getTenantId } = require("../../middleware/tenantContext");
 const counterService = require("../counter/service");
 
@@ -64,11 +64,19 @@ exports.listEmployees = async ({ status, department, search, pagination }) => {
 };
 
 exports.getEmployeeById = async (id) => {
-  const filter = withTenant({ _id: id });
+  // Support both Employee _id and User user_id for flexibility
+  const filter = withTenant({
+    $or: [
+      { _id: id },
+      { user_id: id }
+    ]
+  });
+  
   const emp = await Employee.findOne(filter)
     .populate("work_detail.department")
     .populate("work_detail.designation")
     .lean();
+    
   if (!emp) throw new Error("Employee not found");
   return emp;
 };
@@ -165,7 +173,7 @@ exports.createEmployee = async (data, context) => {
     // 🛡 3. Audit Log
     await AuditLog.create({
       action: "EMPLOYEE_CREATED",
-      user_id: context?.user?.id || savedUser._id,
+      user_id: getUserIdFromCtx(context) || savedUser._id,
       tenant_id,
       metadata: { employee_id: savedEmp.employee_id, name: emp.name, email: normalized.user_email }
     });
@@ -206,7 +214,7 @@ exports.updateEmployee = async (id, data, context) => {
   // 🛡 3. Audit Log
   await AuditLog.create({
     action: "EMPLOYEE_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: existing.tenant_id,
     metadata: { employee_id: id, changes: Object.keys(data) }
   });
@@ -229,7 +237,7 @@ exports.deleteEmployee = async (id, context) => {
   // 🛡 2. Audit Log
   await AuditLog.create({
     action: "EMPLOYEE_DELETED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: emp.tenant_id,
     metadata: { employee_id: id, name: emp.name }
   });

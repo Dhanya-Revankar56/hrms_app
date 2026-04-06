@@ -1,5 +1,5 @@
 const Leave = require("./model");
-const { withTenant, applyTenantFilter } = require("../../utils/tenantUtils");
+const { withTenant, applyTenantFilter, getUserIdFromCtx } = require("../../utils/tenantUtils");
 const { getTenantId } = require("../../middleware/tenantContext");
 const AuditLog = require("../audit/model");
 const LeaveBalance = require("./leaveBalance");
@@ -333,7 +333,7 @@ exports.applyLeave = async (input, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "LEAVE_APPLY",
-    user_id: context?.user?.id || input.user_id,
+    user_id: getUserIdFromCtx(context) || input.employee_id,
     tenant_id,
     metadata: { leave_id: saved._id, type: leave_type, days: totalDays }
   });
@@ -344,8 +344,8 @@ exports.applyLeave = async (input, context) => {
 /**
  * 2. APPROVAL LOGIC
  */
-exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id, user_id }) => {
-  const filter = applyTenantFilter({ _id: id, institution_id });
+exports.updateLeaveApproval = async ({ id, role, status, remarks }, context) => {
+  const filter = withTenant({ _id: id });
   const leave = await Leave.findOne(filter);
   if (!leave) throw new Error("Leave record not found");
 
@@ -374,6 +374,18 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id
   leave.approvals[approvalIdx].status = status;
   leave.approvals[approvalIdx].remarks = remarks;
   leave.approvals[approvalIdx].updated_at = new Date();
+
+  // Sync legacy fields
+  if (role === "HEAD OF DEPARTMENT") {
+    leave.dept_admin_status = status;
+    leave.dept_admin_remarks = remarks;
+  } else if (role === "ADMIN") {
+    leave.admin_status = status;
+    leave.admin_remarks = remarks;
+  }
+
+  // Force Mongoose to mark the array as dirtied
+  leave.markModified('approvals');
 
   // Compute final status
   const finalStatus = computeFinalStatus(leave.approvals);
@@ -412,8 +424,8 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id
 /**
  * 4. CANCEL LEAVE
  */
-exports.cancelLeave = async (id, institution_id) => {
-  const filter = applyTenantFilter({ _id: id, institution_id });
+exports.cancelLeave = async (id, context) => {
+  const filter = withTenant({ _id: id });
   const leave = await Leave.findOne(filter);
   if (!leave) throw new Error("Leave record not found");
 
@@ -465,15 +477,29 @@ exports.cancelLeave = async (id, institution_id) => {
   return saved;
 };
 
-exports.createLeave = async (data) => {
-  const leave = new Leave(data);
-  return await leave.save();
+exports.createLeave = async (data, context) => {
+  const tenant_id = getTenantId();
+  const leave = new Leave({ ...data, tenant_id });
+  const saved = await leave.save();
+  
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "LEAVE_CREATED",
+    user_id: getUserIdFromCtx(context),
+    tenant_id,
+    metadata: { leave_id: saved._id, type: data.leave_type }
+  });
+  
+  return saved;
 };
 
-exports.updateLeave = async (id, data, institution_id, user_id) => {
+exports.updateLeave = async (id, data, context) => {
+  const filter = withTenant({ _id: id });
+  const user_id = getUserIdFromCtx(context);
+  
   // 1. Recalculate total_days if dates change
   if (data.from_date || data.to_date) {
-    const existing = await Leave.findOne({ _id: id, institution_id });
+    const existing = await Leave.findOne(filter);
     if (existing) {
        const from = new Date(data.from_date || existing.from_date);
        const to = new Date(data.to_date || existing.to_date);
@@ -496,14 +522,12 @@ exports.updateLeave = async (id, data, institution_id, user_id) => {
   }
 
   // Admin-only date edit — log as UPDATED business event
-  const filter = applyTenantFilter({ _id: id, institution_id });
   const updated = await Leave.findOneAndUpdate(filter, { $set: data }, { new: true }).lean();
   if (updated) {
-    const emp = await Employee.findOne({ _id: updated.employee_id }).lean();
+    const emp = await Employee.findOne(withTenant({ _id: updated.employee_id })).lean();
     const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
     const eventLogService = require("../eventLog/service");
     await eventLogService.logEvent({
-      institution_id,
       user_id,
       user_name: "Admin",
       user_role: "HR Administrator",
@@ -517,9 +541,18 @@ exports.updateLeave = async (id, data, institution_id, user_id) => {
   return updated;
 };
 
-exports.deleteLeave = async (id, institution_id) => {
-  const filter = applyTenantFilter({ _id: id, institution_id });
+exports.deleteLeave = async (id, context) => {
+  const filter = withTenant({ _id: id });
   const deleted = await Leave.findOneAndDelete(filter);
   if (!deleted) throw new Error("Leave record not found");
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "LEAVE_DELETED",
+    user_id: getUserIdFromCtx(context),
+    tenant_id: deleted.tenant_id,
+    metadata: { leave_id: id }
+  });
+
   return { success: true, message: "Leave record deleted successfully" };
 };
