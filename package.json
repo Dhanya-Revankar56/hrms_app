@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/Dhanya-Revankar56/hrms_app#readme",
   "devDependencies": {
-    "husky": "^8.0.0",
+    "husky": "^8.0.3",
     "lint-staged": "^16.4.0"
   },
   "workspaces": [
@@ -30,6 +30,9 @@
   "lint-staged": {
     "frontend/hrms-frontend/src/**/*.{ts,tsx}": [
       "npm --prefix frontend/hrms-frontend run lint"
+    ],
+    "backend/**/*.js": [
+      "npm --prefix backend run lint"
     ]
   }
 }

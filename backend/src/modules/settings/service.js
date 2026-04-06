@@ -1,6 +1,6 @@
 const Settings = require("./model");
 const AuditLog = require("../audit/model");
-const { withTenant } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 const Department = require("./department.model");
 const Designation = require("./designation.model");
 const LeaveType = require("./leaveType.model");
@@ -38,7 +38,7 @@ exports.updateSettings = async (data, context) => {
 
   await AuditLog.create({
     action: "SETTINGS_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { fields: Object.keys(data) }
   });

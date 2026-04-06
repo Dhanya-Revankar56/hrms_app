@@ -35,9 +35,21 @@ const getUserFromToken = (req) => {
       'TEST_CLG_001': '69cf9ab6ba557bc5c95ede8d'
     };
 
+    // 🛡 Role-Based Header Override (Super Admin Only)
+    // This allows Super Admins to "drill down" into a specific college while in the dashboard
+    const headerTenantCode = req?.headers?.["x-institution-id"];
+    
     let tenantId = decoded.tenant_id;
-    if (!tenantId && decoded.institution_id) {
-      tenantId = TENANT_MAP[decoded.institution_id];
+    const isSuperAdmin = normalizeRole(decoded.role) === "SUPER_ADMIN";
+
+    if (isSuperAdmin && headerTenantCode) {
+      // If header is a code (e.g. COLLEGE_B), map it. If it's a 24-char ID, use it.
+      const mappedId = TENANT_MAP[headerTenantCode.toUpperCase()] || headerTenantCode;
+      if (mappedId && mappedId.length === 24) {
+        tenantId = mappedId;
+      }
+    } else if (!tenantId && decoded.institution_id) {
+       tenantId = TENANT_MAP[decoded.institution_id];
     }
     
     // Auto-convert any object ID forms
@@ -47,13 +59,19 @@ const getUserFromToken = (req) => {
 
     const isValidTenant = tenantId && typeof tenantId === "string" && tenantId.length === 24;
     
-    console.log("[Auth Middleware] Decoded:", { decodedTenantId: decoded.tenant_id, finalTenantId: tenantId, isValidTenant });
+    // 🛡 Diagnostic Persistence (Because terminal output is truncated/unreliable)
+    try {
+      require('fs').appendFileSync(require('path').join(process.cwd(), 'audit_log.txt'), 
+        `[${new Date().toISOString()}] Email: ${decoded.email} | Role: ${decoded.role} | Header: ${headerTenantCode} | Final: ${tenantId}\n`);
+    } catch(e) {
+      // Diagnostic failure shouldn't block the request
+    }
 
     return {
       id: decoded.user_id,
       user_id: decoded.user_id,
       tenant_id: isValidTenant ? tenantId : null,
-      role: decoded.role,
+      role: normalizeRole(decoded.role),
       institution_id: isValidTenant ? tenantId : null // Backward compatibility support
     };
   } catch (err) {

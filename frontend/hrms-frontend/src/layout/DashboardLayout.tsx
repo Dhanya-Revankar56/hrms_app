@@ -876,11 +876,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState<boolean>(false);
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false);
-  const [tenant, setTenant] = useState(localStorage.getItem('institution_id') || 'COLLEGE_A');
-
   // ✨ Reactive User Resolution (Fix: No more stale global role)
   const getUser = () => {
     const u = {
+      id: localStorage.getItem('user_id') || "", 
       name: localStorage.getItem('user_name') || "User",
       role: localStorage.getItem('user_role') || "Employee",
       initials: (localStorage.getItem('user_name') || "U").charAt(0).toUpperCase()
@@ -889,6 +888,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
        const raw = localStorage.getItem('user');
        if (raw) {
          const parsed = JSON.parse(raw);
+         u.id = parsed.id || u.id;
          u.name = parsed.name || u.name;
          u.role = parsed.role || u.role;
          u.initials = (parsed.name || "U").charAt(0).toUpperCase();
@@ -897,36 +897,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return u;
   };
   const currentUser = getUser();
-
-  const handleTenantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newTenant = e.target.value;
-    
-    // 🛡 Multi-Tenancy Identity Check
-    // If the new tenant is different from the token's tenant, logout for safety
-    const userJson = localStorage.getItem('user');
-    let shouldLogout = false;
-    try {
-      if (userJson) {
-        const parsed = JSON.parse(userJson);
-        // Compare with institution_id from the user payload (synchronous check)
-        if (parsed.institution_id && parsed.institution_id !== newTenant) {
-          shouldLogout = true;
-        }
-      }
-    } catch {
-      shouldLogout = true;
-    }
-
-    if (shouldLogout) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-
-    localStorage.setItem('institution_id', newTenant);
-    setTenant(newTenant);
-    // Reload page to clear Apollo cache and fetch new tenant data (or redirect to Login)
-    window.location.reload();
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -992,18 +962,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <nav className="sb-nav">
             <div className="sb-section-label">Menu</div>
-            {NAV_ITEMS.filter(item => item.roles.includes(getRole())).map((item: NavItem) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }: { isActive: boolean }) =>
-                  `sb-nav-item${isActive ? " active" : ""}`
-                }
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {NAV_ITEMS.filter(item => item.roles.includes(getRole())).map((item: NavItem) => {
+              // 👤 Special handling for Employee Profile link
+              let targetPath = item.path;
+              if (item.path === "/employees" && currentUser.role === "EMPLOYEE" && currentUser.id) {
+                targetPath = `/employees/${currentUser.id}`;
+              }
+
+              return (
+                <NavLink
+                  key={item.path}
+                  to={targetPath}
+                  className={({ isActive }: { isActive: boolean }) =>
+                    `sb-nav-item${isActive ? " active" : ""}`
+                  }
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
           </nav>
 
           <div className="sb-footer" style={{ position: 'relative' }}>
@@ -1079,14 +1057,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Tenant Switcher */}
-              <div className="topbar-tenant">
-                <select className="tenant-select" value={tenant} onChange={handleTenantChange} title="Switch active institution">
-                  <option value="COLLEGE_A">🏫 Campus Alpha</option>
-                  <option value="COLLEGE_B">🏫 Campus Beta</option>
-                </select>
               </div>
 
               {/* User chip */}

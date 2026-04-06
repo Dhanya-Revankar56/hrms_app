@@ -1,7 +1,7 @@
 const Payroll = require("./model");
 const Employee = require("../employee/model");
 const AuditLog = require("../audit/model");
-const { withTenant } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 
 exports.listPayroll = async ({ tenant_id, employee_id, month, year, status, pagination }) => {
   const filter = withTenant({ tenant_id });
@@ -46,7 +46,7 @@ exports.runPayroll = async (data, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "PAYROLL_RUN",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id,
     metadata: { month: data.month, year: data.year, employee_count: 1 }
   });
@@ -65,7 +65,7 @@ exports.updatePayrollStatus = async (id, status, tenant_id, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "PAYROLL_STATUS_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id,
     metadata: { payroll_id: id, status }
   });

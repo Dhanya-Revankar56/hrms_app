@@ -1,6 +1,6 @@
 const Holiday = require("./model");
 const AuditLog = require("../audit/model");
-const { withTenant } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 
 exports.listHolidays = async ({ year, month, pagination }) => {
   const filter = withTenant({ is_active: true });
@@ -51,7 +51,7 @@ exports.createHoliday = async (data, context) => {
     saved = await holiday.save();
   } catch (error) {
     if (error.code === 11000) {
-      throw new Error(`A holiday on this date already exists for this campus.`);
+      throw new Error(`A holiday on this date already exists for this campus.`, { cause: error });
     }
     throw error;
   }
@@ -59,7 +59,7 @@ exports.createHoliday = async (data, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "HOLIDAY_CREATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { holiday_name: saved.name, date: saved.date }
   });
@@ -80,7 +80,7 @@ exports.updateHoliday = async (id, data, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "HOLIDAY_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { holiday_id: id, name: updated.name }
   });
@@ -101,7 +101,7 @@ exports.deleteHoliday = async (id, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "HOLIDAY_DELETED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { holiday_id: id, name: holiday.name }
   });

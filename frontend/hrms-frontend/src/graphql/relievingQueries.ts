@@ -23,9 +23,13 @@ export const GET_RELIEVINGS = gql`
           first_name
           last_name
           employee_id
+          user_email
+          user_contact
           work_detail {
             department { id name }
             designation { id name }
+            date_of_joining
+            reporting_to
           }
         }
       }

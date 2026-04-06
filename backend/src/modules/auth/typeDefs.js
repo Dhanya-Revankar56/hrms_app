@@ -16,7 +16,7 @@ const authTypeDefs = gql`
   }
 
   extend type Mutation {
-    login(email: String!, password: String!, tenant_code: String!): LoginResponse!
+    login(email: String!, password: String!): LoginResponse!
   }
 `;
 

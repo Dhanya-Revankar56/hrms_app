@@ -4,21 +4,35 @@ const storage = new AsyncLocalStorage();
 
 /**
  * Runs a function within a specific tenant context.
- * All downstream calls (including Mongoose hooks) can access the tenantId.
+ * Now takes a context object { tenantId, role } for granular control.
  */
-const runWithTenant = (tenantId, callback) => {
-  return storage.run(tenantId, callback);
+const runWithTenant = (context, callback) => {
+  // Support both old (just tenantId) and new (context object) calls
+  const ctx = typeof context === "object" ? context : { tenantId: context };
+  return storage.run(ctx, callback);
 };
 
 /**
  * Retrieves the current tenantId from the async storage.
  */
 const getTenantId = () => {
-  return storage.getStore();
+  const ctx = storage.getStore();
+  if (ctx && typeof ctx === "object" && "tenantId" in ctx) {
+    return ctx.tenantId;
+  }
+  return ctx; // Legacy support
 };
 
 /**
- * Enterprise Utility: Retrieves the current tenant info (could be expanded)
+ * Retrieves the current user role from the async storage.
+ */
+const getUserRole = () => {
+  const ctx = storage.getStore();
+  return ctx?.role || null;
+};
+
+/**
+ * Enterprise Utility: Retrieves the current tenant info
  */
 const getCurrentTenant = () => {
   const tenantId = getTenantId();
@@ -29,5 +43,6 @@ const getCurrentTenant = () => {
 module.exports = {
   runWithTenant,
   getTenantId,
+  getUserRole,
   getCurrentTenant
 };

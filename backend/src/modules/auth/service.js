@@ -6,23 +6,25 @@ const AuditLog = require("../audit/model");
 /**
  * Enterprise Login Service with Rate Limiting and Strict Scoping
  */
-exports.login = async (email, password, tenant_code, reqMetadata = {}) => {
-  console.log("🔍 Login Attempt:", { email, tenant_code });
+exports.login = async (email, password, reqMetadata = {}) => {
+  console.log("🔍 Universal Login Attempt:", { email });
 
-  // 1. Resolve Tenant
-  if (!tenant_code) throw new Error("Institution/Campus code is required for login.");
+  // 1. Find User Globally (Ignore Tenant Filter)
+  const user = await User.findOne({ email: email.toLowerCase() })
+    .select("+password")
+    .setOptions({ skipTenant: true })
+    .populate("tenant_id"); // Resolve full tenant info
   
-  const tenant = await Tenant.findOne({ code: tenant_code.toUpperCase(), isActive: true }).setOptions({ skipTenant: true });
-  console.log("🏙 Resolved Tenant:", tenant ? { id: tenant._id, code: tenant.code } : "NOT_FOUND");
-
-  if (!tenant) throw new Error(`Invalid Institution: '${tenant_code}' is not a registered campus.`);
-
-  // 2. Find User within Tenant Scope
-  const user = await User.findOne({ email: email.toLowerCase(), tenant_id: tenant._id }).select("+password").setOptions({ skipTenant: true });
-  console.log("👤 User Lookup Result:", user ? { id: user._id, role: user.role, tenant_id: user.tenant_id } : "USER_NOT_FOUND_IN_TENANT");
-
+  console.log("👤 User Lookup Result:", user ? { id: user._id, role: user.role, tenant_id: user.tenant_id?._id || user.tenant_id } : "USER_NOT_FOUND");
+  
   if (!user) {
-    throw new Error(`Invalid Credentials: User not found in ${tenant.name}. Please check your campus selection.`);
+    throw new Error(`Invalid Credentials: Your account was not found. Please contact support.`);
+  }
+
+  // 2. Resolve Tenant
+  const tenant = user.tenant_id;
+  if (!tenant || !tenant.isActive) {
+    throw new Error(`Institution Access Error: The institution associated with this account is inactive.`);
   }
 
   // 🛡 3. Brute-Force Check

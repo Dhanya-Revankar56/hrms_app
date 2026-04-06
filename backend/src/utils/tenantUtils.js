@@ -30,6 +30,13 @@ const withTenant = (filter = {}, req = null) => {
 };
 
 /**
+ * Extract user ID from GraphQL context (Support various session layouts).
+ */
+const getUserIdFromCtx = (ctx) => {
+  return ctx?.user?.id || ctx?.req?.user?.id || ctx?.user?._id;
+};
+
+/**
  * Refactored applyTenantFilter for services (Legacy compatibility)
  */
 const applyTenantFilter = (filter) => {
@@ -38,5 +45,6 @@ const applyTenantFilter = (filter) => {
 
 module.exports = {
   withTenant,
-  applyTenantFilter
+  applyTenantFilter,
+  getUserIdFromCtx
 };

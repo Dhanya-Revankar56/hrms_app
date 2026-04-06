@@ -1,5 +1,5 @@
 const Attendance = require("./model");
-const { withTenant, applyTenantFilter } = require("../../utils/tenantUtils");
+const { withTenant, applyTenantFilter, getUserIdFromCtx } = require("../../utils/tenantUtils");
 const AuditLog = require("../audit/model");
 
 exports.listAttendance = async ({ employee_id, status, from_date, to_date, pagination }) => {
@@ -57,7 +57,7 @@ exports.updateAttendance = async (id, data, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "ATTENDANCE_UPDATED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { attendance_id: id, status: updated.status }
   });
@@ -73,7 +73,7 @@ exports.deleteAttendance = async (id, context) => {
   // 🛡 Audit Log
   await AuditLog.create({
     action: "ATTENDANCE_DELETED",
-    user_id: context?.user?.id || context?.req?.user?.id,
+    user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { attendance_id: id }
   });

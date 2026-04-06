@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const LOGIN_MUTATION = `
-  mutation Login($email: String!, $password: String!, $tenant_code: String!) {
-    login(email: $email, password: $password, tenant_code: $tenant_code) {
+  mutation Login($email: String!, $password: String!) {
+    login(email: $email, password: $password) {
       token
       user {
         id
@@ -40,8 +40,8 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    // 🛡 Background Tenant Handling (Required for new architecture)
-    const tenantCode = localStorage.getItem("tenant_code") || "COLLEGE_A";
+    // 🛡 Clear old session to prevent data leakage between colleges
+    localStorage.clear();
 
     try {
       const response = await fetch("http://localhost:5000/graphql", {
@@ -51,7 +51,7 @@ export default function Login() {
         },
         body: JSON.stringify({
           query: LOGIN_MUTATION,
-          variables: { email, password, tenant_code: tenantCode },
+          variables: { email, password },
         }),
       });
 
