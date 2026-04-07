@@ -12,6 +12,7 @@ import UserManagementSection from "../components/settings/UserManagementSection"
 import AppearanceSection from "../components/settings/AppearanceSection";
 import InstitutionSection from "../components/settings/InstitutionSection";
 import MovementRegisterSection from "../components/settings/MovementRegisterSection";
+import SecuritySection from "../components/settings/SecuritySection";
 
 /* ─────────────────────────────────────────────
    ICONS
@@ -68,6 +69,12 @@ const icons = {
   movement: (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  ),
+  security: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
     </svg>
   ),
 };
@@ -131,6 +138,12 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     label: "Movement Register",
     icon: icons.movement,
     description: "Configure movement rules and limits",
+  },
+  {
+    key: "security",
+    label: "Security",
+    icon: icons.security,
+    description: "Update your login password",
   },
 ];
 
@@ -222,6 +235,9 @@ function renderSection(key: string) {
 
     case "movement-register":
       return <MovementRegisterSection />;
+
+    case "security":
+      return <SecuritySection />;
 
     default:
       return null;

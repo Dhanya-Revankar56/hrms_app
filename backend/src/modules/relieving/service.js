@@ -58,7 +58,7 @@ exports.createRelieving = async (data, context) => {
 
   // 🛡 Audit Log
   await AuditLog.create({
-    action: "RELIEVING_APPLY",
+    action: "RELIEVE_CREATE",
     user_id: getUserIdFromCtx(context) || data.employee_id,
     tenant_id: filter.tenant_id,
     metadata: { relieving_id: saved._id, date: data.resignation_date }
@@ -90,8 +90,9 @@ exports.updateRelieving = async (id, input, context) => {
   }
 
   // 🛡 2. Audit Log
+  const isFinal = input.status === "Approved" || input.status === "Relieved";
   await AuditLog.create({
-    action: "RELIEVING_UPDATED",
+    action: isFinal ? "RELIEVED" : "RELIEVING_UPDATED",
     user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
     metadata: { relieving_id: id, status: input.status || relieving.status }

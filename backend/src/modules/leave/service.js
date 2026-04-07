@@ -233,9 +233,15 @@ exports.applyLeave = async (input, context) => {
   const leaveTypeConfig = await LeaveType.findOne({ name: leave_type.toLowerCase() });
   if (!leaveTypeConfig) throw new Error(`Leave type configuration for "${leave_type}" not found`);
 
-  // 2. Fetch Employee for Gender Check
-  const employee = await Employee.findOne({ _id: employee_id });
+  // 2. Fetch Employee with flexibility (record ID or User ID)
+  const employee = await Employee.findOne(withTenant({
+    $or: [{ _id: employee_id }, { user_id: employee_id }]
+  }));
   if (!employee) throw new Error("Employee not found");
+
+  // Re-assign employee_id to the actual MongoDB record ID for consistency in storage
+  employee_id = employee._id;
+  input.employee_id = employee._id;
 
   // 3. Gender Applicability Check
   const empGender = employee.personal_detail?.gender || "Other";
@@ -329,14 +335,6 @@ exports.applyLeave = async (input, context) => {
   const tenant_id = getTenantId();
   const leave = new Leave({ ...input, tenant_id, total_days: totalDays });
   const saved = await leave.save();
-
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "LEAVE_APPLY",
-    user_id: getUserIdFromCtx(context) || input.employee_id,
-    tenant_id,
-    metadata: { leave_id: saved._id, type: leave_type, days: totalDays }
-  });
 
   return saved;
 };
@@ -445,11 +443,8 @@ exports.cancelLeave = async (id, context) => {
     leave.status = "cancelled";
   } else {
     // Case 2: During leave -> Cancel remaining
-    // For simplicity, we mark the whole record as cancelled but this could 
-    // be refined to split the record if needed. The user requested: 10 counted, 11,12 cancelled.
-    // This implies adjusting the total_days and marking as cancelled.
     const settings = await Settings.findOne({});
-    const workedDays = calculateWorkingDays(from, today, settings) - 1; // days before today
+    const workedDays = calculateWorkingDays(from, today, settings, {}, []); // simplistic
     const remainingDays = leave.total_days - workedDays;
     
     // Restore only the remaining days if it was approved
@@ -473,6 +468,14 @@ exports.cancelLeave = async (id, context) => {
   }
 
   const saved = await leave.save();
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "LEAVE_CANCELLED",
+    user_id: getUserIdFromCtx(context),
+    tenant_id: leave.tenant_id,
+    metadata: { leave_id: id, type: leave.leave_type }
+  });
 
   return saved;
 };
@@ -523,7 +526,9 @@ exports.updateLeave = async (id, data, context) => {
 
   // Admin-only date edit — log as UPDATED business event
   const updated = await Leave.findOneAndUpdate(filter, { $set: data }, { new: true }).lean();
-  if (updated) {
+  
+  // Admin-only date edit — log as UPDATED business event
+  if (updated && (data.from_date || data.to_date)) {
     const emp = await Employee.findOne(withTenant({ _id: updated.employee_id })).lean();
     const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
     const eventLogService = require("../eventLog/service");
@@ -534,7 +539,7 @@ exports.updateLeave = async (id, data, context) => {
       module_name: "leave",
       action_type: "UPDATED",
       record_id: id,
-      description: `${empName} leave details updated`,
+      description: `${empName} leave dates updated`,
       new_data: updated
     });
   }

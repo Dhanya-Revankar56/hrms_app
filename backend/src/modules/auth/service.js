@@ -86,3 +86,38 @@ exports.login = async (email, password, reqMetadata = {}) => {
     }
   };
 };
+
+/**
+ * Change Password Service
+ */
+exports.changePassword = async (userId, oldPassword, newPassword) => {
+  if (!userId) throw new Error("Authentication required.");
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("New password must be at least 6 characters long.");
+  }
+
+  // 1. Find User by ID with password field
+  const user = await User.findById(userId).select("+password");
+  if (!user) throw new Error("User not found.");
+
+  // 2. Verify Old Password
+  const isMatch = await user.comparePassword(oldPassword);
+  if (!isMatch) {
+    throw new Error("The current password you entered is incorrect.");
+  }
+
+  // 3. Update Password
+  // Model pre-save hook will handle hashing
+  user.password = newPassword;
+  await user.save();
+
+  // 4. Audit Log
+  await AuditLog.create({
+    action: "PASSWORD_CHANGED",
+    user_id: userId,
+    tenant_id: user.tenant_id,
+    metadata: { timestamp: new Date().toISOString() }
+  });
+
+  return true;
+};

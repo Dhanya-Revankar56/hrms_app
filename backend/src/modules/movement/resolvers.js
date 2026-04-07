@@ -12,12 +12,15 @@ const resolvers = {
 
       if (role === "EMPLOYEE") {
         const empRecord = await Employee.findOne({ user_id: ctx.user.id }).select("_id").lean();
-        filterId = empRecord?._id;
+        filterId = empRecord?._id || ctx.user.id; // Fallback to user_id if employee record missing
       } else if (role === "HEAD OF DEPARTMENT") {
         const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
           .select("work_detail.department")
           .lean();
-        filterDept = hodRecord?.work_detail?.department?.toString();
+        // Only override if HOD has a department; otherwise allow passed department
+        if (hodRecord?.work_detail?.department) {
+          filterDept = hodRecord.work_detail.department.toString();
+        }
       }
 
       return await movementService.listMovements({ 
@@ -59,7 +62,12 @@ const resolvers = {
     employee: async (parent) => {
       if (parent.employee && parent.employee._id) return parent.employee;
       if (!parent.employee_id) return null;
-      return await employeeService.getEmployeeById(parent.employee_id, parent.institution_id);
+      try {
+        return await employeeService.getEmployeeById(parent.employee_id);
+      } catch (err) {
+        // Return null instead of throwing to prevent crashing the whole movements list
+        return null; 
+      }
     },
   },
 };

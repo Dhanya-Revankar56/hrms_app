@@ -14,8 +14,26 @@ const resolvers = {
       return await settingsService.getSettings();
     },
     dashboardStats: async (_, __, ctx) => {
+      const role = ctx.user?.role;
+      const userId = ctx.user?.id;
+      const baseFilter = withTenant({ is_active: true });
+
+      // 👤 Resolve department for HOD and Employee
+      if (role === "EMPLOYEE" || role === "HEAD OF DEPARTMENT") {
+        const empRecord = await Employee.findOne(withTenant({ user_id: userId }))
+          .select("work_detail.department")
+          .lean();
+        const deptId = empRecord?.work_detail?.department;
+        if (deptId) {
+          baseFilter["work_detail.department"] = deptId;
+        } else {
+          // If no department found, return empty results for safety
+          baseFilter._id = { $in: [] };
+        }
+      }
+
       // 0. Get Active Employee IDs for filtering
-      const activeEmployees = await Employee.find(withTenant({ is_active: true })).select("_id").lean();
+      const activeEmployees = await Employee.find(baseFilter).select("_id").lean();
       const activeEmpIds = activeEmployees.map(e => e._id);
       const totalEmployees = activeEmpIds.length;
       
@@ -109,38 +127,38 @@ const resolvers = {
       return await settingsService.updateSettings(input, ctx);
     },
     upsertDepartment: async (_, { input }, ctx) => {
-      return await settingsService.upsertMasterData("departments", input);
+      return await settingsService.upsertMasterData("departments", input, ctx);
     },
     deleteDepartment: async (_, { id }, ctx) => {
-      const deleted = await settingsService.deleteMasterData("departments", id);
+      const deleted = await settingsService.deleteMasterData("departments", id, ctx);
       return !!deleted;
     },
     upsertDesignation: async (_, { input }, ctx) => {
-      return await settingsService.upsertMasterData("designations", input);
+      return await settingsService.upsertMasterData("designations", input, ctx);
     },
     deleteDesignation: async (_, { id }, ctx) => {
-      const deleted = await settingsService.deleteMasterData("designations", id);
+      const deleted = await settingsService.deleteMasterData("designations", id, ctx);
       return !!deleted;
     },
     upsertLeaveType: async (_, { input }, ctx) => {
-      return await settingsService.upsertMasterData("leave_types", input);
+      return await settingsService.upsertMasterData("leave_types", input, ctx);
     },
     deleteLeaveType: async (_, { id }, ctx) => {
-      const deleted = await settingsService.deleteMasterData("leave_types", id);
+      const deleted = await settingsService.deleteMasterData("leave_types", id, ctx);
       return !!deleted;
     },
     upsertEmployeeCategory: async (_, { input }, ctx) => {
-      return await settingsService.upsertMasterData("employee_categories", input);
+      return await settingsService.upsertMasterData("employee_categories", input, ctx);
     },
     deleteEmployeeCategory: async (_, { id }, ctx) => {
-      const deleted = await settingsService.deleteMasterData("employee_categories", id);
+      const deleted = await settingsService.deleteMasterData("employee_categories", id, ctx);
       return !!deleted;
     },
     upsertEmployeeType: async (_, { input }, ctx) => {
-      return await settingsService.upsertMasterData("employee_types", input);
+      return await settingsService.upsertMasterData("employee_types", input, ctx);
     },
     deleteEmployeeType: async (_, { id }, ctx) => {
-      const deleted = await settingsService.deleteMasterData("employee_types", id);
+      const deleted = await settingsService.deleteMasterData("employee_types", id, ctx);
       return !!deleted;
     },
   },

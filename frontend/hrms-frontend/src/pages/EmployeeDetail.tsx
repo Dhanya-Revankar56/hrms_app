@@ -516,17 +516,8 @@ export default function EmployeeDetail() {
     remarks: ""
   });
 
-  const [applyMovement, { loading: mLoading }] = useMutation<{ createMovement: Movement }, { input: {
-    employee_id: string;
-    employee_code?: string;
-    movement_date: string;
-    movement_type: string;
-    out_time: string;
-    in_time?: string | null;
-    purpose?: string;
-    remarks?: string;
-  } }>(CREATE_MOVEMENT, {
-    refetchQueries: ["GetMovements"]
+  const [applyMovement, { loading: mLoading }] = useMutation(CREATE_MOVEMENT, {
+    refetchQueries: [{ query: GET_MOVEMENTS, variables: { employee_id: id } }]
   });
 
 

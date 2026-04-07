@@ -16,6 +16,9 @@ const authResolvers = {
         ip,
         userAgent
       });
+    },
+    changePassword: async (_, { oldPassword, newPassword }, ctx) => {
+      return await authService.changePassword(ctx.user.id, oldPassword, newPassword);
     }
   }
 };

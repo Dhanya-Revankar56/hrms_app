@@ -5,6 +5,7 @@ const Holiday = require("../holiday/model");
 const Employee = require("../employee/model");
 const AuditLog = require("../audit/model");
 const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
+const { getTenantId } = require("../../middleware/tenantContext");
 
 /**
  * Validates movement request against institutional settings
@@ -125,25 +126,27 @@ exports.getMovementById = async (id) => {
 };
 
 exports.createMovement = async (data, context) => {
-  const filter = withTenant({});
+  const tenantId = getTenantId();
   
+  // 1. Resolve Employee (record ID or User ID)
+  const employee = await Employee.findOne(withTenant({
+    $or: [{ _id: data.employee_id }, { user_id: data.employee_id }]
+  }));
+  if (!employee) throw new Error("Employee not found");
+  
+  // Normalize to actual record ID
+  const employee_id = employee._id;
+  data.employee_id = employee_id;
+
   await checkMovementRules(
-    data.employee_id, 
+    employee_id, 
     data.movement_date, 
     data.out_time, 
     data.in_time
   );
 
-  const record = new Movement({ ...data, ...filter });
+  const record = new Movement({ ...data, tenant_id: tenantId });
   const saved = await record.save();
-
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "MOVEMENT_APPLY",
-    user_id: getUserIdFromCtx(context) || data.employee_id,
-    tenant_id: filter.tenant_id,
-    metadata: { movement_id: saved._id, date: data.movement_date }
-  });
 
   return saved.toObject();
 };
@@ -180,13 +183,18 @@ exports.updateMovement = async (id, data, context) => {
 
   const updated = await movement.save();
 
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "MOVEMENT_UPDATED",
-    user_id: getUserIdFromCtx(context),
-    tenant_id: filter.tenant_id,
-    metadata: { movement_id: id, status: updated.status }
-  });
+  // 🛡 Audit Log: Only log if time changed or cancelled
+  const timeChanged = data.out_time || data.in_time;
+  const wasCancelled = data.status === "cancelled";
+
+  if (timeChanged || wasCancelled) {
+    await AuditLog.create({
+      action: wasCancelled ? "MOVEMENT_CANCELLED" : "MOVEMENT_UPDATED",
+      user_id: getUserIdFromCtx(context),
+      tenant_id: filter.tenant_id,
+      metadata: { movement_id: id, status: updated.status, out_time: updated.out_time, in_time: updated.in_time }
+    });
+  }
 
   return updated.toObject();
 };

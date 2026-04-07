@@ -79,15 +79,29 @@ const EMPTY_FORM: FormState = {
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
   
-  .ds-section-header {
+  .ds-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .ds-card-header {
+    padding: 24px;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+  }
+
+  .ds-card-body {
+    padding: 0;
   }
 
   .ds-empty {
-    padding: 36px 20px;
+    padding: 48px 24px;
     text-align: center;
     color: #94a3b8;
   }
@@ -234,6 +248,7 @@ const CSS = `
     display: flex; align-items: center; gap: 10px; animation: dsToastIn 0.3s ease both;
   }
 
+  .ds-table-wrap { overflow-x: auto; }
   table.ds-table { width: 100%; border-collapse: collapse; }
   .ds-table thead tr { background: #f8fafc; border-bottom: 1px solid #e8edf5; }
   .ds-table th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; }
@@ -256,6 +271,21 @@ const CSS = `
   .ds-action-btn.del:hover { background: #fff1f2; color: #e11d48; border-color: #fecaca; }
   .ds-action-btn svg { display: block; }
 
+  @media (prefers-color-scheme: dark) {
+    .ds-card { background: #1e293b; border-color: #334155; }
+    .ds-card-header { border-bottom-color: #334155; }
+    .ds-table thead tr { background: #0f172a; border-bottom-color: #334155; }
+    .ds-table tbody tr { border-bottom-color: #334155; }
+    .ds-table tbody tr:hover { background: #0f172a; }
+    .ds-table td { color: #f1f5f9; }
+    .ds-table th { color: #94a3b8; }
+    .ds-modal { background: #1e293b; color: #f1f5f9; }
+    .ds-modal-header { border-bottom-color: #334155; }
+    .ds-modal-footer { background: #0f172a; border-top-color: #334155; }
+    .ds-input, .ds-select { background: #0f172a; border-color: #334155; color: #f1f5f9; }
+    .ds-modal-title { color: #f1f5f9; }
+  }
+
   @keyframes dsModalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   @keyframes dsToastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 `;
@@ -270,15 +300,15 @@ const PlusIcon = () => (
   </svg>
 );
 
-const EditIcon = ({ color = "#0f172a" }) => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', minWidth: '15px', minHeight: '15px' }}>
+const EditIcon = ({ color = "currentColor" }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
   </svg>
 );
 
-const TrashIcon = ({ color = "#e11d48" }) => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', minWidth: '15px', minHeight: '15px' }}>
+const TrashIcon = ({ color = "currentColor" }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
     <polyline points="3 6 5 6 21 6"></polyline>
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
   </svg>
@@ -418,63 +448,65 @@ export default function LeaveTypesSection() {
     <>
       <style>{CSS}</style>
       
-      <div className="ds-section-header">
-        <div>
-          <h2 style={{ fontSize:18, fontWeight:600, color:"#0f172a", margin:0 }}>Leave Types</h2>
-          <p style={{ fontSize:13, color:"#64748b", marginTop:4 }}>Configure leave rules and categories.</p>
+      <div className="ds-card">
+        <div className="ds-card-header">
+          <div>
+            <h2 style={{ fontSize:18, fontWeight:600, color:"var(--text-primary, #0f172a)", margin:0 }}>Leave Types</h2>
+            <p style={{ fontSize:13, color:"var(--text-muted, #64748b)", marginTop:4 }}>Configure leave rules and categories.</p>
+          </div>
+          <button className="ds-btn ds-btn-primary" onClick={() => { setForm(EMPTY_FORM); setShowModal(true); }}>
+            <PlusIcon /> Add Leave Type
+          </button>
         </div>
-        <button className="ds-btn ds-btn-primary" onClick={() => { setForm(EMPTY_FORM); setShowModal(true); }}>
-          <PlusIcon /> Add Leave Type
-        </button>
+
+        <div className="ds-card-body">
+          {loading ? (
+            <div className="ds-empty"><p>Loading leave types...</p></div>
+          ) : leaveTypes.length === 0 ? (
+            <div className="ds-empty">
+              <div className="ds-empty-icon"><CalendarIcon /></div>
+              <p>No leave types yet</p>
+              <span>Click the button above to add your first leave type.</span>
+            </div>
+          ) : (
+            <div className="ds-table-wrap">
+              <table className="ds-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Leave Name</th>
+                    <th>Category</th>
+                    <th>Quota (Days)</th>
+                    <th>Max Consecutive</th>
+                    <th style={{ textAlign:"right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaveTypes.map((lt) => (
+                    <tr key={lt.id}>
+                      <td><span className="ds-code-pill">{lt.code}</span></td>
+                      <td><span style={{ fontWeight: 600 }}>{lt.name}</span></td>
+                      <td><span style={{ textTransform:"capitalize", color:"#64748b" }}>{lt.leave_category}</span></td>
+                      <td><span style={{ fontWeight: 600, color: "#475569" }}>{lt.total_days}</span></td>
+                      <td><span>{lt.max_consecutive_leaves || 0}</span></td>
+                      <td>
+                        <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
+                          <button className="ds-action-btn" onClick={() => openEdit(lt)} title="Edit">
+                            <EditIcon />
+                          </button>
+                          <button className="ds-action-btn del" onClick={() => handleDelete(lt.id)} title="Delete">
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
-
-      <div className="ds-divider" style={{ margin: "0 0 20px 0" }} />
-
-      {loading ? (
-        <div className="ds-empty"><p>Loading leave types...</p></div>
-      ) : leaveTypes.length === 0 ? (
-        <div className="ds-empty">
-          <div className="ds-empty-icon"><CalendarIcon /></div>
-          <p>No leave types yet</p>
-          <span>Click the button above to add your first leave type.</span>
-        </div>
-      ) : (
-        <div className="ds-table-wrap">
-          <table className="ds-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Leave Name</th>
-                <th>Category</th>
-                <th>Quota (Days)</th>
-                <th>Max Consecutive</th>
-                <th style={{ textAlign:"right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaveTypes.map((lt) => (
-                <tr key={lt.id}>
-                  <td><span className="ds-code-pill">{lt.code}</span></td>
-                  <td><span style={{ fontWeight: 600 }}>{lt.name}</span></td>
-                  <td><span style={{ textTransform:"capitalize", color:"#64748b" }}>{lt.leave_category}</span></td>
-                  <td><span style={{ fontWeight: 600, color: "#475569" }}>{lt.total_days}</span></td>
-                  <td><span>{lt.max_consecutive_leaves || 0}</span></td>
-                  <td>
-                    <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
-                      <button className="ds-action-btn" onClick={() => openEdit(lt)} title="Edit">
-                        <EditIcon />
-                      </button>
-                      <button className="ds-action-btn del" onClick={() => handleDelete(lt.id)} title="Delete">
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* Edit/Add Modal */}
       {showModal && (
@@ -616,7 +648,6 @@ export default function LeaveTypesSection() {
                 />
               </div>
 
-              {/* Added Total Days field since it's in original model but not clear in image - added near category */}
               <div className="ds-field" style={{ marginTop: 24 }}>
                 <label className="ds-label">Total Days (Yearly Quota)</label>
                 <input 
