@@ -9,37 +9,23 @@ const resolvers = {
     getAllEmployees: async (_, { status, department, search, pagination }, ctx) => {
       requireRole(ctx.user, ["ADMIN", "HEAD OF DEPARTMENT", "EMPLOYEE"]);
 
-      const role = ctx.user?.role; // "ADMIN" | "HEAD OF DEPARTMENT" | "EMPLOYEE"
+      const role = ctx.user?.role;
+      const userId = ctx.user?.id;
 
-      // 👤 EMPLOYEE → return only their own record
-      if (role === "EMPLOYEE") {
-        const self = await Employee.findOne(withTenant({ user_id: ctx.user.id })) 
-          .populate("work_detail.department")
-          .populate("work_detail.designation")
-          .lean();
-        const items = self ? [self] : [];
-        return {
-          items,
-          pageInfo: { totalCount: items.length, totalPages: 1, currentPage: 1, hasNextPage: false },
-          activeCount: self?.app_status === "active" ? 1 : 0,
-          onLeaveCount: self?.app_status === "on-leave" ? 1 : 0,
-        };
-      }
-
-      // 🛡 HOD → restrict to their own department
-      let hodDepartment = department; 
-      if (role === "HEAD OF DEPARTMENT") {
-        const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
+      // 🛡 HOD or EMPLOYEE → restrict to their own department
+      let filterDepartment = department; 
+      if (role === "HEAD OF DEPARTMENT" || role === "EMPLOYEE") {
+        const empRecord = await Employee.findOne(withTenant({ user_id: userId }))
           .select("work_detail.department")
           .lean();
-        const hodDeptId = hodRecord?.work_detail?.department?.toString();
-        hodDepartment = hodDeptId || null;
+        const deptId = empRecord?.work_detail?.department?.toString();
+        filterDepartment = deptId || null;
       }
 
-      // 🏰 ADMIN or HOD with resolved department
+      // 🏰 ADMIN (all) or HOD/EMPLOYEE (department only)
       return await employeeService.listEmployees({
         status,
-        department: hodDepartment,
+        department: filterDepartment,
         search,
         pagination
       });

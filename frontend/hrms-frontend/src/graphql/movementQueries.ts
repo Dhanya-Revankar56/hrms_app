@@ -1,8 +1,8 @@
 import { gql } from "@apollo/client";
 
 export const GET_MOVEMENTS = gql`
-  query GetMovements($employee_id: String, $status: String, $movement_type: String, $pagination: PaginationInput) {
-    movements(employee_id: $employee_id, status: $status, movement_type: $movement_type, pagination: $pagination) {
+  query GetMovements($employee_id: String, $status: String, $movement_type: String, $department: String, $pagination: PaginationInput) {
+    movements(employee_id: $employee_id, status: $status, movement_type: $movement_type, department: $department, pagination: $pagination) {
       items {
         id
         employee_id
@@ -28,7 +28,6 @@ export const GET_MOVEMENTS = gql`
           id
           first_name
           last_name
-          employee_id
           employee_id
           employee_image
           work_detail {

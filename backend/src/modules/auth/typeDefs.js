@@ -17,6 +17,7 @@ const authTypeDefs = gql`
 
   extend type Mutation {
     login(email: String!, password: String!): LoginResponse!
+    changePassword(oldPassword: String!, newPassword: String!): Boolean!
   }
 `;
 

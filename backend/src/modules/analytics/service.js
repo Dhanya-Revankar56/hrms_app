@@ -11,16 +11,16 @@ exports.getHrAnalytics = async (user = null) => {
   const baseFilter = withTenant({});
   let deptId = null;
 
-  if (role === "EMPLOYEE") {
-    baseFilter._id = userId;
-  } else if (role === "HEAD OF DEPARTMENT") {
-    const hodRecord = await Employee.findOne(withTenant({ user_id: userId }))
+  if (role === "EMPLOYEE" || role === "HEAD OF DEPARTMENT") {
+    const empRecord = await Employee.findOne(withTenant({ user_id: userId }))
       .select("work_detail.department")
       .lean();
-    deptId = hodRecord?.work_detail?.department?.toString();
+    deptId = empRecord?.work_detail?.department?.toString();
+    
     if (deptId) {
       baseFilter["work_detail.department"] = deptId;
     } else {
+      // If no department linkage found, return empty set for safety
       baseFilter._id = { $in: [] };
     }
   }
@@ -64,17 +64,14 @@ exports.getHrAnalytics = async (user = null) => {
   const attendanceFilter = withTenant({ date: { $gte: today } });
   const leaveFilter = withTenant({});
 
-  if (role === "EMPLOYEE") {
-    attendanceFilter.employee_id = userId;
-    leaveFilter.employee_id = userId;
-  } else if (role === "HEAD OF DEPARTMENT" && deptId) {
+  if ((role === "EMPLOYEE" || role === "HEAD OF DEPARTMENT") && deptId) {
     const employeesInRange = await Employee.find(withTenant({ 
       "work_detail.department": deptId 
     })).select("_id").lean();
     const ids = employeesInRange.map(e => e._id.toString());
     attendanceFilter.employee_id = { $in: ids };
     leaveFilter.employee_id = { $in: ids };
-  } else if (role === "HEAD OF DEPARTMENT" && !deptId) {
+  } else if ((role === "EMPLOYEE" || role === "HEAD OF DEPARTMENT") && !deptId) {
     attendanceFilter.employee_id = { $in: [] };
     leaveFilter.employee_id = { $in: [] };
   }

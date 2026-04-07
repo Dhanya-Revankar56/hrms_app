@@ -62,7 +62,7 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    movements(employee_id: String, status: String, movement_type: String, pagination: PaginationInput): MovementPage!
+    movements(employee_id: String, status: String, movement_type: String, department: String, pagination: PaginationInput): MovementPage!
     movement(id: ID!): Movement
   }
 
