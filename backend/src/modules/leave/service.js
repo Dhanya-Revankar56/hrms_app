@@ -1,4 +1,7 @@
 const Leave = require("./model");
+const { withTenant, applyTenantFilter } = require("../../utils/tenantUtils");
+const { getTenantId } = require("../../middleware/tenantContext");
+const AuditLog = require("../audit/model");
 const LeaveBalance = require("./leaveBalance");
 const Settings = require("../settings/model");
 const Employee = require("../employee/model");
@@ -9,9 +12,8 @@ const Holiday = require("../holiday/model");
 /**
  * Helper: Fetch all holidays for an institution between two dates
  */
-const getHolidaysInRange = async (institution_id, from, to) => {
+const getHolidaysInRange = async (from, to) => {
   return await Holiday.find({
-    institution_id,
     is_active: true,
     date: { $gte: from, $lte: to }
   }).lean();
@@ -78,14 +80,14 @@ const computeFinalStatus = (approvals) => {
   return "pending";
 };
 
-exports.listLeaves = async ({ institution_id, employee_id, status, leave_type, department, search, month, year, pagination }) => {
-  const filter = { institution_id };
+exports.listLeaves = async ({ employee_id, status, leave_type, department, search, month, year, pagination }) => {
+  const filter = withTenant({});
   if (employee_id) filter.employee_id = employee_id;
   if (status) filter.status = status;
   if (leave_type) filter.leave_type = leave_type;
 
   if (department || search) {
-    const employeeFilter = { institution_id };
+    const employeeFilter = withTenant({});
     if (department) employeeFilter["work_detail.department"] = department;
     if (search) {
       const q = { $regex: search, $options: "i" };
@@ -119,16 +121,16 @@ exports.listLeaves = async ({ institution_id, employee_id, status, leave_type, d
   const limit = pagination?.limit || 10;
   const skip = (page - 1) * limit;
 
-  // For the aggregate counts, we only want the basic filter (institution_id)
+  // For the aggregate counts, we only want the basic filter (tenant_id)
   // to reflect "All Time" statistics as labeled in the UI.
-  const baseFilter = { institution_id };
+  const baseFilter = withTenant({});
   if (employee_id) baseFilter.employee_id = employee_id;
 
   const [totalCount, pendingCount, approvedCount, rejectedCount] = await Promise.all([
     Leave.countDocuments(filter),
-    Leave.countDocuments({ ...baseFilter, status: "pending" }),
-    Leave.countDocuments({ ...baseFilter, status: "approved" }),
-    Leave.countDocuments({ ...baseFilter, status: "rejected" })
+    Leave.countDocuments({ ...baseFilter, status: { $in: ["pending", "Pending"] } }),
+    Leave.countDocuments({ ...baseFilter, status: { $in: ["approved", "Approved"] } }),
+    Leave.countDocuments({ ...baseFilter, status: { $in: ["rejected", "Rejected"] } })
   ]);
 
   const leaves = await Leave.find(filter)
@@ -141,7 +143,7 @@ exports.listLeaves = async ({ institution_id, employee_id, status, leave_type, d
   const processedItems = leaves.map(l => {
     // 1. Re-compute status based on approvals for UI consistency (especially for legacy data)
     let effectiveStatus = l.status;
-    if (l.status !== "cancelled") {
+    if (l.status?.toLowerCase() !== "cancelled") {
       effectiveStatus = computeFinalStatus(l.approvals || []);
     }
 
@@ -168,13 +170,14 @@ exports.listLeaves = async ({ institution_id, employee_id, status, leave_type, d
   };
 };
 
-exports.getLeaveById = async (id, institution_id) => {
-  const leave = await Leave.findOne({ _id: id, institution_id }).lean();
+exports.getLeaveById = async (id) => {
+  const filter = withTenant({ _id: id });
+  const leave = await Leave.findOne(filter).lean();
   if (!leave) throw new Error("Leave record not found");
 
   // Re-compute status dynamically
   let effectiveStatus = leave.status;
-  if (leave.status !== "cancelled") {
+  if (leave.status?.toLowerCase() !== "cancelled") {
     effectiveStatus = computeFinalStatus(leave.approvals || []);
   }
 
@@ -185,13 +188,12 @@ exports.getLeaveById = async (id, institution_id) => {
   return { ...leave, status: effectiveStatus };
 };
 
-exports.listLeaveBalances = async (employee_id, institution_id) => {
-  const leaveTypes = await LeaveType.find({ institution_id, is_active: true }).lean();
+exports.listLeaveBalances = async (employee_id) => {
+  const leaveTypes = await LeaveType.find({ is_active: true }).lean();
   for (const lt of leaveTypes) {
-    const existing = await LeaveBalance.findOne({ employee_id, institution_id, leave_type: lt.name });
+    const existing = await LeaveBalance.findOne({ employee_id, leave_type: lt.name });
     if (!existing) {
       await LeaveBalance.create({
-        institution_id,
         employee_id,
         leave_type: lt.name,
         total: lt.total_days || 0,
@@ -205,14 +207,18 @@ exports.listLeaveBalances = async (employee_id, institution_id) => {
        );
     }
   }
-  return await LeaveBalance.find({ employee_id, institution_id }).lean();
+  return await LeaveBalance.find({ employee_id }).lean();
 };
 
 /**
  * 1. APPLY LEAVE
  */
-exports.applyLeave = async (input) => {
-  const { employee_id, leave_type, from_date, to_date, institution_id, is_half_day, half_day_type } = input;
+exports.applyLeave = async (input, context) => {
+  let { employee_id, leave_type, from_date, to_date, institution_id, is_half_day, half_day_type } = input;
+  
+  // Safety: Handle empty strings or missing to_date for single-day/half-day leaves
+  if (!to_date || to_date === "") to_date = from_date;
+  if (!from_date || from_date === "") throw new Error("From date is required");
   
   const from = new Date(from_date);
   const to = new Date(to_date);
@@ -224,11 +230,11 @@ exports.applyLeave = async (input) => {
   if (from < today) throw new Error("Cannot apply leave for past dates");
 
   // 1. Fetch LeaveType Config
-  const leaveTypeConfig = await LeaveType.findOne({ institution_id, name: leave_type.toLowerCase() });
+  const leaveTypeConfig = await LeaveType.findOne({ name: leave_type.toLowerCase() });
   if (!leaveTypeConfig) throw new Error(`Leave type configuration for "${leave_type}" not found`);
 
   // 2. Fetch Employee for Gender Check
-  const employee = await Employee.findOne({ _id: employee_id, institution_id });
+  const employee = await Employee.findOne({ _id: employee_id });
   if (!employee) throw new Error("Employee not found");
 
   // 3. Gender Applicability Check
@@ -243,11 +249,11 @@ exports.applyLeave = async (input) => {
     throw new Error(`This leave must be applied at least ${leaveTypeConfig.days_before_apply} days in advance`);
   }
 
-  const settings = await Settings.findOne({ institution_id });
+  const settings = await Settings.findOne({});
   if (!settings) throw new Error("Settings not found");
 
   // Load live holidays from Holiday collection for the leave range
-  const publicHolidays = await getHolidaysInRange(institution_id, from, to);
+  const publicHolidays = await getHolidaysInRange(from, to);
 
   // 5. Holiday/Sunday Check — block if ANY day in range is a non-working day or holiday AND not covered
   const conflictingDates = [];
@@ -287,7 +293,6 @@ exports.applyLeave = async (input) => {
   // 8. Attendance Conflict Check
   const conflictingAttendance = await Attendance.findOne({
     employee_id,
-    institution_id,
     date: { $gte: from, $lte: to },
     status: { $in: ["present", "late"] }
   });
@@ -296,37 +301,52 @@ exports.applyLeave = async (input) => {
   // 9. Overlap Check
   const overlappingLeave = await Leave.findOne({
     employee_id,
-    institution_id,
     status: { $in: ["pending", "approved"] },
     $or: [{ from_date: { $lte: to }, to_date: { $gte: from } }]
   });
   if (overlappingLeave) throw new Error("You already have a pending or approved leave for these dates");
 
   // 10. Balance Check
-  const balanceRec = await LeaveBalance.findOne({ employee_id, institution_id, leave_type });
+  let balanceRec = await LeaveBalance.findOne({ 
+    employee_id, 
+    leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") } 
+  });
+
+  if (!balanceRec) {
+    // Fault-tolerance: Dynamically initialize balances if they don't exist yet
+    await exports.listLeaveBalances(employee_id);
+    balanceRec = await LeaveBalance.findOne({ 
+      employee_id, 
+      leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") } 
+    });
+  }
+
   if (!balanceRec || balanceRec.balance <= 0 || balanceRec.balance < totalDays) {
     throw new Error(`Insufficient balance for ${leave_type}. Current balance: ${balanceRec?.balance || 0}`);
   }
 
   // Create
-  const leave = new Leave({
-    ...input,
-    total_days: totalDays,
-    status: "pending",
-    approvals: [
-      { role: "HOD", status: "pending" },
-      { role: "ADMIN", status: "pending" }
-    ]
+  const tenant_id = getTenantId();
+  const leave = new Leave({ ...input, tenant_id, total_days: totalDays });
+  const saved = await leave.save();
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "LEAVE_APPLY",
+    user_id: context?.user?.id || input.user_id,
+    tenant_id,
+    metadata: { leave_id: saved._id, type: leave_type, days: totalDays }
   });
 
-  return await leave.save();
+  return saved;
 };
 
 /**
  * 2. APPROVAL LOGIC
  */
-exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id }) => {
-  const leave = await Leave.findOne({ _id: id, institution_id });
+exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id, user_id }) => {
+  const filter = applyTenantFilter({ _id: id, institution_id });
+  const leave = await Leave.findOne(filter);
   if (!leave) throw new Error("Leave record not found");
 
   if (leave.status === "cancelled") {
@@ -336,7 +356,7 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id
   // Fallback for legacy data with empty approvals
   if (!leave.approvals || leave.approvals.length === 0) {
     leave.approvals = [
-      { role: "HOD", status: "pending" },
+      { role: "HEAD OF DEPARTMENT", status: "pending" },
       { role: "ADMIN", status: "pending" }
     ];
   }
@@ -368,7 +388,6 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id
     const updateResult = await LeaveBalance.updateOne(
       { 
         employee_id: leave.employee_id, 
-        institution_id, 
         leave_type: leave.leave_type,
         balance: { $gte: leave.total_days }
       },
@@ -380,19 +399,22 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks, institution_id
     }
   } else if (oldStatus === "approved" && finalStatus !== "approved") {
     await LeaveBalance.updateOne(
-      { employee_id: leave.employee_id, institution_id, leave_type: leave.leave_type },
+      { employee_id: leave.employee_id, leave_type: leave.leave_type },
       { $inc: { used: -leave.total_days, balance: leave.total_days } }
     );
   }
 
-  return await leave.save();
+  const saved = await leave.save();
+
+  return saved;
 };
 
 /**
  * 4. CANCEL LEAVE
  */
 exports.cancelLeave = async (id, institution_id) => {
-  const leave = await Leave.findOne({ _id: id, institution_id });
+  const filter = applyTenantFilter({ _id: id, institution_id });
+  const leave = await Leave.findOne(filter);
   if (!leave) throw new Error("Leave record not found");
 
   const today = new Date();
@@ -414,14 +436,14 @@ exports.cancelLeave = async (id, institution_id) => {
     // For simplicity, we mark the whole record as cancelled but this could 
     // be refined to split the record if needed. The user requested: 10 counted, 11,12 cancelled.
     // This implies adjusting the total_days and marking as cancelled.
-    const settings = await Settings.findOne({ institution_id });
+    const settings = await Settings.findOne({});
     const workedDays = calculateWorkingDays(from, today, settings) - 1; // days before today
     const remainingDays = leave.total_days - workedDays;
     
     // Restore only the remaining days if it was approved
     if (oldStatus === "approved") {
       await LeaveBalance.updateOne(
-        { employee_id: leave.employee_id, institution_id, leave_type: leave.leave_type },
+        { employee_id: leave.employee_id, leave_type: leave.leave_type },
         { $inc: { used: -remainingDays, balance: remainingDays } }
       );
     }
@@ -433,12 +455,14 @@ exports.cancelLeave = async (id, institution_id) => {
   // Case 4: Restore full balance if approved and was before start
   if (oldStatus === "approved" && from > today) {
     await LeaveBalance.updateOne(
-      { employee_id: leave.employee_id, institution_id, leave_type: leave.leave_type },
+      { employee_id: leave.employee_id, leave_type: leave.leave_type },
       { $inc: { used: -leave.total_days, balance: leave.total_days } }
     );
   }
 
-  return await leave.save();
+  const saved = await leave.save();
+
+  return saved;
 };
 
 exports.createLeave = async (data) => {
@@ -446,13 +470,56 @@ exports.createLeave = async (data) => {
   return await leave.save();
 };
 
-exports.updateLeave = async (id, data, institution_id) => {
-   // Keep for simple admin edits, but logic should move to updateLeaveApproval
-   return await Leave.findOneAndUpdate({ _id: id, institution_id }, { $set: data }, { new: true });
+exports.updateLeave = async (id, data, institution_id, user_id) => {
+  // 1. Recalculate total_days if dates change
+  if (data.from_date || data.to_date) {
+    const existing = await Leave.findOne({ _id: id, institution_id });
+    if (existing) {
+       const from = new Date(data.from_date || existing.from_date);
+       const to = new Date(data.to_date || existing.to_date);
+       
+       const leaveTypeReq = data.leave_type || existing.leave_type;
+       const leaveTypeConfig = await LeaveType.findOne({ name: leaveTypeReq.toLowerCase() });
+       if (leaveTypeConfig) {
+         const settings = await Settings.findOne({});
+         const publicHolidays = await getHolidaysInRange(from, to);
+         
+         let totalDays = calculateWorkingDays(from, to, settings, {
+           weekends_covered: leaveTypeConfig.weekends_covered,
+           holiday_covered: leaveTypeConfig.holiday_covered
+         }, publicHolidays);
+         
+         if (existing.is_half_day) totalDays = 0.5;
+         data.total_days = totalDays;
+       }
+    }
+  }
+
+  // Admin-only date edit — log as UPDATED business event
+  const filter = applyTenantFilter({ _id: id, institution_id });
+  const updated = await Leave.findOneAndUpdate(filter, { $set: data }, { new: true }).lean();
+  if (updated) {
+    const emp = await Employee.findOne({ _id: updated.employee_id }).lean();
+    const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
+    const eventLogService = require("../eventLog/service");
+    await eventLogService.logEvent({
+      institution_id,
+      user_id,
+      user_name: "Admin",
+      user_role: "HR Administrator",
+      module_name: "leave",
+      action_type: "UPDATED",
+      record_id: id,
+      description: `${empName} leave details updated`,
+      new_data: updated
+    });
+  }
+  return updated;
 };
 
 exports.deleteLeave = async (id, institution_id) => {
-  const deleted = await Leave.findOneAndDelete({ _id: id, institution_id });
+  const filter = applyTenantFilter({ _id: id, institution_id });
+  const deleted = await Leave.findOneAndDelete(filter);
   if (!deleted) throw new Error("Leave record not found");
   return { success: true, message: "Leave record deleted successfully" };
 };

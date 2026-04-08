@@ -6,6 +6,7 @@ import { GET_MOVEMENTS, CREATE_MOVEMENT, UPDATE_MOVEMENT } from "../graphql/move
 import { GET_EMPLOYEES } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 import AnalogTimePicker from "../components/AnalogTimePicker";
+import { isAdmin, hasRole } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -13,7 +14,6 @@ import AnalogTimePicker from "../components/AnalogTimePicker";
 type MvStatus  = "Pending" | "Approved" | "Rejected" | "Completed" | "Cancelled";
 type SortField = "empId" | "empName" | "date" | "status";
 type SortDir   = "asc" | "desc";
-
 type MvReason =
   | "Exam Duty"
   | "Bank Visit"
@@ -23,6 +23,17 @@ type MvReason =
   | "Official Field Work"
   | "Government Office"
   | "Other";
+
+interface Employee {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  work_detail?: {
+    department?: { id: string, name: string };
+    designation?: { id: string, name: string };
+  };
+}
 
 interface MovementRecord {
   id: string;
@@ -126,8 +137,11 @@ function fmtDate(iso: string): string {
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  } catch (e) {
+    const day = d.getDate();
+    const month = d.toLocaleString("en-GB", { month: "short" });
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  } catch {
     return iso;
   }
 }
@@ -241,6 +255,7 @@ const CSS = `
   .mr-badge-approved  { background:#dcfce7; color:#166534; }
   .mr-badge-rejected  { background:#fee2e2; color:#991b1b; }
   .mr-badge-completed { background:#dbeafe; color:#1e40af; }
+  .mr-badge-cancelled { background:#f8fafc; color:#64748b; border: 1px solid #e2e8f0; font-size: 10px; padding: 2px 8px; }
 
   /* empty */
   .mr-empty { padding:64px 24px; text-align:center; }
@@ -445,7 +460,7 @@ function StatusCell({ status }: { status?: string }) {
     case "approved": return <span className="mr-badge mr-badge-approved">Approved</span>;
     case "rejected": return <span className="mr-badge mr-badge-rejected">Rejected</span>;
     case "completed": return <span className="mr-badge mr-badge-completed">Completed</span>;
-    case "cancelled": return <span className="mr-badge mr-badge-rejected">Cancelled</span>;
+    case "cancelled": return <span className="mr-badge mr-badge-cancelled">Cancelled</span>;
     default: return <span className="mr-badge mr-badge-pending">{s}</span>;
   }
 }
@@ -486,7 +501,7 @@ function DF({ label, value, num }: DFP) {
 ───────────────────────────────────────────── */
 interface ModalP { onClose:()=>void; onToast:(m:string)=>void; }
 function NewModal({ onClose, onToast }: ModalP) {
-  const { data: empData } = useQuery<{ getAllEmployees: { items: any[] } }>(GET_EMPLOYEES);
+  const { data: empData } = useQuery<{ getAllEmployees: { items: Employee[] } }>(GET_EMPLOYEES);
   const [createMovement] = useMutation(CREATE_MOVEMENT, {
     refetchQueries: ["GetMovements"],
     onCompleted: () => onToast("Movement request submitted successfully."),
@@ -500,7 +515,7 @@ function NewModal({ onClose, onToast }: ModalP) {
   const [showOut, setShowOut] = useState(false);
   const [showRet, setShowRet] = useState(false);
   
-  const selectedEmp = employees.find((e: any) => e.employee_id === form.empId);
+  const selectedEmp = employees.find((e: Employee) => e.employee_id === form.empId);
   const dur = tdiff(form.outTime, form.returnTime);
 
   function f<K extends keyof FormState>(k: K, v: FormState[K]) {
@@ -510,6 +525,7 @@ function NewModal({ onClose, onToast }: ModalP) {
 
   function validate(): boolean {
     const e: FormErrors = {};
+    if (!form.empId)       e.empId       = "Required.";
     if (!form.date)        e.date        = "Required.";
     else {
       const d = new Date(form.date);
@@ -561,7 +577,7 @@ function NewModal({ onClose, onToast }: ModalP) {
               <select className={`mr-sel2${errs.empId?" mr-ferr":""}`} value={form.empId}
                 onChange={(e) => f("empId", e.target.value)}>
                 <option value="">Select Employee…</option>
-                {employees.map((e: any) => <option key={e.id} value={e.employee_id}>{e.first_name} {e.last_name} ({e.employee_id})</option>)}
+                {employees.map((e: Employee) => <option key={e.id} value={e.employee_id}>{e.first_name} {e.last_name} ({e.employee_id})</option>)}
               </select>
               {errs.empId && <div className="mr-errt">{errs.empId}</div>}
             </div>
@@ -659,30 +675,15 @@ interface DrP {
   rec: MovementRecord;
   onClose: ()=>void;
   onToast: (m:string)=>void;
-  flt: FilterState;
+  initialIsEditing?: boolean;
 }
-function Drawer({ rec, onClose, onToast, flt }: DrP) {
-  const [updateMovement] = useMutation(UPDATE_MOVEMENT, {
-    refetchQueries: [{ 
-      query: GET_MOVEMENTS, 
-      variables: { 
-        pagination: { page: 1, limit: 10 }, 
-        status: flt.status === "All" ? undefined : flt.status.toLowerCase() 
-      } 
-    }],
-    onCompleted: () => {
-      onToast("Movement updated successfully");
-    },
-    onError: (error) => {
-      onToast(`Error: ${error.message}`);
-    }
-  });
+function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { onUpdate: (vars: { variables: { id: string, input: { status?: string, admin_status?: string, dept_admin_status?: string, remarks?: string, admin_remarks?: string, dept_admin_remarks?: string, in_time?: string, out_time?: string } } })=>void }) {
 
   const [deptRem, setDeptRem] = useState("");
   const [adminRem, setAdminRem] = useState("");
   const [ret, setRet] = useState<string>("");
   const [showMenu, setShowMenu] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(initialIsEditing || false);
   const [editOut, setEditOut] = useState(rec.out_time);
   const [editRet, setEditRet] = useState(rec.in_time);
   const [showOutP, setShowOutP] = useState(false);
@@ -695,7 +696,15 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
   const late = actualReturn && actualReturn > expectedReturn;
 
   function handleAction(role: "HOD" | "ADMIN", status: MvStatus, remarks?: string, actualRet?: string) {
-    const input: any = {
+    const input: {
+      remarks: string;
+      in_time?: string;
+      status?: string;
+      dept_admin_status?: string;
+      dept_admin_remarks?: string;
+      admin_status?: string;
+      admin_remarks?: string;
+    } = {
       remarks: remarks || (role === "HOD" ? deptRem : adminRem),
       ...(actualRet && { in_time: actualRet })
     };
@@ -714,7 +723,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
       }
     }
 
-    updateMovement({
+    onUpdate({
       variables: {
         id: rec.id,
         input
@@ -765,24 +774,26 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div className="mr-dr-actions">
               <button className="mr-dr-dots" title="Actions" onClick={() => setShowMenu(!showMenu)}>
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path d="M12 6v.01M12 12v.01M12 18v.01" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/>
                 </svg>
               </button>
               {showMenu && (
                 <div className="mr-dr-menu" onMouseLeave={() => setShowMenu(false)}>
-                  <div className="mr-dr-item" onClick={() => { setIsEditing(true); setShowMenu(false); }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
-                    Update Time
-                  </div>
-                  {!isCompleted && (
+                  {isAdmin() && (
+                    <div className="mr-dr-item" onClick={() => { setIsEditing(true); setShowMenu(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                      Update Time
+                    </div>
+                  )}
+                  {!isCompleted && hasRole("ADMIN", "HOD") && (
                     <div className="mr-dr-item mr-dr-danger" onClick={() => {
-                        if(window.confirm("Are you sure you want to cancel this movement?")) {
-                          updateMovement({ variables: { id: rec.id, input: { status: "cancelled" } } });
-                          onClose();
-                        }
+                          if(window.confirm("Are you sure you want to cancel this movement?")) {
+                            onUpdate({ variables: { id: rec.id, input: { status: "cancelled" } } });
+                            onClose();
+                          }
                       }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
@@ -793,11 +804,6 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
                 </div>
               )}
             </div>
-            <button className="mr-dr-x" onClick={onClose}>
-              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
           </div>
         </div>
         <div className="mr-dr-bd">
@@ -835,7 +841,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
               <div className="mr-edit-btns">
                 <button className="mr-edit-btn mr-edit-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
                 <button className="mr-edit-btn mr-edit-save" onClick={() => {
-                  updateMovement({ variables: { id: rec.id, input: { out_time: editOut, in_time: editRet } } });
+                  onUpdate({ variables: { id: rec.id, input: { out_time: editOut, in_time: editRet } } });
                   setIsEditing(false);
                 }}>Save Changes</button>
               </div>
@@ -903,7 +909,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
           </div>
 
           {/* Actions - DEPT ADMIN */}
-          {(!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
+          {hasRole("ADMIN", "HOD") && (!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
             <div className="mr-sec">
               <div className="mr-sec-t" style={{color:'#1d4ed8', borderBottom:'1px solid #eff6ff'}}>Dept Admin Actions</div>
               <textarea className="mr-rem" placeholder="Dept Admin remarks…"
@@ -916,7 +922,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
           )}
 
           {/* Actions - ADMIN */}
-          {(!rec.admin_status || rec.admin_status?.toLowerCase() === "pending") && (
+          {isAdmin() && (!rec.admin_status || rec.admin_status?.toLowerCase() === "pending") && (
             <div className="mr-sec">
               <div className="mr-sec-t" style={{color:'#1d4ed8', borderBottom:'1px solid #eff6ff'}}>Admin Actions</div>
               <textarea className="mr-rem" placeholder="Admin remarks…"
@@ -929,7 +935,7 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
           )}
 
           {/* Log return */}
-          {rec.status?.toLowerCase() === "approved" && !isCompleted && (
+          {hasRole("ADMIN", "HOD") && rec.status?.toLowerCase() === "approved" && !isCompleted && (
             <div className="mr-sec">
               <div className="mr-sec-t">Log Return</div>
               <div className="mr-rl">
@@ -965,21 +971,31 @@ function Drawer({ rec, onClose, onToast, flt }: DrP) {
    MAIN
 ───────────────────────────────────────────── */
 export default function MovementRegister() {
-  const { data: setvData } = useQuery<any>(GET_SETTINGS, { fetchPolicy: 'network-only' });
+  const { data: setvData } = useQuery<{ 
+    settings: { 
+      departments: { id: string, name: string }[] 
+    } 
+  }>(GET_SETTINGS, { fetchPolicy: 'network-only' });
   const departments = setvData?.settings?.departments || [];
 
   const [flt, setFlt]         = useState<FilterState>({ search: "", month: "", department: "All", status: "All" });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { data } = useQuery<{ movements: { items: MovementRecord[], pageInfo: any } }>(GET_MOVEMENTS, {
+  const { data } = useQuery<{ movements: { items: MovementRecord[], pageInfo: { totalCount: number, totalPages: number, currentPage: number, hasNextPage: boolean } } }>(GET_MOVEMENTS, {
     variables: { 
       pagination: { page: currentPage, limit: itemsPerPage },
       status: flt.status === "All" ? undefined : flt.status.toLowerCase(),
     }
   });
+  
+  const [updateMovement] = useMutation(UPDATE_MOVEMENT, {
+    refetchQueries: [{ query: GET_MOVEMENTS }],
+    onCompleted: () => { showToast("Movement updated successfully"); },
+    onError: (error) => { showToast(`Error: ${error.message}`); }
+  });
 
-  const records = data?.movements?.items || [];
+  const records = useMemo(() => data?.movements?.items || [], [data?.movements?.items]);
   const pageInfo = data?.movements?.pageInfo;
 
   const [sf, setSf]           = useState<SortField>("date");
@@ -1007,7 +1023,7 @@ export default function MovementRegister() {
     if (flt.department !== "All") list = list.filter((r: MovementRecord) => r.employee?.work_detail?.department?.id === flt.department);
 
     list.sort((a: MovementRecord, b: MovementRecord) => {
-      let va: any = "", vb: any = "";
+      let va: string = "", vb: string = "";
       if (sf === "empId")  { va = a.employee_code; vb = b.employee_code; }
       if (sf === "empName")   { 
         va = `${a.employee?.first_name || ""} ${a.employee?.last_name || ""}`; 
@@ -1018,7 +1034,7 @@ export default function MovementRegister() {
       return sd === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
     return list;
-  }, [records, flt, sf, sd]);
+  }, [records, flt.search, flt.month, flt.department, sf, sd]);
 
   function sort(f: SortField) {
     if (sf === f) setSd((d: SortDir) => d === "asc" ? "desc" : "asc");
@@ -1075,7 +1091,7 @@ export default function MovementRegister() {
           onChange={(e) => setF("department", e.target.value)}
           style={{ width: "160px" }}>
           <option value="All">All Departments</option>
-          {departments.map((d: any) => (
+          {departments.map((d: { id: string, name: string }) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
@@ -1089,6 +1105,7 @@ export default function MovementRegister() {
           <option value="Approved">Approved</option>
           <option value="Rejected">Rejected</option>
           <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
         </select>
 
         {/* Refresh */}
@@ -1129,6 +1146,7 @@ export default function MovementRegister() {
                   <th>Movement Time</th>
                   <th>Reason</th>
                   <th>Status</th>
+                  <th style={{ width: 40 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1140,6 +1158,13 @@ export default function MovementRegister() {
                     <td><span className="mr-time">{timeRange(rec.out_time, rec.in_time)}</span></td>
                     <td><span className="mr-reason">{rec.movement_type}</span></td>
                     <td><StatusCell status={rec.status}/></td>
+                    <td style={{ textAlign: "right" }}>
+                      <div style={{ color: "#94a3b8", cursor: "pointer" }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/>
+                        </svg>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1174,7 +1199,14 @@ export default function MovementRegister() {
         )}
       </div>
 
-      {drawer && <Drawer rec={drawer} onClose={() => setDrawer(null)} onToast={showToast} flt={flt} />}
+      {drawer && (
+        <Drawer 
+          rec={drawer} 
+          onClose={() => setDrawer(null)} 
+          onToast={showToast} 
+          onUpdate={updateMovement}
+        />
+      )}
 
       {modal && (
         <NewModal onClose={() => setModal(false)} onToast={showToast}/>

@@ -19,7 +19,7 @@ const CSS = `
 `;
 
 export default function CategorySection() {
-  const { data, refetch } = useQuery<any>(GET_SETTINGS, {
+  const { data, refetch } = useQuery<{ settings: { employee_categories: Array<{ id: string; name: string }> } }>(GET_SETTINGS, {
     fetchPolicy: 'network-only'
   });
   const [upsertCategory] = useMutation(UPSERT_CATEGORY, { onCompleted: () => refetch() });
@@ -48,7 +48,7 @@ export default function CategorySection() {
         <table className="cs-table">
           <thead><tr><th>Name</th><th>Action</th></tr></thead>
           <tbody>
-            {categories.map((c: any) => (
+            {categories.map((c: { id: string; name: string }) => (
               <tr key={c.id}>
                 <td>{c.name}</td>
                 <td><button className="cs-del-btn" onClick={() => deleteCategory({ variables: { id: c.id } })}>Delete</button></td>

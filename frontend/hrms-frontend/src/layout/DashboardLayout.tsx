@@ -1,19 +1,15 @@
 // src/layout/DashboardLayout.tsx
 
 import  { useState, useEffect, type ReactNode } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
-const currentUser = {
-  name: "Admin",
-  role: "HR Administrator",
-  initials: "A"
-};
+import { NavLink, useLocation } from "react-router-dom";
+import { getRole, type AppRole } from "../utils/auth";
 
 const LAYOUT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
 
   :root {
-    --sidebar-w:      232px;
-    --topbar-h:       60px;
+    --sidebar-w:      240px;
+    --topbar-h:       56px;
     --sidebar-bg:     #0f2545;
     --sidebar-hover:  rgba(255,255,255,.07);
     --sidebar-active: rgba(255,255,255,.12);
@@ -171,7 +167,7 @@ const LAYOUT_CSS = `
     height: 100vh;
     overflow: hidden;
     position: relative;
-    z-index: 20;
+    z-index: 50;
     box-shadow: 1px 0 0 rgba(255,255,255,.04), 4px 0 16px rgba(0,0,0,.18);
   }
 
@@ -389,7 +385,7 @@ const LAYOUT_CSS = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 28px;
+    padding: 0 20px;
     flex-shrink: 0;
     box-shadow: var(--shadow-sm);
     position: relative;
@@ -631,7 +627,7 @@ const LAYOUT_CSS = `
     border-radius: var(--radius);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
-    padding: 20px 20px 0;
+    padding: 16px 16px 0;
     position: relative;
     overflow: hidden;
     transition: box-shadow 0.15s, transform 0.15s;
@@ -667,7 +663,7 @@ const LAYOUT_CSS = `
   }
 
   .dc-value {
-    font-size: 34px;
+    font-size: 28px;
     font-weight: 800;
     letter-spacing: -1.5px;
     line-height: 1;
@@ -681,7 +677,7 @@ const LAYOUT_CSS = `
     gap: 4px;
     font-size: 11.5px;
     font-weight: 500;
-    padding-bottom: 18px;
+    padding-bottom: 14px;
   }
 
   .dc-accent {
@@ -717,6 +713,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: ReactNode;
+  roles: AppRole[];
 }
 
 const IcoSize = {
@@ -729,6 +726,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/dashboard",
     label: "Dashboard",
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
         <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -741,6 +739,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/onboarding",
     label: "Employee Onboarding",
+    roles: ["ADMIN"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -751,6 +750,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/employees",
     label: "Employee Management",
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -761,6 +761,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/attendance",
     label: "Attendance",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -771,6 +772,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/leave",
     label: "Leave Management",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -781,6 +783,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/movement",
     label: "Movement Register",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -791,6 +794,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     path: "/relieving",
     label: "Relieving",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -799,28 +803,31 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    path: "/register",
+    path: "/event-register",
     label: "Event Register",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
-          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m3 4L10 14m3 3L10 11" />
       </svg>
     ),
   },
- {
+  {
     path: "/reports",
     label: "Reports & Analytics",
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
-          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          d="M9 17v-2a4 4 0 014-4h4m-4-4l4 4-4 4" />
       </svg>
     ),
   },
   {
     path: "/holidays",
     label: "Holidays",
+    roles: ["ADMIN"],
     icon: (
       <svg {...IcoSize}>
         <path strokeLinecap="round" strokeLinejoin="round"
@@ -832,6 +839,7 @@ const NAV_ITEMS: NavItem[] = [
   {
   path: "/settings",
   label: "Settings",
+  roles: ["ADMIN"],
   icon: (
     <svg {...IcoSize}>
       <path
@@ -866,23 +874,66 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState<boolean>(false);
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false);
   const [tenant, setTenant] = useState(localStorage.getItem('institution_id') || 'COLLEGE_A');
 
+  // ✨ Reactive User Resolution (Fix: No more stale global role)
+  const getUser = () => {
+    const u = {
+      name: localStorage.getItem('user_name') || "User",
+      role: localStorage.getItem('user_role') || "Employee",
+      initials: (localStorage.getItem('user_name') || "U").charAt(0).toUpperCase()
+    };
+    try {
+       const raw = localStorage.getItem('user');
+       if (raw) {
+         const parsed = JSON.parse(raw);
+         u.name = parsed.name || u.name;
+         u.role = parsed.role || u.role;
+         u.initials = (parsed.name || "U").charAt(0).toUpperCase();
+       }
+    } catch { /* Fail safe */ }
+    return u;
+  };
+  const currentUser = getUser();
+
   const handleTenantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newTenant = e.target.value;
+    
+    // 🛡 Multi-Tenancy Identity Check
+    // If the new tenant is different from the token's tenant, logout for safety
+    const userJson = localStorage.getItem('user');
+    let shouldLogout = false;
+    try {
+      if (userJson) {
+        const parsed = JSON.parse(userJson);
+        // Compare with institution_id from the user payload (synchronous check)
+        if (parsed.institution_id && parsed.institution_id !== newTenant) {
+          shouldLogout = true;
+        }
+      }
+    } catch {
+      shouldLogout = true;
+    }
+
+    if (shouldLogout) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+
     localStorage.setItem('institution_id', newTenant);
     setTenant(newTenant);
-    // Reload page to clear Apollo cache and fetch new tenant data
+    // Reload page to clear Apollo cache and fetch new tenant data (or redirect to Login)
     window.location.reload();
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('institution_id');
-    navigate('/');
+    localStorage.removeItem('user');
+    // Use full page redirect to clear Apollo in-memory cache and re-evaluate ProtectedRoute
+    window.location.href = '/';
   };
 
   useEffect(() => {
@@ -941,7 +992,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <nav className="sb-nav">
             <div className="sb-section-label">Menu</div>
-            {NAV_ITEMS.map((item: NavItem) => (
+            {NAV_ITEMS.filter(item => item.roles.includes(getRole())).map((item: NavItem) => (
               <NavLink
                 key={item.path}
                 to={item.path}

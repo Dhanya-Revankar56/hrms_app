@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const salaryRecordSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true, unique: true },
     
     monthly_ctc: { type: Number, default: 0 },
@@ -27,7 +29,8 @@ const salaryRecordSchema = new mongoose.Schema(
 
 const payslipSchema = new mongoose.Schema(
   {
-    institution_id: { type: String, required: true, index: true },
+    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    institution_id: { type: String, index: true }, // Legacy
     employee_id: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true },
     
     month: { type: String, required: true }, // e.g. "2026-03"
@@ -39,6 +42,10 @@ const payslipSchema = new mongoose.Schema(
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
+
+// Apply tenant isolation
+tenantPlugin(salaryRecordSchema);
+tenantPlugin(payslipSchema);
 
 const SalaryRecord = mongoose.model("SalaryRecord", salaryRecordSchema);
 const Payslip = mongoose.model("Payslip", payslipSchema);

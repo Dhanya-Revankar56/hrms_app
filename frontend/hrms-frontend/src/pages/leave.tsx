@@ -1,9 +1,10 @@
 // src/pages/LeaveManagement.tsx
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
-import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE } from "../graphql/leaveQueries";
+import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE, UPDATE_LEAVE } from "../graphql/leaveQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
+import { isAdmin, hasRole } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -11,7 +12,7 @@ import { GET_SETTINGS } from "../graphql/settingsQueries";
 
 
 // Derived overall status
-type LeaveStatus = "Pending" | "Approved" | "Rejected" | "Closed";
+type LeaveStatus = "Pending" | "Approved" | "Rejected" | "Closed" | "Cancelled";
 
 type LeaveType =
   | "CL"
@@ -27,6 +28,13 @@ type SortDir   = "asc" | "desc";
 
 
 
+interface LeaveApproval {
+  role: string;
+  status: string;
+  updated_at?: string;
+  remarks?: string;
+}
+
 interface LeaveRequest {
   id: string;
   employee_id: string;
@@ -37,12 +45,7 @@ interface LeaveRequest {
   total_days: number;
   reason: string;
   status: string;
-  approvals: {
-    role: string;
-    status: string;
-    updated_at?: string;
-    remarks?: string;
-  }[];
+  approvals: LeaveApproval[];
   requested_date: string;
   is_half_day: boolean;
   half_day_type: string;
@@ -65,6 +68,22 @@ interface FilterState {
   leaveType: string | "All";
   status: string | "All";
   monthYear: string;
+}
+
+interface LeavesData {
+  leaves: {
+    items: LeaveRequest[];
+    pageInfo: {
+      totalCount: number;
+      totalPages: number;
+      currentPage: number;
+      hasNextPage: boolean;
+    };
+    rejectedCount: number;
+    approvedCount: number;
+    pendingCount: number;
+    filteredTotalCount: number;
+  };
 }
 
 
@@ -109,7 +128,7 @@ function getInitials(first: string, last: string): string {
 
 const TODAY = new Date().toISOString().split("T")[0];
 
-function formatDate(iso: any): string {
+function formatDate(iso: string | number | null | undefined): string {
   if (!iso) return "—";
   const s = String(iso);
   // Handle numeric timestamp
@@ -154,10 +173,10 @@ const getLeaveName = (type: string) => {
 
 // Status is now a single field from backend
 function deriveStatus(req: LeaveRequest): LeaveStatus {
-  // Use the computed status from the backend
   const s = (req.status || "Pending").toLowerCase();
   if (s === "approved") return "Approved";
   if (s === "rejected") return "Rejected";
+  if (s === "cancelled") return "Cancelled";
   if (s === "closed")   return "Closed";
   return "Pending";
 }
@@ -169,9 +188,9 @@ function deriveStatus(req: LeaveRequest): LeaveStatus {
    ERROR BOUNDARY
 ───────────────────────────────────────────── */
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
-  constructor(props: any) { super(props); this.state = { hasError: false }; }
+  constructor(props: {children: React.ReactNode}) { super(props); this.state = { hasError: false }; }
   static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: any, info: any) { console.error("EB Caught:", error, info); }
+  componentDidCatch(error: Error, info: React.ErrorInfo) { console.error("EB Caught:", error, info); }
   render() { 
     if (this.state.hasError) return <div style={{padding:20, color:'red', background:'#fff', border:'1px solid red', margin:20, borderRadius:8}}>Component Crash - Check Console</div>;
     return this.props.children;
@@ -431,6 +450,7 @@ const CSS = `
   .lv-badge-pending  { background:#fffbeb; color:#b45309; }
   .lv-badge-approved { background:#f0fdf4; color:#15803d; }
   .lv-badge-rejected { background:#fef2f2; color:#dc2626; }
+  .lv-badge-cancelled{ background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; font-size:10.5px; padding:2px 8px; }
   .lv-badge-closed   { background:#f1f5f9; color:#475569; }
 
   /* ── Step Badges (used in drawer) ── */
@@ -443,6 +463,7 @@ const CSS = `
   .lv-step-pending  { background:#fffbeb; color:#b45309; }
   .lv-step-approved { background:#f0fdf4; color:#15803d; }
   .lv-step-rejected { background:#fef2f2; color:#dc2626; }
+  .lv-step-cancelled{ background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; font-size:10px; padding:1.5px 7px; }
 
   /* ── 3-dot Action Menu ── */
   .lv-dots-wrap { position:relative; display:inline-flex; justify-content:center; }
@@ -592,6 +613,15 @@ const CSS = `
   .lv-pag-btn:hover:not(:disabled) { background: #f8fafc; border-color: #1d4ed8; color: #1d4ed8; }
   .lv-pag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .lv-pag-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+
+  /* ── Update Leave Modal ── */
+  .lv-up-dates-table { width:100%; border-collapse:collapse; margin:16px 0; border:1px solid #eef2ff; border-radius:10px; overflow:hidden; }
+  .lv-up-dates-table th { background:#f8fafc; padding:10px; font-size:12px; color:#64748b; text-align:left; border-bottom:1px solid #eef2ff; }
+  .lv-up-dates-table td { padding:10px; font-size:13px; color:#334155; border-bottom:1px solid #eef2ff; }
+  .lv-up-dates-table tr:last-child td { border-bottom:none; }
+  .lv-up-total { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:#f0fdf4; border-radius:8px; margin-bottom:16px; }
+  .lv-up-total-lbl { font-size:13px; font-weight:700; color:#166534; }
+  .lv-up-total-val { font-size:15px; font-weight:800; color:#1d4ed8; font-family:'Inter',sans-serif; }
 `;
 
 /* ─────────────────────────────────────────────
@@ -603,6 +633,7 @@ function OverallStatusBadge({ req }: { req: LeaveRequest }) {
     Pending:  "lv-badge lv-badge-pending",
     Approved: "lv-badge lv-badge-approved",
     Rejected: "lv-badge lv-badge-rejected",
+    Cancelled: "lv-badge lv-badge-cancelled",
     Closed:   "lv-badge lv-badge-closed",
   };
   return <span className={cls[status]}>{status}</span>;
@@ -614,13 +645,14 @@ function StepBadge({ status }: { status: string }) {
     pending:  "lv-step-badge lv-step-pending",
     approved: "lv-step-badge lv-step-approved",
     rejected: "lv-step-badge lv-step-rejected",
+    cancelled: "lv-step-badge lv-step-cancelled",
   };
-  return <span className={cls[s] || cls.pending}>{status || "Pending"}</span>;
+  return <span className={cls[s] || cls.pending}>{s === 'cancelled' ? 'Cancelled' : (status || "Pending")}</span>;
 }
 
-function LeaveTypeTag({ type }: { type: any }) {
-  const code = getLeaveCode(type);
-  const meta = (LEAVE_TYPE_META as any)[code] || (LEAVE_TYPE_META as any)["Other"];
+function LeaveTypeTag({ type }: { type: string }) {
+  const code = getLeaveCode(type) as LeaveType;
+  const meta = LEAVE_TYPE_META[code] || LEAVE_TYPE_META["Other"];
   const fullName = getLeaveName(type);
 
   return (
@@ -689,8 +721,159 @@ interface DrawerProps {
   onApprove: (id: string, remarks: string, role: 'HOD' | 'ADMIN') => void;
   onReject:  (id: string, remarks: string, role: 'HOD' | 'ADMIN') => void;
 }
-function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProps) {
+
+/* ─────────────────────────────────────────────
+   UPDATE LEAVE MODAL
+───────────────────────────────────────────── */
+interface UpdateModalProps {
+  req: LeaveRequest;
+  onClose: () => void;
+  onToast: (m: string) => void;
+}
+
+function UpdateLeaveModal({ req, onClose, onToast }: UpdateModalProps) {
+  const [fromDate, setFromDate] = useState(req.from_date.split('T')[0]);
+  const [toDate, setToDate] = useState(req.to_date.split('T')[0]);
+  const [reason, setReason] = useState(req.reason || "");
+  const [daysData, setDaysData] = useState<{date: string, type: string}[]>([]);
+
+  const [updateLeave] = useMutation(UPDATE_LEAVE, {
+    refetchQueries: [{ query: GET_LEAVES }],
+    onCompleted: () => {
+      onToast("Leave request updated successfully");
+      onClose();
+    },
+    onError: (err) => onToast(`Error: ${err.message}`)
+  });
+
+  // Generate list of days based on from/to
+  const lastRange = useRef({ from: "", to: "" });
+  useEffect(() => {
+    if (!fromDate || !toDate) return;
+    if (lastRange.current.from === fromDate && lastRange.current.to === toDate) return;
+    lastRange.current = { from: fromDate, to: toDate };
+
+    const timer = setTimeout(() => {
+      setDaysData(prev => {
+        const list: {date: string, type: string}[] = [];
+        const start = new Date(fromDate);
+        const end = new Date(toDate);
+        const curr = new Date(start);
+        while (curr <= end) {
+          const dStr = curr.toISOString().split('T')[0];
+          const existing = prev.find(d => d.date === dStr);
+          list.push({ date: dStr, type: existing?.type || "Full Day" });
+          curr.setDate(curr.getDate() + 1);
+        }
+        return list;
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fromDate, toDate]);
+
+  const totalDays = useMemo(() => {
+    // For preview purposes in UI, show a simple count. 
+    // The backend will perform the authoritative calculation (respecting holidays/settings) on save.
+    return daysData.reduce((acc, d) => acc + (d.type === "Full Day" ? 1 : 0.5), 0);
+  }, [daysData]);
+
+  function submit() {
+    if (new Date(toDate) < new Date(fromDate)) {
+      onToast("End date cannot be before start date.");
+      return;
+    }
+    updateLeave({
+      variables: {
+        id: req.id,
+        input: {
+          from_date: fromDate,
+          to_date: toDate,
+          // We pass total_days but the backend is now configured to recalculate if dates change
+          total_days: totalDays, 
+          reason: reason
+        }
+      }
+    });
+  }
+
+  return (
+    <div className="lv-modal-overlay" style={{ zIndex: 1000 }} onClick={onClose}>
+      <div className="lv-modal" style={{ width: 500, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div className="lv-mi-h" style={{ display: 'flex', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>Modify Leave Request</span>
+          <button className="lv-drawer-close-x" onClick={onClose}>
+            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div style={{ padding: 22, maxHeight: '70vh', overflowY: 'auto' }}>
+          <div className="lv-form-grid">
+            <div className="lv-ff">
+              <label className="lv-field-label">From Date</label>
+              <input type="date" className="lv-input" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            </div>
+            <div className="lv-ff">
+              <label className="lv-field-label">To Date</label>
+              <input type="date" className="lv-input" value={toDate} onChange={e => setToDate(e.target.value)} />
+            </div>
+          </div>
+
+          <table className="lv-up-dates-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Leave Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {daysData.map((d, i) => (
+                <tr key={d.date}>
+                  <td>{formatDate(d.date)}</td>
+                  <td>
+                    <select className="lv-select" value={d.type} style={{ height: 32, fontSize: 12 }} 
+                      onChange={e => {
+                        const newList = [...daysData];
+                        newList[i].type = e.target.value;
+                        setDaysData(newList);
+                      }}>
+                      <option value="Full Day">Full Day</option>
+                      <option value="Half Day Morning">First Half (Morning)</option>
+                      <option value="Half Day Afternoon">Second Half (Afternoon)</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="lv-up-total">
+            <span className="lv-up-total-lbl">Total Leave Duration</span>
+            <span className="lv-up-total-val">{totalDays} Day(s)</span>
+          </div>
+
+          <div className="lv-ff">
+            <label className="lv-field-label">Reason</label>
+            <textarea className="lv-textarea" value={reason} onChange={e => setReason(e.target.value)} />
+          </div>
+        </div>
+        <div className="lv-mi-f" style={{ display: 'flex', gap: 10, padding: 18, borderTop: '1px solid #f3f4f6' }}>
+          <button className="lv-modal-cancel" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button className="lv-modal-confirm" style={{ flex: 1, background: '#1d4ed8' }} onClick={submit}>Update Request</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate }: DrawerProps & { onOpenUpdate: () => void }) {
   const [remarks, setRemarks] = useState<string>("");
+  const [showMenu, setShowMenu] = useState(false);
+
+  const [cancelLeave] = useMutation(CANCEL_LEAVE, {
+    refetchQueries: [{ query: GET_LEAVES }],
+    onCompleted: () => { onClose(); },
+  });
 
   return (
     <>
@@ -711,12 +894,43 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProp
               </div>
             </div>
           </div>
-          <button className="lv-drawer-close-x" onClick={onClose}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div className="lv-dots-wrap">
+              <button className="lv-dots-btn" onClick={() => setShowMenu(!showMenu)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/>
+                </svg>
+              </button>
+              {showMenu && (
+                <div className="lv-dots-menu" onMouseLeave={() => setShowMenu(false)}>
+                  {hasRole("ADMIN", "HOD") && (
+                    <button className="lv-dots-item" onClick={() => { onOpenUpdate(); setShowMenu(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Update leave
+                    </button>
+                  )}
+                  {hasRole("ADMIN", "HOD") && (
+                    <button className="lv-dots-item reject" onClick={() => {
+                      if (window.confirm("Are you sure you want to cancel this leave?")) {
+                        cancelLeave({ variables: { id: req.id } });
+                      }
+                      setShowMenu(false);
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                      Cancel leave
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            <button className="lv-drawer-close-x" onClick={onClose}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
         </div>
+
 
         {/* Body */}
         <div className="lv-drawer-scroll">
@@ -763,7 +977,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProp
           </div>
 
           {/* Actions for Dept Admin */}
-          {(req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
+          {hasRole("ADMIN", "HOD") && (req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
             <div className="lv-drawer-section">
               <div className="lv-drawer-section-title">Dept Admin Actions</div>
               <textarea
@@ -780,7 +994,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProp
           )}
 
           {/* Actions for Admin */}
-          {(req.approvals?.find(a => a.role === 'ADMIN')?.status || "pending").toLowerCase() === "pending" && (
+          {isAdmin() && (req.approvals?.find(a => a.role === 'ADMIN')?.status || "pending").toLowerCase() === "pending" && (
             <div className="lv-drawer-section">
               <div className="lv-drawer-section-title">Admin Actions</div>
               <textarea
@@ -798,7 +1012,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject }: DrawerProp
         </div>
 
         {/* Action: Cancel Leave (Only if not completed) */}
-        {req.status !== 'cancelled' && new Date(req.to_date) >= new Date() && (
+        {hasRole("ADMIN", "HOD") && req.status !== 'cancelled' && new Date(req.to_date) >= new Date() && (
            <div className="lv-drawer-section" style={{ marginTop: 0, padding: '0 24px 16px' }}>
               <button 
                 className="lv-drawer-btn lv-drawer-reject" 
@@ -838,6 +1052,7 @@ export default function Leave() {
   const [selected, setSelected]   = useState<string[]>([]);
   const [drawerReq, setDrawerReq] = useState<LeaveRequest | null>(null);
   const [toast, setToast]         = useState<string>("");
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string; level: 'HOD' | 'ADMIN' } | null>(null);
 
   /* Local Search Term for Debouncing */
@@ -852,19 +1067,25 @@ export default function Leave() {
   }, [searchTerm]);
 
   /* Fetch Departments from Settings */
-  const { data: settingsData } = useQuery<any>(GET_SETTINGS);
+  const { data: settingsData } = useQuery<{ 
+    settings: { 
+      departments: { id: string, name: string }[], 
+      leave_types: { name: string, total_days: number }[],
+      employee_types: { name: string }[] 
+    } 
+  }>(GET_SETTINGS);
   const departments = useMemo(() => {
     const list = settingsData?.settings?.departments || [];
     return [{ id: "All", name: "All Departments" }, ...list];
   }, [settingsData]);
 
   const leaveTypes = useMemo(() => {
-    const list = settingsData?.settings?.leave_types?.map((lt: any) => lt.name) || [];
+    const list = settingsData?.settings?.leave_types?.map(lt => lt.name) || [];
     return ["All", ...list];
   }, [settingsData]);
 
 
-  const { data, loading, error } = useQuery<any>(GET_LEAVES, {
+  const { data, loading, error } = useQuery<LeavesData>(GET_LEAVES, {
     fetchPolicy: 'network-only',
     variables: {
       status: filters.status === "All" ? null : filters.status.toLowerCase(),
@@ -888,26 +1109,26 @@ export default function Leave() {
     refetchQueries: [{ query: GET_LEAVES }],
   });
 
-  const requests: LeaveRequest[] = data?.leaves?.items || [];
+  const requests = useMemo<LeaveRequest[]>(() => data?.leaves?.items || [], [data]);
   const pageInfo = data?.leaves?.pageInfo;
   const totalCount = pageInfo?.totalCount || 0;
   const totalPages = pageInfo?.totalPages || 1;
-  const overallPending = data?.leaves?.pendingCount || 0;
-  const overallApproved = data?.leaves?.approvedCount || 0;
-  const overallRejected = data?.leaves?.rejectedCount || 0;
-  const filteredTotal = data?.leaves?.filteredTotalCount || 0;
+  const overallPending = useMemo(() => data?.leaves?.pendingCount || 0, [data]);
+  const overallApproved = useMemo(() => data?.leaves?.approvedCount || 0, [data]);
+  const overallRejected = useMemo(() => data?.leaves?.rejectedCount || 0, [data]);
+  const filteredTotal = useMemo(() => data?.leaves?.filteredTotalCount || 0, [data]);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3200); }
 
   /* Simplified filtered list (mostly server-side) */
   const filtered = useMemo<LeaveRequest[]>(() => {
-    let list = [...requests];
+    const list = [...requests];
     
     // Server-side search and filtering are already applied.
     // Client-side search is removed to prevent redundant/conflicting logic.
 
     list.sort((a: LeaveRequest, b: LeaveRequest) => {
-      let va: any = "", vb: any = "";
+      let va: string | number | undefined = "", vb: string | number | undefined = "";
       if (sortField === "name")       { 
         va = `${a.employee?.first_name || ""} ${a.employee?.last_name || ""}`; 
         vb = `${b.employee?.first_name || ""} ${b.employee?.last_name || ""}`; 
@@ -919,11 +1140,11 @@ export default function Leave() {
       if (sortField === "hrStatus")   { va = a.approvals?.find(x => x.role === 'ADMIN')?.status; vb = b.approvals?.find(x => x.role === 'ADMIN')?.status; }
       if (sortField === "finalStatus") { va = a.status; vb = b.status; }
       
-      if (typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-      return sortDir === "asc" ? (va > vb ? 1 : -1) : (vb > va ? 1 : -1);
+      if (typeof va === "string" && typeof vb === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === "asc" ? ((va || 0) > (vb || 0) ? 1 : -1) : ((vb || 0) > (va || 0) ? 1 : -1);
     });
     return list;
-  }, [requests, filters.search, sortField, sortDir]);
+  }, [requests, sortField, sortDir]);
 
   /* Stats (Overall counts from backend) */
   const stats = useMemo(() => ({
@@ -967,8 +1188,8 @@ export default function Leave() {
   }
 
   /* Reject */
-  function initiateReject(id: string, name: string, remarks: string, role: string) {
-    setRejectTarget({ id, name, remarks, level: role as any });
+  function initiateReject(id: string, name: string, remarks: string, role: 'HOD' | 'ADMIN') {
+    setRejectTarget({ id, name, remarks, level: role });
   }
   function confirmReject() {
     if (!rejectTarget) return;
@@ -1061,7 +1282,7 @@ export default function Leave() {
 
           <select className="lv-filter-sel" value={filters.department}
             onChange={(e) => setFilter("department", e.target.value)}>
-            {departments.map((d: any) => (
+            {departments.map(d => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
           </select>
@@ -1127,7 +1348,6 @@ export default function Leave() {
                     <th onClick={() => handleSort("finalStatus")} className={sortField === "finalStatus" ? "lv-sorted" : ""}>
                         <div className="lv-th-inner">Final Result {sortField === "finalStatus" && (sortDir === "asc" ? "↑" : "↓")}</div>
                     </th>
-                    <th style={{ textAlign:'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1159,7 +1379,7 @@ export default function Leave() {
                         </div>
                       </td>
                       <td>
-                        <span className="lv-type-tag" style={{ background: LEAVE_TYPE_META[getLeaveCode(req.leave_type) as LeaveType]?.bg, color: LEAVE_TYPE_META[getLeaveCode(req.leave_type) as LeaveType]?.color }}>
+                        <span className="lv-type-tag" style={{ background: LEAVE_TYPE_META[getLeaveCode(req.leave_type) as LeaveType].bg, color: LEAVE_TYPE_META[getLeaveCode(req.leave_type) as LeaveType].color }}>
                           <span className="lv-type-abbr">{getLeaveCode(req.leave_type)}</span>
                           {getLeaveName(req.leave_type)}
                         </span>
@@ -1184,11 +1404,6 @@ export default function Leave() {
                       <td><StepBadge status={req.approvals?.find(a => a.role === 'HOD')?.status || "Pending"}/></td>
                       <td><StepBadge status={req.approvals?.find(a => a.role === 'ADMIN')?.status || "Pending"}/></td>
                       <td><OverallStatusBadge req={req}/></td>
-                      <td style={{ textAlign:'center' }}>
-                        <button className="lv-dots-btn" onClick={() => setDrawerReq(req)}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1219,6 +1434,7 @@ export default function Leave() {
           <LeaveDrawer
             req={drawerReq}
             onClose={() => setDrawerReq(null)}
+            onOpenUpdate={() => setShowUpdateModal(true)}
             onCancel={(id: string) => {
                if (window.confirm("Are you sure you want to cancel this leave?")) {
                  cancelLeaveMutation({ variables: { id } }).then(() => {
@@ -1230,11 +1446,11 @@ export default function Leave() {
                  });
                }
             }}
-            onApprove={(id: string, remarks: string, role: any) => { 
+            onApprove={(id: string, remarks: string, role: 'HOD' | 'ADMIN') => { 
               handleApprove(id, remarks, role); 
               setDrawerReq(null); 
             }}
-            onReject={(id: string, remarks: string, role: any) => {
+            onReject={(id: string, remarks: string, role: 'HOD' | 'ADMIN') => {
               initiateReject(id, `${drawerReq.employee?.first_name || ""} ${drawerReq.employee?.last_name || ""}`.trim() || "Employee", remarks, role);
               setDrawerReq(null);
             }}
@@ -1259,6 +1475,10 @@ export default function Leave() {
           </svg>
           {toast}
         </div>
+      )}
+      {/* Update Modal */}
+      {showUpdateModal && drawerReq && (
+        <UpdateLeaveModal req={drawerReq} onClose={() => setShowUpdateModal(false)} onToast={showToast} />
       )}
     </div>
   );

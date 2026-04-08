@@ -14,7 +14,7 @@ async function run() {
     try {
         await mongoose.connection.db.collection('designations').dropIndex("institution_id_1_name_1");
         console.log("   ✅ Dropped institution_id_1_name_1");
-    } catch (e) {
+    } catch (_e) {
         console.log("   ℹ️ Index institution_id_1_name_1 not found or already dropped");
     }
 

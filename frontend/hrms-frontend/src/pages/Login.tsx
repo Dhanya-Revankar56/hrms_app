@@ -1,10 +1,24 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const LOGIN_MUTATION = `
+  mutation Login($email: String!, $password: String!, $tenant_code: String!) {
+    login(email: $email, password: $password, tenant_code: $tenant_code) {
+      token
+      user {
+        id
+        email
+        name
+        role
+        tenant_id
+        tenant_code
+      }
+    }
+  }
+`;
+
 export default function Login() {
-
   const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,11 +40,44 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 1200));
+    // 🛡 Background Tenant Handling (Required for new architecture)
+    const tenantCode = localStorage.getItem("tenant_code") || "COLLEGE_A";
 
-    setLoading(false);
+    try {
+      const response = await fetch("http://localhost:5000/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: LOGIN_MUTATION,
+          variables: { email, password, tenant_code: tenantCode },
+        }),
+      });
 
-    navigate("/dashboard");
+      const result = await response.json();
+
+      if (result.errors) {
+        setError(result.errors[0]?.message || "Login failed. Please try again.");
+        return;
+      }
+
+      const { token, user } = result.data.login;
+
+      // Store token and institution in localStorage for Apollo Client
+      localStorage.setItem("token", token);
+      localStorage.setItem("tenant_id", user.tenant_id);
+      localStorage.setItem("tenant_code", user.tenant_code);
+      localStorage.setItem("institution_id", user.tenant_id); // Compatibility
+      localStorage.setItem("user", JSON.stringify(user));
+
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Network error. Please check your connection.";
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,7 +89,6 @@ export default function Login() {
         fontFamily: "Inter, sans-serif"
       }}
     >
-
       {/* LEFT PANEL */}
       <div
         style={{
@@ -57,7 +103,6 @@ export default function Login() {
         <h1 style={{ fontSize: "34px", marginBottom: "20px" }}>
           CampusHR
         </h1>
-
         <p style={{ opacity: 0.8, lineHeight: 1.6 }}>
           "Building stronger institutions through smarter workforce management."
         </p>
@@ -72,7 +117,6 @@ export default function Login() {
           justifyContent: "center"
         }}
       >
-
         <div
           style={{
             width: "380px",
@@ -82,11 +126,9 @@ export default function Login() {
             boxShadow: "0 10px 30px rgba(0,0,0,0.08)"
           }}
         >
-
           <h2 style={{ marginBottom: "10px" }}>
             Welcome back
           </h2>
-
           <p style={{ color: "#64748b", marginBottom: "30px" }}>
             Sign in to your account
           </p>
@@ -107,7 +149,6 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit}>
-
             <input
               type="email"
               placeholder="Email address"
@@ -152,13 +193,9 @@ export default function Login() {
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
-
           </form>
-
         </div>
-
       </div>
-
     </div>
   );
 }

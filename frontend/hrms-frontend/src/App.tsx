@@ -12,112 +12,35 @@ import MovementRegister from "./pages/movementRegister";
 import Settings from "./pages/Settings";
 import EmployeeDetail from "./pages/EmployeeDetail";
 import Holidays from "./pages/Holidays";
+import EventRegister from "./pages/EventRegister";
+import Reports from "./pages/Reports";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Login */}
+        {/* Public — Login */}
         <Route path="/" element={<Login />} />
 
-        {/* Dashboard */}
-        <Route
-          path="/dashboard"
-          element={
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
-          }
-        />
+        {/* All authenticated roles */}
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/employees" element={<ProtectedRoute><DashboardLayout><EmployeeManagement /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/employees/:id" element={<ProtectedRoute><DashboardLayout><EmployeeDetail /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/attendance" element={<ProtectedRoute><DashboardLayout><Attendance /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/leave" element={<ProtectedRoute><DashboardLayout><Leave /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/movement" element={<ProtectedRoute><DashboardLayout><MovementRegister /></DashboardLayout></ProtectedRoute>} />
 
-        {/* Employee Onboarding */}
-        <Route
-          path="/onboarding"
-          element={
-            <DashboardLayout>
-              <EmployeeOnboarding />
-            </DashboardLayout>
-          }
-        />
+        {/* ADMIN + HOD */}
+        <Route path="/relieving" element={<ProtectedRoute allowedRoles={["ADMIN", "HOD"]}><DashboardLayout><Relieving /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/event-register" element={<ProtectedRoute allowedRoles={["ADMIN", "HOD"]}><DashboardLayout><EventRegister /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={["ADMIN", "HOD"]}><DashboardLayout><Reports /></DashboardLayout></ProtectedRoute>} />
 
-        {/* Employee Management */}
-        <Route
-          path="/employees"
-          element={
-            <DashboardLayout>
-              <EmployeeManagement />
-            </DashboardLayout>
-          }
-        />
-
-        <Route
-          path="/employees/:id"
-          element={
-            <DashboardLayout>
-              <EmployeeDetail />
-            </DashboardLayout>
-          }
-        />
-
-        {/* Attendance */}
-        <Route
-          path="/attendance"
-          element={
-            <DashboardLayout>
-              <Attendance />
-            </DashboardLayout>
-          }
-        />
-
-        {/* Leave */}
-        <Route
-          path="/leave"
-          element={
-            <DashboardLayout>
-              <Leave />
-            </DashboardLayout>
-          }
-        />
-
-        {/* Relieving */}
-        <Route
-          path="/relieving"
-          element={
-            <DashboardLayout>
-              <Relieving />
-            </DashboardLayout>
-          }
-        />
-
-        {/* Movement Register */}
-        <Route
-          path="/movement"
-          element={
-            <DashboardLayout>
-              <MovementRegister />
-            </DashboardLayout>
-          }
-        />
-
-        {/* Settings */}
-        <Route
-          path="/settings"
-          element={
-            <DashboardLayout>
-              <Settings />
-            </DashboardLayout>
-          }
-        />
-
-        <Route
-          path="/holidays"
-          element={
-            <DashboardLayout>
-              <Holidays />
-            </DashboardLayout>
-          }
-        />
+        {/* ADMIN only */}
+        <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["ADMIN"]}><DashboardLayout><EmployeeOnboarding /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/holidays" element={<ProtectedRoute allowedRoles={["ADMIN"]}><DashboardLayout><Holidays /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute allowedRoles={["ADMIN"]}><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
 
       </Routes>
     </BrowserRouter>

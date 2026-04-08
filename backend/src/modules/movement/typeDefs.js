@@ -3,7 +3,8 @@ const { gql } = require("apollo-server-express");
 const typeDefs = gql`
   type Movement {
     id: ID!
-    institution_id: String!
+    tenant_id: String
+    institution_id: String
     employee_id: String!
     employee_code: String
     employee: Employee
@@ -38,6 +39,7 @@ const typeDefs = gql`
     movement_date: String!
     out_time: String
     in_time: String
+    remarks: String
   }
 
   input UpdateMovementInput {

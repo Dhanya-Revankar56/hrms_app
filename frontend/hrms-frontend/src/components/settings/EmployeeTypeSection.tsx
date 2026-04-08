@@ -19,7 +19,7 @@ const CSS = `
 `;
 
 export default function EmployeeTypeSection() {
-  const { data, refetch } = useQuery<any>(GET_SETTINGS, {
+  const { data, refetch } = useQuery<{ settings: { employee_types: Array<{ id: string; name: string }> } }>(GET_SETTINGS, {
     fetchPolicy: 'network-only'
   });
   const [upsertEmployeeType] = useMutation(UPSERT_EMPLOYEE_TYPE, { onCompleted: () => refetch() });
@@ -48,7 +48,7 @@ export default function EmployeeTypeSection() {
         <table className="ts-table">
           <thead><tr><th>Name</th><th>Action</th></tr></thead>
           <tbody>
-            {types.map((t: any) => (
+            {types.map((t: { id: string; name: string }) => (
               <tr key={t.id}>
                 <td>{t.name}</td>
                 <td><button className="ts-del-btn" onClick={() => deleteEmployeeType({ variables: { id: t.id } })}>Delete</button></td>

@@ -6,7 +6,7 @@
  * Formats a date value (string, Date object, or null) into YYYY-MM-DD for <input type="date">.
  * Returns an empty string if the date is invalid or missing.
  */
-export const formatDateForInput = (dateValue: any): string => {
+export const formatDateForInput = (dateValue: string | Date | number | null | undefined): string => {
   if (!dateValue) return "";
   
   try {
@@ -19,14 +19,14 @@ export const formatDateForInput = (dateValue: any): string => {
     const day = String(d.getDate()).padStart(2, '0');
     
     return `${year}-${month}-${day}`;
-  } catch (error) {
+  } catch {
     return "";
   }
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export const formatDateForDisplay = (dateValue: any, placeholder: string = "—"): string => {
+export const formatDateForDisplay = (dateValue: string | Date | number | null | undefined, placeholder: string = "—"): string => {
   if (!dateValue || dateValue === "—") return placeholder;
   
   try {
@@ -53,7 +53,19 @@ export const formatDateForDisplay = (dateValue: any, placeholder: string = "—"
     const year = d.getFullYear();
     
     return `${day} ${month} ${year}`;
-  } catch (error) {
+  } catch {
     return String(dateValue).split('T')[0] || placeholder;
+  }
+};
+
+export const formatDateForBackend = (dateValue: string | Date | number | null | undefined): string | null => {
+  if (!dateValue || dateValue === "—") return null;
+  
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  } catch {
+    return null;
   }
 };
