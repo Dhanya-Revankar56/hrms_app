@@ -114,31 +114,36 @@ const resolvers = {
       return await settingsService.upsertMasterData("departments", input);
     },
     deleteDepartment: async (_, { id }, ctx) => {
-      return await settingsService.deleteMasterData("departments", id);
+      const result = await settingsService.deleteMasterData("departments", id);
+      return !!result;
     },
     upsertDesignation: async (_, { input }, ctx) => {
       return await settingsService.upsertMasterData("designations", input);
     },
     deleteDesignation: async (_, { id }, ctx) => {
-      return await settingsService.deleteMasterData("designations", id);
+      const result = await settingsService.deleteMasterData("designations", id);
+      return !!result;
     },
     upsertLeaveType: async (_, { input }, ctx) => {
       return await settingsService.upsertMasterData("leave_types", input);
     },
     deleteLeaveType: async (_, { id }, ctx) => {
-      return await settingsService.deleteMasterData("leave_types", id);
+      const result = await settingsService.deleteMasterData("leave_types", id);
+      return !!result;
     },
     upsertEmployeeCategory: async (_, { input }, ctx) => {
       return await settingsService.upsertMasterData("employee_categories", input);
     },
     deleteEmployeeCategory: async (_, { id }, ctx) => {
-      return await settingsService.deleteMasterData("employee_categories", id);
+      const result = await settingsService.deleteMasterData("employee_categories", id);
+      return !!result;
     },
     upsertEmployeeType: async (_, { input }, ctx) => {
       return await settingsService.upsertMasterData("employee_types", input);
     },
     deleteEmployeeType: async (_, { id }, ctx) => {
-      return await settingsService.deleteMasterData("employee_types", id);
+      const result = await settingsService.deleteMasterData("employee_types", id);
+      return !!result;
     },
   },
 
@@ -146,68 +151,19 @@ const resolvers = {
     id: (parent) => parent._id?.toString() || parent.id,
     tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
     departments: async (parent) => {
-      const items = await settingsService.listMasterData("departments");
-      return items.map(d => ({
-        id: d._id.toString(),
-        name: d.name,
-        short_name: d.short_name,
-        description: d.description,
-        is_active: d.is_active
-      }));
+      return await settingsService.listMasterData("departments");
     },
     designations: async (parent) => {
-      const items = await settingsService.listMasterData("designations");
-      return items.map(d => ({
-        id: d._id.toString(),
-        name: d.name,
-        short_name: d.short_name,
-        description: d.description,
-        is_active: d.is_active
-      }));
+      return await settingsService.listMasterData("designations");
     },
     leave_types: async (parent) => {
-      const items = await settingsService.listMasterData("leave_types");
-      return items.map(d => ({
-        id: d._id.toString(),
-        name: d.name,
-        code: d.code,
-        total_days: d.total_days || 0,
-        max_per_request: d.max_per_request || 0,
-        max_consecutive_leaves: d.max_consecutive_leaves || 0,
-        days_before_apply: d.days_before_apply || 0,
-        max_consecutive_days: d.max_consecutive_days || 0,
-        weekends_covered: !!d.weekends_covered,
-        holiday_covered: !!d.holiday_covered,
-        user_entry: d.user_entry !== false,
-        balance_enabled: d.balance_enabled !== false,
-        workload_interchange: !!d.workload_interchange,
-        document_required: !!d.document_required,
-        leave_category: d.leave_category || "paid",
-        applicable_for: d.applicable_for || ["Male", "Female", "Other"],
-        reset_cycle: d.reset_cycle || "yearly",
-        description: d.description,
-        is_active: d.is_active
-      }));
+      return await settingsService.listMasterData("leave_types");
     },
     employee_categories: async (parent) => {
-      const items = await settingsService.listMasterData("employee_categories");
-      return items.map(d => ({
-        id: d._id.toString(),
-        name: d.name,
-        short_name: d.short_name,
-        description: d.description,
-        is_active: d.is_active
-      }));
+      return await settingsService.listMasterData("employee_categories");
     },
     employee_types: async (parent) => {
-      const items = await settingsService.listMasterData("employee_types");
-      return items.map(d => ({
-        id: d._id.toString(),
-        name: d.name,
-        short_name: d.short_name,
-        description: d.description,
-        is_active: d.is_active
-      }));
+      return await settingsService.listMasterData("employee_types");
     },
     movement_settings: (parent) => {
       const ms = parent.movement_settings || {};
@@ -220,6 +176,20 @@ const resolvers = {
         limit_enabled: ms.limit_enabled !== false
       }
     }
+  },
+  MasterDataItem: {
+    id: (parent) => parent._id?.toString() || parent.id,
+  },
+  LeaveType: {
+    id: (parent) => parent._id?.toString() || parent.id,
+    weekends_covered: (parent) => !!parent.weekends_covered,
+    holiday_covered: (parent) => !!parent.holiday_covered,
+    user_entry: (parent) => parent.user_entry !== false,
+    balance_enabled: (parent) => parent.balance_enabled !== false,
+    workload_interchange: (parent) => !!parent.workload_interchange,
+    document_required: (parent) => !!parent.document_required,
+    applicable_for: (parent) => parent.applicable_for || ["Male", "Female", "Other"],
+    reset_cycle: (parent) => parent.reset_cycle || "yearly",
   },
 };
 

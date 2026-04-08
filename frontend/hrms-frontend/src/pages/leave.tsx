@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_LEAVES, UPDATE_LEAVE_APPROVAL, CANCEL_LEAVE, UPDATE_LEAVE } from "../graphql/leaveQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
-import { isAdmin, hasRole } from "../utils/auth";
+import { isAdmin, isHod, hasRole } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -977,7 +977,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
           </div>
 
           {/* Actions for Dept Admin */}
-          {hasRole("ADMIN", "HOD") && (req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
+          {isHod() && (req.approvals?.find(a => a.role === 'HOD')?.status || "pending").toLowerCase() === "pending" && (
             <div className="lv-drawer-section">
               <div className="lv-drawer-section-title">Dept Admin Actions</div>
               <textarea
@@ -1012,7 +1012,7 @@ function LeaveDrawer({ req, onClose, onCancel, onApprove, onReject, onOpenUpdate
         </div>
 
         {/* Action: Cancel Leave (Only if not completed) */}
-        {hasRole("ADMIN", "HOD") && req.status !== 'cancelled' && new Date(req.to_date) >= new Date() && (
+        {hasRole("ADMIN", "HOD") && req.status !== "Cancelled" && req.status !== "Rejected" && new Date(req.to_date) >= new Date() && (
            <div className="lv-drawer-section" style={{ marginTop: 0, padding: '0 24px 16px' }}>
               <button 
                 className="lv-drawer-btn lv-drawer-reject" 

@@ -6,7 +6,7 @@ import { GET_MOVEMENTS, CREATE_MOVEMENT, UPDATE_MOVEMENT } from "../graphql/move
 import { GET_EMPLOYEES } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 import AnalogTimePicker from "../components/AnalogTimePicker";
-import { isAdmin, hasRole } from "../utils/auth";
+import { isAdmin, isHod, hasRole } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -909,7 +909,7 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
           </div>
 
           {/* Actions - DEPT ADMIN */}
-          {hasRole("ADMIN", "HOD") && (!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
+          {isHod() && (!rec.dept_admin_status || rec.dept_admin_status?.toLowerCase() === "pending") && (
             <div className="mr-sec">
               <div className="mr-sec-t" style={{color:'#1d4ed8', borderBottom:'1px solid #eff6ff'}}>Dept Admin Actions</div>
               <textarea className="mr-rem" placeholder="Dept Admin remarks…"
@@ -935,7 +935,7 @@ function Drawer({ rec, onClose, onToast, initialIsEditing, onUpdate }: DrP & { o
           )}
 
           {/* Log return */}
-          {hasRole("ADMIN", "HOD") && rec.status?.toLowerCase() === "approved" && !isCompleted && (
+          {isAdmin() && rec.status?.toLowerCase() === "approved" && !isCompleted && (
             <div className="mr-sec">
               <div className="mr-sec-t">Log Return</div>
               <div className="mr-rl">

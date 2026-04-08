@@ -71,7 +71,11 @@ const resolvers = {
     tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
     employee: async (parent) => {
       if (!parent.employee_id) return null;
-      return await employeeService.getEmployeeById(parent.employee_id);
+      try {
+        return await employeeService.getEmployeeById(parent.employee_id);
+      } catch (err) {
+        return null;
+      }
     },
   },
 

@@ -43,35 +43,42 @@ exports.listRelievings = async ({ employee_id, status, department, pagination })
   };
 };
 
-exports.applyForRelieving = async (data, context) => {
+exports.getRelievingById = async (id) => {
+  const filter = withTenant({ _id: id });
+  const rec = await Relieving.findOne(filter).populate("employee_id").lean();
+  if (!rec) throw new Error("Relieving record not found");
+  return rec;
+};
+
+exports.createRelieving = async (data, context) => {
   const filter = withTenant({});
   const record = new Relieving({ ...data, ...filter });
   const saved = await record.save();
 
   // 🛡 Audit Log
   await AuditLog.create({
-    action: "RELIEVING_APPLY",
+    action: "RELIEVING_CREATE",
     user_id: context?.user?.id || data.employee_id,
     tenant_id: filter.tenant_id,
-    metadata: { relieving_id: saved._id, date: data.relieved_at }
+    metadata: { relieving_id: saved._id, date: data.resignation_date }
   });
 
   return saved.toObject();
 };
 
-exports.updateRelievingStatus = async (id, status, context) => {
+exports.updateRelieving = async (id, data, context) => {
   const filter = withTenant({ _id: id });
   const relieving = await Relieving.findOne(filter);
   if (!relieving) throw new Error("Relieving request not found");
 
   const updated = await Relieving.findOneAndUpdate(
     filter,
-    { $set: { status, updatedAt: new Date() } },
-    { new: true }
+    { $set: { ...data, updated_at: new Date() } },
+    { new: true, runValidators: true }
   ).lean();
 
   // 🛡 1. If approved, deactivate Employee and User
-  if (status === "Approved") {
+  if (data.status === "Approved" || data.status === "Relieved" || data.status === "completed") {
     const emp = await Employee.findOne(withTenant({ _id: relieving.employee_id }));
     if (emp) {
       await Promise.all([
@@ -83,11 +90,27 @@ exports.updateRelievingStatus = async (id, status, context) => {
 
   // 🛡 2. Audit Log
   await AuditLog.create({
-    action: "RELIEVING_STATUS_UPDATED",
+    action: "RELIEVING_UPDATED",
     user_id: context?.user?.id || context?.req?.user?.id,
     tenant_id: filter.tenant_id,
-    metadata: { relieving_id: id, status }
+    metadata: { relieving_id: id, status: updated.status, changes: Object.keys(data) }
   });
 
   return updated;
+};
+
+exports.deleteRelieving = async (id, context) => {
+  const filter = withTenant({ _id: id });
+  const deleted = await Relieving.findOneAndDelete(filter).lean();
+  if (!deleted) throw new Error("Relieving record not found");
+
+  // 🛡 Audit Log
+  await AuditLog.create({
+    action: "RELIEVING_DELETED",
+    user_id: context?.user?.id || context?.req?.user?.id,
+    tenant_id: filter.tenant_id,
+    metadata: { relieving_id: id }
+  });
+
+  return { success: true, message: "Relieving record deleted successfully" };
 };

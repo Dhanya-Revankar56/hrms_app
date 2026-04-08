@@ -5,6 +5,7 @@ import { GET_EMPLOYEES } from "../graphql/employeeQueries";
 import { GET_DASHBOARD_STATS } from "../graphql/settingsQueries";
 import { GET_LEAVES } from "../graphql/leaveQueries";
 import { GET_MOVEMENTS } from "../graphql/movementQueries";
+import { isAdmin, isHod } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -1009,7 +1010,7 @@ function ExitDrawer({
                       : <div className="er-clearance-by">Not yet cleared</div>
                     }
                     {cl.remarks && <div className="er-clearance-remarks">"{cl.remarks}"</div>}
-                    {cl.status === "Pending" && rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
+                    {isHod() && cl.status === "Pending" && rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
                       <div>
                         <input type="text" className="er-clearance-input"
                           placeholder="Add clearance remarks…"
@@ -1037,7 +1038,7 @@ function ExitDrawer({
             </div>
           </div>
 
-          {rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
+          {isAdmin() && rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
             <div className="er-drawer-section">
               <div className="er-drawer-section-title">
                 Final Settlement ({settledCount}/{settleKeys.length})
@@ -1107,7 +1108,7 @@ function ExitDrawer({
         </div>
 
         <div className="er-drawer-foot">
-          {rec.status === "Pending Approval" && (
+          {isAdmin() && rec.status === "Pending Approval" && (
             <>
               <button className="er-drawer-btn er-drawer-reject"
                 onClick={() => onReject(rec.id, `${rec.firstName} ${rec.lastName}`, hrRemarks)}>
@@ -1125,7 +1126,7 @@ function ExitDrawer({
               </button>
             </>
           )}
-          {rec.status === "Clearance In Progress" && (
+          {isAdmin() && rec.status === "Clearance In Progress" && (
             <button className="er-drawer-btn er-drawer-relieve"
               style={{ opacity: canRelieve ? 1 : 0.5, cursor: canRelieve ? "pointer" : "not-allowed" }}
               onClick={() => { if (canRelieve) onRelieve(rec.id); }}
@@ -1431,21 +1432,23 @@ export default function EmployeeRelieving() {
           <h1 className="er-title">Employee Relieving</h1>
           <p className="er-sub">Manage employee exits, resignation approvals, clearances, and final settlements.</p>
         </div>
-        <div className="er-header-actions">
-          <button className="er-header-btn" onClick={() => showToast("Exit report exported.")}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export Report
-          </button>
-          <button className="er-header-btn er-header-btn-primary"
-            onClick={() => setFormOpen((v: boolean) => !v)}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Record Exit
-          </button>
-        </div>
+        {isAdmin() && (
+          <div className="er-header-actions">
+            <button className="er-header-btn" onClick={() => showToast("Exit report exported.")}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export Report
+            </button>
+            <button className="er-header-btn er-header-btn-primary"
+              onClick={() => setFormOpen((v: boolean) => !v)}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Record Exit
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Record Exit Modal — triggered by header button */}

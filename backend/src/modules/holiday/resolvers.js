@@ -14,13 +14,13 @@ const resolvers = {
 
   Mutation: {
     createHoliday: async (_, { input }, ctx) => {
-      return await holidayService.createHoliday(input);
+      return await holidayService.createHoliday(input, ctx);
     },
     updateHoliday: async (_, { id, input }, ctx) => {
-      return await holidayService.updateHoliday(id, input);
+      return await holidayService.updateHoliday(id, input, ctx);
     },
     deleteHoliday: async (_, { id }, ctx) => {
-      return await holidayService.deleteHoliday(id);
+      return await holidayService.deleteHoliday(id, ctx);
     },
   },
 

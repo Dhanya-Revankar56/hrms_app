@@ -58,7 +58,11 @@ const resolvers = {
       if (parent.employee_id._id || parent.employee_id.first_name) {
         return parent.employee_id;
       }
-      return await employeeService.getEmployeeById(parent.employee_id);
+      try {
+        return await employeeService.getEmployeeById(parent.employee_id);
+      } catch (err) {
+        return null;
+      }
     },
   },
 };

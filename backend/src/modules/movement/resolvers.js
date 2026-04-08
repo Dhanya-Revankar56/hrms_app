@@ -59,7 +59,11 @@ const resolvers = {
     employee: async (parent) => {
       if (parent.employee && parent.employee._id) return parent.employee;
       if (!parent.employee_id) return null;
-      return await employeeService.getEmployeeById(parent.employee_id, parent.institution_id);
+      try {
+        return await employeeService.getEmployeeById(parent.employee_id);
+      } catch (err) {
+        return null;
+      }
     },
   },
 };
