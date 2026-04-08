@@ -27,6 +27,11 @@ exports.login = async (email, password, reqMetadata = {}) => {
     throw new Error(`Institution Access Error: The institution associated with this account is inactive.`);
   }
 
+  // 🛡 3. Account Activity Check
+  if (!user.isActive) {
+    throw new Error("Access Denied: Your account has been deactivated. Please contact HR.");
+  }
+
   // 🛡 3. Brute-Force Check
   if (user.lockUntil && user.lockUntil > Date.now()) {
     throw new Error("Account is temporarily locked due to repeated failures. Try again later.");

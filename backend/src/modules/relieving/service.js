@@ -83,7 +83,7 @@ exports.updateRelieving = async (id, input, context) => {
     const emp = await Employee.findOne(withTenant({ _id: relieving.employee_id }));
     if (emp) {
       await Promise.all([
-        Employee.updateOne({ _id: emp._id }, { $set: { app_status: "relieved", is_active: false } }),
+        Employee.updateOne({ _id: emp._id }, { $set: { status: "inactive", is_active: false } }),
         User.updateOne({ _id: emp.user_id }, { $set: { isActive: false } })
       ]);
     }

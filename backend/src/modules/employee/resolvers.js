@@ -54,10 +54,29 @@ const resolvers = {
       requireRole(ctx.user, ["ADMIN"]);
       return await employeeService.deleteEmployee(id, ctx);
     },
+
+    reHireEmployee: async (_, { id }, ctx) => {
+      requireRole(ctx.user, ["ADMIN"]);
+      return await employeeService.reHireEmployee(id, ctx);
+    },
   },
 
   Employee: {
     id: (parent) => parent._id.toString(),
+    institution_id: (parent) => parent.institution_id || parent.tenant_id?.toString() || "",
+    first_name: (parent) => {
+      if (parent.first_name) return parent.first_name;
+      if (parent.name) return parent.name.split(" ")[0];
+      return "";
+    },
+    last_name: (parent) => {
+      if (parent.last_name) return parent.last_name;
+      if (parent.name) {
+        const parts = parent.name.split(" ");
+        return parts.length > 1 ? parts.slice(1).join(" ") : "";
+      }
+      return "";
+    },
     reporting_to: (parent) => parent.reporting_to ? parent.reporting_to.toString() : null,
     app_status: (parent) => parent.status || "active",
     user_email: async (parent) => {

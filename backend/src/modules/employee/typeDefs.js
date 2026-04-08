@@ -55,10 +55,10 @@ const typeDefs = gql`
 
   type Employee {
     id: ID!
-    institution_id: String!
+    institution_id: String
     employee_id: String
-    first_name: String!
-    last_name: String!
+    first_name: String
+    last_name: String
     user_email: String!
     user_contact: String
     employee_image: String
@@ -164,6 +164,7 @@ const typeDefs = gql`
     createEmployee(input: CreateEmployeeInput!): Employee!
     updateEmployee(id: ID!, input: UpdateEmployeeInput!): Employee!
     deleteEmployee(id: ID!): DeleteResponse!
+    reHireEmployee(id: ID!): Employee!
   }
 `;
 

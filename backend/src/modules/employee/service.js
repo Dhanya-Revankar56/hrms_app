@@ -4,6 +4,7 @@ const AuditLog = require("../audit/model");
 const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 const { getTenantId } = require("../../middleware/tenantContext");
 const counterService = require("../counter/service");
+const Relieving = require("../relieving/model");
 
 /**
  * The Service layer handles all business logic.
@@ -13,13 +14,12 @@ const counterService = require("../counter/service");
 
 exports.listEmployees = async ({ status, department, search, pagination }) => {
   const filter = withTenant({});
-  if (status === "relieved") {
-    filter.status = "relieved";
-  } else {
-    filter.is_active = { $ne: false };
-    if (status) filter.status = status;
-    else filter.status = { $ne: "relieved" };
+  if (status) {
+    filter.status = status;
   }
+
+  // 🛡 Hide archived/relieved employees from the main management list
+  filter.is_active = { $ne: false };
   if (department) filter["work_detail.department"] = department;
   if (search) {
     const q = { $regex: search, $options: "i" };
@@ -204,7 +204,7 @@ exports.updateEmployee = async (id, data, context) => {
 
   // 🏷 2. Update Business Profile
   const updated = await Employee.findOneAndUpdate(
-    { ...filter, is_active: { $ne: false } },
+    filter,
     { $set: normalized },
     { new: true, runValidators: true }
   ).lean();
@@ -230,7 +230,7 @@ exports.deleteEmployee = async (id, context) => {
 
   // 🛡 1. Atomic Deactivation
   await Promise.all([
-    Employee.updateOne({ _id: id }, { $set: { is_active: false, status: "relieved" } }),
+    Employee.updateOne({ _id: id }, { $set: { is_active: false, status: "inactive" } }),
     User.updateOne({ _id: emp.user_id }, { $set: { isActive: false } })
   ]);
 
@@ -243,4 +243,41 @@ exports.deleteEmployee = async (id, context) => {
   });
 
   return { success: true, message: "Employee and associated account archived successfully" };
+};
+
+exports.reHireEmployee = async (id, context) => {
+  const filter = withTenant({ _id: id });
+  
+  const emp = await Employee.findOne(filter);
+  if (!emp) throw new Error("Employee not found or access denied");
+
+  // 🛡 1. Atomic Re-activation
+  await Promise.all([
+    Employee.updateOne(
+      { _id: id },
+      { 
+        $set: { 
+          is_active: true, 
+          status: "active",
+          app_status: "active"
+        },
+        $unset: {
+          relieved_at: 1,
+          relieved_reason: 1
+        }
+      }
+    ),
+    User.updateOne({ _id: emp.user_id }, { $set: { isActive: true } }),
+    Relieving.deleteOne(withTenant({ employee_id: id }))
+  ]);
+
+  // 🛡 2. Audit Log
+  await AuditLog.create({
+    action: "EMPLOYEE_REHIRED",
+    user_id: getUserIdFromCtx(context),
+    tenant_id: emp.tenant_id,
+    metadata: { employee_id: id, name: emp.name }
+  });
+
+  return await Employee.findOne(filter).lean();
 };

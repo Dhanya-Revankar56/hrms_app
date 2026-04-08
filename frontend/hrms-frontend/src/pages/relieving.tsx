@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_RELIEVINGS, CREATE_RELIEVING, UPDATE_RELIEVING } from "../graphql/relievingQueries";
-import { GET_EMPLOYEES } from "../graphql/employeeQueries";
+import { GET_EMPLOYEES, REHIRE_EMPLOYEE } from "../graphql/employeeQueries";
 import { GET_DASHBOARD_STATS } from "../graphql/settingsQueries";
 import { GET_LEAVES } from "../graphql/leaveQueries";
 import { GET_MOVEMENTS } from "../graphql/movementQueries";
@@ -127,6 +127,7 @@ interface ExitRecord {
   settlement: Settlement;
   exitInterviewDone: boolean;
   exitInterviewNotes: string;
+  employeeDbId: string;
 }
 
 interface FilterState {
@@ -897,13 +898,14 @@ interface DrawerProps {
   onApprove: (id: string, remarks: string) => void;
   onReject: (id: string, name: string, remarks: string) => void;
   onRelieve: (id: string) => void;
+  onRejoin: (id: string, name: string) => void;
   onClearanceUpdate: () => void;
   onSettlementToggle: (id: string, key: keyof Settlement) => void;
   onInterviewSave: (id: string, done: boolean, notes: string) => void;
 }
 
 function ExitDrawer({
-  rec, onClose, onApprove, onReject, onRelieve,
+  rec, onClose, onApprove, onReject, onRelieve, onRejoin,
   onClearanceUpdate, onSettlementToggle, onInterviewSave,
 }: DrawerProps) {
   const [hrRemarks, setHrRemarks] = useState<string>(rec.hrRemarks || "");
@@ -950,11 +952,20 @@ function ExitDrawer({
               </div>
             </div>
           </div>
-          <button className="er-drawer-close" onClick={onClose}>
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            {(rec.status === "Relieved" || rec.status === "Approved" || rec.status === "Rejected") && (
+              <button className="er-header-btn er-header-btn-primary" 
+                style={{ background:"#15803d", borderColor:"#15803d", height:34, fontSize:12 }}
+                onClick={() => onRejoin(rec.employeeDbId, `${rec.firstName} ${rec.lastName}`)}>
+                Re-join
+              </button>
+            )}
+            <button className="er-drawer-close" onClick={onClose}>
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="er-drawer-scroll">
@@ -1213,6 +1224,36 @@ function RejectModal({ name, onConfirm, onCancel }: RejectModalProps) {
 }
 
 /* ─────────────────────────────────────────────
+   RE-JOIN MODAL
+───────────────────────────────────────────── */
+interface RejoinModalProps {
+  name: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+function RejoinModal({ name, onConfirm, onCancel }: RejoinModalProps) {
+  return (
+    <div className="er-modal-overlay" onClick={onCancel}>
+      <div className="er-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <div className="er-modal-icon" style={{ background:"#f0fdf4", color:"#15803d" }}>
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <h3>Confirm Re-joining?</h3>
+        <p>Are you sure you want to restore <strong>{name}</strong> to the active staff management list? Their system access will be re-enabled.</p>
+        <div className="er-modal-actions">
+          <button className="er-modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="er-modal-confirm" style={{ background:"#15803d", minWidth: "180px", whiteSpace: "nowrap" }} onClick={onConfirm}>
+            Yes, Restore Employee
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────── */
 export default function Relieving() {
@@ -1250,6 +1291,14 @@ export default function Relieving() {
     }
   });
 
+  const [reHireEmployee] = useMutation<{ reHireEmployee: { first_name: string } }>(REHIRE_EMPLOYEE, {
+    onCompleted: (data) => {
+      showToast(`${data.reHireEmployee.first_name} has been restored to Employee Management.`);
+      refetch();
+    },
+    onError: (err) => showToast("Error: " + err.message)
+  });
+
   const records: ExitRecord[] = useMemo(() => {
     return (data?.relievings?.items || []).map((r: BackendRelieving) => ({
       id: r.id,
@@ -1279,7 +1328,8 @@ export default function Relieving() {
         expenseSettled: false, noDuesIssued: false, experienceLetterIssued: false
       },
       exitInterviewDone: r.exit_interview_done || false,
-      exitInterviewNotes: r.remarks || ""
+      exitInterviewNotes: r.remarks || "",
+      employeeDbId: r.employee?.id || ""
     }));
   }, [data]);
 
@@ -1294,6 +1344,7 @@ export default function Relieving() {
   const [toast, setToast]         = useState<string>("");
   const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string } | null>(null);
   const [relieveTarget, setRelieveTarget] = useState<{ id: string; name: string; status: ExitStatus; remarks?: string } | null>(null);
+  const [rejoinTarget, setRejoinTarget] = useState<{ id: string; name: string } | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -1397,6 +1448,24 @@ export default function Relieving() {
     });
     if (drawerRec?.id === id) setDrawerRec(null);
     showToast("Employee marked as Relieved. All clearances complete.");
+  }
+
+  /* Re-join */
+  function initiateRejoin(id: string, name: string) {
+    setRejoinTarget({ id, name });
+  }
+  function confirmRejoin() {
+    if (!rejoinTarget) return;
+    reHireEmployee({
+      variables: { id: rejoinTarget.id },
+      refetchQueries: [
+        { query: GET_RELIEVINGS },
+        { query: GET_EMPLOYEES },
+        { query: GET_DASHBOARD_STATS }
+      ]
+    });
+    if (drawerRec?.id === rejoinTarget.id) setDrawerRec(null);
+    setRejoinTarget(null);
   }
 
   /* Clearance update */
@@ -1674,9 +1743,19 @@ export default function Relieving() {
             setDrawerRec(null);
           }}
           onRelieve={(id: string) => { initiateRelieve(id, `${drawerRec.firstName} ${drawerRec.lastName}`); }}
+          onRejoin={initiateRejoin}
           onClearanceUpdate={handleClearanceUpdate}
           onSettlementToggle={handleSettlementToggle}
           onInterviewSave={handleInterviewSave}
+        />
+      )}
+
+      {/* Modals */}
+      {rejoinTarget && (
+        <RejoinModal
+          name={rejoinTarget.name}
+          onConfirm={confirmRejoin}
+          onCancel={() => setRejoinTarget(null)}
         />
       )}
 

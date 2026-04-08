@@ -110,3 +110,13 @@ export const UPDATE_EMPLOYEE = gql`
     }
   }
 `;
+
+export const REHIRE_EMPLOYEE = gql`
+  mutation ReHireEmployee($id: ID!) {
+    reHireEmployee(id: $id) {
+      id
+      first_name
+      last_name
+    }
+  }
+`;
