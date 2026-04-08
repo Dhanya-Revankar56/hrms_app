@@ -17,6 +17,8 @@ const LOGIN_MUTATION = `
   }
 `;
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -44,7 +46,7 @@ export default function Login() {
     const tenantCode = localStorage.getItem("tenant_code") || "COLLEGE_A";
 
     try {
-      const response = await fetch("http://localhost:5000/graphql", {
+      const response = await fetch(`${API_URL}/graphql`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
