@@ -18,8 +18,12 @@ exports.login = async (email, password, tenant_code, reqMetadata = {}) => {
   if (!tenant) throw new Error(`Invalid Institution: '${tenant_code}' is not a registered campus.`);
 
   // 2. Find User within Tenant Scope
-  const user = await User.findOne({ email: email.toLowerCase(), tenant_id: tenant._id }).select("+password").setOptions({ skipTenant: true });
-  console.log("👤 User Lookup Result:", user ? { id: user._id, role: user.role, tenant_id: user.tenant_id } : "USER_NOT_FOUND_IN_TENANT");
+  const user = await User.findOne({ 
+    email: email.toLowerCase(), 
+    tenant_code: tenant_code.toUpperCase() 
+  }).select("+password").setOptions({ skipTenant: true });
+  
+  console.log("👤 User Lookup Result:", user ? { id: user._id, role: user.role, tenant_code: user.tenant_code } : "USER_NOT_FOUND_IN_TENANT");
 
   if (!user) {
     throw new Error(`Invalid Credentials: User not found in ${tenant.name}. Please check your campus selection.`);
@@ -55,6 +59,7 @@ exports.login = async (email, password, tenant_code, reqMetadata = {}) => {
     { 
       user_id: user._id, 
       tenant_id: tenant._id, 
+      tenant_code: tenant.code,
       role: user.role 
     },
     process.env.JWT_SECRET,

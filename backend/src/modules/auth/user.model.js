@@ -26,6 +26,13 @@ const userSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    tenant_code: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+      index: true
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -53,7 +60,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // 🔥 Compound Index (Ensures email uniqueness per tenant, but allows same email across institutions)
-userSchema.index({ tenant_id: 1, email: 1 }, { unique: true });
+userSchema.index({ tenant_code: 1, email: 1 }, { unique: true });
 
 // 🔐 Password Hashing Hook
 userSchema.pre("save", async function (next) {
