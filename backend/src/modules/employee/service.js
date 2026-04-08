@@ -136,14 +136,21 @@ exports.createEmployee = async (data, context) => {
   if (!tenant_id) throw new Error("Tenant context is required for employee creation.");
 
   // 🛡 1. Atomic User (Auth) Creation
-  const existingUser = await User.findOne({ email: normalized.user_email.toLowerCase(), tenant_id });
+  const existingUser = await User.findOne({ email: normalized.user_email.toLowerCase(), tenant_id }).setOptions({ skipTenant: true });
   if (existingUser) throw new Error(`User with email ${normalized.user_email} already exists in this institution.`);
+
+  const Tenant = require("../tenant/model");
+  const tenant = await Tenant.findById(tenant_id).setOptions({ skipTenant: true });
+  if (!tenant || !tenant.code) {
+    throw new Error("Critical Configuration Error: Active institution code not found.");
+  }
 
   const user = new User({
     email: normalized.user_email.toLowerCase(),
     password: normalized.password || "reset123", // Default password
     role: (normalized.app_role || "EMPLOYEE").toUpperCase(),
-    tenant_id
+    tenant_id,
+    tenant_code: tenant.code.toUpperCase()
   });
   const savedUser = await user.save();
 
