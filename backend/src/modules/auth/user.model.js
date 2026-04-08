@@ -8,60 +8,67 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true, // 🛡 Enforce global uniqueness across all tenants
       lowercase: true,
-      trim: true
+      trim: true,
     },
     password: {
       type: String,
       required: true,
-      select: false // Always hidden unless explicitly selected
+      select: false, // Always hidden unless explicitly selected
     },
     role: {
       type: String,
       enum: ["SUPER_ADMIN", "ADMIN", "HEAD OF DEPARTMENT", "EMPLOYEE"],
       default: "EMPLOYEE",
-      uppercase: true
+      uppercase: true,
     },
     tenant_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",
       required: true,
-      index: true
+      index: true,
+    },
+    tenant_code: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+      index: true,
     },
     isActive: {
       type: Boolean,
-      default: true
+      default: true,
     },
     lastLogin: {
-      type: Date
+      type: Date,
     },
     // 🛡 Brute-force protection
     loginAttempts: {
       type: Number,
       default: 0,
-      required: true
+      required: true,
     },
     lockUntil: {
-      type: Date
+      type: Date,
     },
     createdAt: {
       type: Date,
-      default: Date.now
-    }
+      default: Date.now,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 // 🔥 Compound Index (Ensures email uniqueness per tenant, but allows same email across institutions)
-userSchema.index({ tenant_id: 1, email: 1 }, { unique: true });
+userSchema.index({ tenant_code: 1, email: 1 }, { unique: true });
 
 // 🔐 Password Hashing Hook
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  
+
   // 🛡 Defensive Reset: Do not re-hash if it's already a valid bcrypt string
-  if (typeof this.password === 'string' && this.password.startsWith("$2b$")) {
+  if (typeof this.password === "string" && this.password.startsWith("$2b$")) {
     return next();
   }
 

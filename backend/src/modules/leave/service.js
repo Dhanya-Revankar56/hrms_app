@@ -1,5 +1,9 @@
 const Leave = require("./model");
-const { withTenant, applyTenantFilter, getUserIdFromCtx } = require("../../utils/tenantUtils");
+const {
+  withTenant,
+  _applyTenantFilter,
+  getUserIdFromCtx,
+} = require("../../utils/tenantUtils");
 const { getTenantId } = require("../../middleware/tenantContext");
 const AuditLog = require("../audit/model");
 const LeaveBalance = require("./leaveBalance");
@@ -15,7 +19,7 @@ const Holiday = require("../holiday/model");
 const getHolidaysInRange = async (from, to) => {
   return await Holiday.find({
     is_active: true,
-    date: { $gte: from, $lte: to }
+    date: { $gte: from, $lte: to },
   }).lean();
 };
 
@@ -26,41 +30,47 @@ const getHolidaysInRange = async (from, to) => {
 const isHolidayOrSunday = (date, settings, publicHolidays = []) => {
   const d = new Date(date);
   const dayName = d.toLocaleDateString("en-US", { weekday: "long" });
-  
+
   // 1. Check if it's a configured working day (if not in list, it's a weekend/off)
   const isOffDay = !settings.working_days.includes(dayName);
-  
+
   // 2. Check against live Holiday collection
-  const isExplicitHoliday = publicHolidays.some(h => 
-    new Date(h.date).toDateString() === d.toDateString()
+  const isExplicitHoliday = publicHolidays.some(
+    (h) => new Date(h.date).toDateString() === d.toDateString(),
   );
-  
+
   return isOffDay || isExplicitHoliday;
 };
 
 /**
  * Helper: Calculate working days in range
  */
-const calculateWorkingDays = (from, to, settings, options = {}, publicHolidays = []) => {
+const calculateWorkingDays = (
+  from,
+  to,
+  settings,
+  options = {},
+  publicHolidays = [],
+) => {
   const { weekends_covered = false, holiday_covered = false } = options;
   let count = 0;
   const current = new Date(from);
   const end = new Date(to);
-  
+
   while (current <= end) {
     const isHoliday = isHolidayOrSunday(current, settings, publicHolidays);
-    
+
     if (!isHoliday) {
       count++;
     } else {
       const d = new Date(current);
       const dayName = d.toLocaleDateString("en-US", { weekday: "long" });
       const isWeekend = !settings.working_days.includes(dayName);
-      
+
       if (isWeekend && weekends_covered) count++;
       else if (!isWeekend && holiday_covered) count++;
     }
-    
+
     current.setDate(current.getDate() + 1);
   }
   return count;
@@ -71,16 +81,25 @@ const calculateWorkingDays = (from, to, settings, options = {}, publicHolidays =
  */
 const computeFinalStatus = (approvals) => {
   // 1. If any one rejects, it's rejected (overrides approvals)
-  if (approvals.some(a => a.status === "rejected")) return "rejected";
-  
+  if (approvals.some((a) => a.status === "rejected")) return "rejected";
+
   // 2. If any one approves, it's approved (now it allows partial approval to suffice)
-  if (approvals.some(a => a.status === "approved")) return "approved";
-  
+  if (approvals.some((a) => a.status === "approved")) return "approved";
+
   // 3. Otherwise pending
   return "pending";
 };
 
-exports.listLeaves = async ({ employee_id, status, leave_type, department, search, month, year, pagination }) => {
+exports.listLeaves = async ({
+  employee_id,
+  status,
+  leave_type,
+  department,
+  search,
+  month,
+  year,
+  pagination,
+}) => {
   const filter = withTenant({});
   if (employee_id) filter.employee_id = employee_id;
   if (status) filter.status = status;
@@ -94,19 +113,19 @@ exports.listLeaves = async ({ employee_id, status, leave_type, department, searc
       employeeFilter.$or = [
         { first_name: q },
         { last_name: q },
-        { employee_id: q }
+        { employee_id: q },
       ];
     }
 
     const employees = await Employee.find(employeeFilter).select("_id").lean();
-    const employeeIds = employees.map(e => e._id.toString());
-    
+    const employeeIds = employees.map((e) => e._id.toString());
+
     if (filter.employee_id) {
-       if (!employeeIds.includes(filter.employee_id)) {
-         filter.employee_id = { $in: [] }; 
-       }
+      if (!employeeIds.includes(filter.employee_id)) {
+        filter.employee_id = { $in: [] };
+      }
     } else {
-       filter.employee_id = { $in: employeeIds };
+      filter.employee_id = { $in: employeeIds };
     }
   }
 
@@ -126,12 +145,22 @@ exports.listLeaves = async ({ employee_id, status, leave_type, department, searc
   const baseFilter = withTenant({});
   if (employee_id) baseFilter.employee_id = employee_id;
 
-  const [totalCount, pendingCount, approvedCount, rejectedCount] = await Promise.all([
-    Leave.countDocuments(filter),
-    Leave.countDocuments({ ...baseFilter, status: { $in: ["pending", "Pending"] } }),
-    Leave.countDocuments({ ...baseFilter, status: { $in: ["approved", "Approved"] } }),
-    Leave.countDocuments({ ...baseFilter, status: { $in: ["rejected", "Rejected"] } })
-  ]);
+  const [totalCount, pendingCount, approvedCount, rejectedCount] =
+    await Promise.all([
+      Leave.countDocuments(filter),
+      Leave.countDocuments({
+        ...baseFilter,
+        status: { $in: ["pending", "Pending"] },
+      }),
+      Leave.countDocuments({
+        ...baseFilter,
+        status: { $in: ["approved", "Approved"] },
+      }),
+      Leave.countDocuments({
+        ...baseFilter,
+        status: { $in: ["rejected", "Rejected"] },
+      }),
+    ]);
 
   const leaves = await Leave.find(filter)
     .sort({ from_date: -1 })
@@ -140,7 +169,7 @@ exports.listLeaves = async ({ employee_id, status, leave_type, department, searc
     .lean();
 
   const now = new Date();
-  const processedItems = leaves.map(l => {
+  const processedItems = leaves.map((l) => {
     // 1. Re-compute status based on approvals for UI consistency (especially for legacy data)
     let effectiveStatus = l.status;
     if (l.status?.toLowerCase() !== "cancelled") {
@@ -151,7 +180,7 @@ exports.listLeaves = async ({ employee_id, status, leave_type, department, searc
     if (effectiveStatus === "approved" && new Date(l.to_date) < now) {
       effectiveStatus = "closed";
     }
-    
+
     return { ...l, status: effectiveStatus };
   });
 
@@ -161,12 +190,12 @@ exports.listLeaves = async ({ employee_id, status, leave_type, department, searc
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
       currentPage: page,
-      hasNextPage: page < Math.ceil(totalCount / limit)
+      hasNextPage: page < Math.ceil(totalCount / limit),
     },
     approvedCount,
     rejectedCount,
     pendingCount,
-    filteredTotalCount: totalCount
+    filteredTotalCount: totalCount,
   };
 };
 
@@ -191,20 +220,28 @@ exports.getLeaveById = async (id) => {
 exports.listLeaveBalances = async (employee_id) => {
   const leaveTypes = await LeaveType.find({ is_active: true }).lean();
   for (const lt of leaveTypes) {
-    const existing = await LeaveBalance.findOne({ employee_id, leave_type: lt.name });
+    const existing = await LeaveBalance.findOne({
+      employee_id,
+      leave_type: lt.name,
+    });
     if (!existing) {
       await LeaveBalance.create({
         employee_id,
         leave_type: lt.name,
         total: lt.total_days || 0,
         used: 0,
-        balance: lt.total_days || 0
+        balance: lt.total_days || 0,
       });
     } else if (existing.total !== lt.total_days) {
-       await LeaveBalance.updateOne(
-         { _id: existing._id },
-         { $set: { total: lt.total_days, balance: lt.total_days - existing.used } }
-       );
+      await LeaveBalance.updateOne(
+        { _id: existing._id },
+        {
+          $set: {
+            total: lt.total_days,
+            balance: lt.total_days - existing.used,
+          },
+        },
+      );
     }
   }
   return await LeaveBalance.find({ employee_id }).lean();
@@ -213,13 +250,21 @@ exports.listLeaveBalances = async (employee_id) => {
 /**
  * 1. APPLY LEAVE
  */
-exports.applyLeave = async (input, context) => {
-  let { employee_id, leave_type, from_date, to_date, institution_id, is_half_day, half_day_type } = input;
-  
+exports.applyLeave = async (input, _context) => {
+  let {
+    employee_id,
+    leave_type,
+    from_date,
+    to_date,
+    _institution_id,
+    is_half_day,
+    _half_day_type,
+  } = input;
+
   // Safety: Handle empty strings or missing to_date for single-day/half-day leaves
   if (!to_date || to_date === "") to_date = from_date;
   if (!from_date || from_date === "") throw new Error("From date is required");
-  
+
   const from = new Date(from_date);
   const to = new Date(to_date);
   const today = new Date();
@@ -230,13 +275,18 @@ exports.applyLeave = async (input, context) => {
   if (from < today) throw new Error("Cannot apply leave for past dates");
 
   // 1. Fetch LeaveType Config
-  const leaveTypeConfig = await LeaveType.findOne({ name: leave_type.toLowerCase() });
-  if (!leaveTypeConfig) throw new Error(`Leave type configuration for "${leave_type}" not found`);
+  const leaveTypeConfig = await LeaveType.findOne({
+    name: leave_type.toLowerCase(),
+  });
+  if (!leaveTypeConfig)
+    throw new Error(`Leave type configuration for "${leave_type}" not found`);
 
   // 2. Fetch Employee with flexibility (record ID or User ID)
-  const employee = await Employee.findOne(withTenant({
-    $or: [{ _id: employee_id }, { user_id: employee_id }]
-  }));
+  const employee = await Employee.findOne(
+    withTenant({
+      $or: [{ _id: employee_id }, { user_id: employee_id }],
+    }),
+  );
   if (!employee) throw new Error("Employee not found");
 
   // Re-assign employee_id to the actual MongoDB record ID for consistency in storage
@@ -245,14 +295,24 @@ exports.applyLeave = async (input, context) => {
 
   // 3. Gender Applicability Check
   const empGender = employee.personal_detail?.gender || "Other";
-  if (leaveTypeConfig.applicable_for && !leaveTypeConfig.applicable_for.includes(empGender)) {
-    throw new Error(`This leave type is not applicable for ${empGender} employees`);
+  if (
+    leaveTypeConfig.applicable_for &&
+    !leaveTypeConfig.applicable_for.includes(empGender)
+  ) {
+    throw new Error(
+      `This leave type is not applicable for ${empGender} employees`,
+    );
   }
 
   // 4. Advance Notice Check
   const daysDiff = Math.ceil((from - today) / (1000 * 60 * 60 * 24));
-  if (leaveTypeConfig.days_before_apply > 0 && daysDiff < leaveTypeConfig.days_before_apply) {
-    throw new Error(`This leave must be applied at least ${leaveTypeConfig.days_before_apply} days in advance`);
+  if (
+    leaveTypeConfig.days_before_apply > 0 &&
+    daysDiff < leaveTypeConfig.days_before_apply
+  ) {
+    throw new Error(
+      `This leave must be applied at least ${leaveTypeConfig.days_before_apply} days in advance`,
+    );
   }
 
   const settings = await Settings.findOne({});
@@ -268,7 +328,9 @@ exports.applyLeave = async (input, context) => {
     const d = new Date(curr);
     const dayName = d.toLocaleDateString("en-US", { weekday: "long" });
     const isWeekend = !settings.working_days.includes(dayName);
-    const holiday = publicHolidays.find(h => new Date(h.date).toDateString() === d.toDateString());
+    const holiday = publicHolidays.find(
+      (h) => new Date(h.date).toDateString() === d.toDateString(),
+    );
 
     if (isWeekend && !leaveTypeConfig.weekends_covered) {
       conflictingDates.push(`${d.toDateString()} (Non-working day)`);
@@ -279,56 +341,80 @@ exports.applyLeave = async (input, context) => {
   }
 
   if (conflictingDates.length > 0) {
-    throw new Error(`Cannot apply leave: requested range includes uncovered holidays/non-working days: ${conflictingDates.join(", ")}`);
+    throw new Error(
+      `Cannot apply leave: requested range includes uncovered holidays/non-working days: ${conflictingDates.join(", ")}`,
+    );
   }
 
   // 6. Working Days Count (Respecting LeaveType coverage)
-  let totalDays = calculateWorkingDays(from, to, settings, {
-    weekends_covered: leaveTypeConfig.weekends_covered,
-    holiday_covered: leaveTypeConfig.holiday_covered
-  }, publicHolidays);
+  let totalDays = calculateWorkingDays(
+    from,
+    to,
+    settings,
+    {
+      weekends_covered: leaveTypeConfig.weekends_covered,
+      holiday_covered: leaveTypeConfig.holiday_covered,
+    },
+    publicHolidays,
+  );
   if (is_half_day) totalDays = 0.5;
-  if (totalDays === 0) throw new Error("Selected range has no working days for this leave type");
+  if (totalDays === 0)
+    throw new Error("Selected range has no working days for this leave type");
 
   // 7. Max Consecutive Days Check
-  const maxAllowed = leaveTypeConfig.max_consecutive_days || leaveTypeConfig.max_per_request || 0;
+  const maxAllowed =
+    leaveTypeConfig.max_consecutive_days ||
+    leaveTypeConfig.max_per_request ||
+    0;
   if (maxAllowed > 0 && totalDays > maxAllowed) {
-    throw new Error(`Maximum allowed duration is ${maxAllowed} days (requested: ${totalDays} days, including weekends/holidays if covered)`);
+    throw new Error(
+      `Maximum allowed duration is ${maxAllowed} days (requested: ${totalDays} days, including weekends/holidays if covered)`,
+    );
   }
 
   // 8. Attendance Conflict Check
   const conflictingAttendance = await Attendance.findOne({
     employee_id,
     date: { $gte: from, $lte: to },
-    status: { $in: ["present", "late"] }
+    status: { $in: ["present", "late"] },
   });
-  if (conflictingAttendance) throw new Error("Attendance already marked for the selected dates");
+  if (conflictingAttendance)
+    throw new Error("Attendance already marked for the selected dates");
 
   // 9. Overlap Check
   const overlappingLeave = await Leave.findOne({
     employee_id,
     status: { $in: ["pending", "approved"] },
-    $or: [{ from_date: { $lte: to }, to_date: { $gte: from } }]
+    $or: [{ from_date: { $lte: to }, to_date: { $gte: from } }],
   });
-  if (overlappingLeave) throw new Error("You already have a pending or approved leave for these dates");
+  if (overlappingLeave)
+    throw new Error(
+      "You already have a pending or approved leave for these dates",
+    );
 
   // 10. Balance Check
-  let balanceRec = await LeaveBalance.findOne({ 
-    employee_id, 
-    leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") } 
+  let balanceRec = await LeaveBalance.findOne({
+    employee_id,
+    leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") },
   });
 
   if (!balanceRec) {
     // Fault-tolerance: Dynamically initialize balances if they don't exist yet
     await exports.listLeaveBalances(employee_id);
-    balanceRec = await LeaveBalance.findOne({ 
-      employee_id, 
-      leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") } 
+    balanceRec = await LeaveBalance.findOne({
+      employee_id,
+      leave_type: { $regex: new RegExp(`^${leave_type}$`, "i") },
     });
   }
 
-  if (!balanceRec || balanceRec.balance <= 0 || balanceRec.balance < totalDays) {
-    throw new Error(`Insufficient balance for ${leave_type}. Current balance: ${balanceRec?.balance || 0}`);
+  if (
+    !balanceRec ||
+    balanceRec.balance <= 0 ||
+    balanceRec.balance < totalDays
+  ) {
+    throw new Error(
+      `Insufficient balance for ${leave_type}. Current balance: ${balanceRec?.balance || 0}`,
+    );
   }
 
   // Create
@@ -342,7 +428,10 @@ exports.applyLeave = async (input, context) => {
 /**
  * 2. APPROVAL LOGIC
  */
-exports.updateLeaveApproval = async ({ id, role, status, remarks }, context) => {
+exports.updateLeaveApproval = async (
+  { id, role, status, remarks },
+  _context,
+) => {
   const filter = withTenant({ _id: id });
   const leave = await Leave.findOne(filter);
   if (!leave) throw new Error("Leave record not found");
@@ -355,13 +444,14 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks }, context) => 
   if (!leave.approvals || leave.approvals.length === 0) {
     leave.approvals = [
       { role: "HEAD OF DEPARTMENT", status: "pending" },
-      { role: "ADMIN", status: "pending" }
+      { role: "ADMIN", status: "pending" },
     ];
   }
 
-  const approvalIdx = leave.approvals.findIndex(a => a.role === role);
-  if (approvalIdx === -1) throw new Error(`Role ${role} is not a valid approver for this leave`);
-  
+  const approvalIdx = leave.approvals.findIndex((a) => a.role === role);
+  if (approvalIdx === -1)
+    throw new Error(`Role ${role} is not a valid approver for this leave`);
+
   if (leave.approvals[approvalIdx].status !== "pending") {
     throw new Error(`Approver ${role} has already acted on this leave`);
   }
@@ -383,7 +473,7 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks }, context) => 
   }
 
   // Force Mongoose to mark the array as dirtied
-  leave.markModified('approvals');
+  leave.markModified("approvals");
 
   // Compute final status
   const finalStatus = computeFinalStatus(leave.approvals);
@@ -393,24 +483,24 @@ exports.updateLeaveApproval = async ({ id, role, status, remarks }, context) => 
   // Cases:
   // - Transition to 'approved': Deduct
   // - Transition away from 'approved': Restore (e.g. if one was approved, then another rejects)
-  
+
   if (finalStatus === "approved" && oldStatus !== "approved") {
     const updateResult = await LeaveBalance.updateOne(
-      { 
-        employee_id: leave.employee_id, 
+      {
+        employee_id: leave.employee_id,
         leave_type: leave.leave_type,
-        balance: { $gte: leave.total_days }
+        balance: { $gte: leave.total_days },
       },
-      { $inc: { used: leave.total_days, balance: -leave.total_days } }
+      { $inc: { used: leave.total_days, balance: -leave.total_days } },
     );
-    
+
     if (updateResult.modifiedCount === 0) {
       throw new Error("Insufficient balance at the time of approval");
     }
   } else if (oldStatus === "approved" && finalStatus !== "approved") {
     await LeaveBalance.updateOne(
       { employee_id: leave.employee_id, leave_type: leave.leave_type },
-      { $inc: { used: -leave.total_days, balance: leave.total_days } }
+      { $inc: { used: -leave.total_days, balance: leave.total_days } },
     );
   }
 
@@ -433,10 +523,11 @@ exports.cancelLeave = async (id, context) => {
   const to = new Date(leave.to_date);
 
   // Case 3: After leave completed
-  if (to < today) throw new Error("Cannot cancel a leave that is already completed");
+  if (to < today)
+    throw new Error("Cannot cancel a leave that is already completed");
 
   const oldStatus = leave.status;
-  
+
   // Logic for partial cancellation or full cancellation
   if (from > today) {
     // Case 1: Before leave starts -> Full Cancel
@@ -446,15 +537,15 @@ exports.cancelLeave = async (id, context) => {
     const settings = await Settings.findOne({});
     const workedDays = calculateWorkingDays(from, today, settings, {}, []); // simplistic
     const remainingDays = leave.total_days - workedDays;
-    
+
     // Restore only the remaining days if it was approved
     if (oldStatus === "approved") {
       await LeaveBalance.updateOne(
         { employee_id: leave.employee_id, leave_type: leave.leave_type },
-        { $inc: { used: -remainingDays, balance: remainingDays } }
+        { $inc: { used: -remainingDays, balance: remainingDays } },
       );
     }
-    
+
     leave.total_days = workedDays;
     leave.status = "cancelled";
   }
@@ -463,7 +554,7 @@ exports.cancelLeave = async (id, context) => {
   if (oldStatus === "approved" && from > today) {
     await LeaveBalance.updateOne(
       { employee_id: leave.employee_id, leave_type: leave.leave_type },
-      { $inc: { used: -leave.total_days, balance: leave.total_days } }
+      { $inc: { used: -leave.total_days, balance: leave.total_days } },
     );
   }
 
@@ -474,7 +565,7 @@ exports.cancelLeave = async (id, context) => {
     action: "LEAVE_CANCELLED",
     user_id: getUserIdFromCtx(context),
     tenant_id: leave.tenant_id,
-    metadata: { leave_id: id, type: leave.leave_type }
+    metadata: { leave_id: id, type: leave.leave_type },
   });
 
   return saved;
@@ -484,53 +575,69 @@ exports.createLeave = async (data, context) => {
   const tenant_id = getTenantId();
   const leave = new Leave({ ...data, tenant_id });
   const saved = await leave.save();
-  
+
   // 🛡 Audit Log
   await AuditLog.create({
     action: "LEAVE_CREATED",
     user_id: getUserIdFromCtx(context),
     tenant_id,
-    metadata: { leave_id: saved._id, type: data.leave_type }
+    metadata: { leave_id: saved._id, type: data.leave_type },
   });
-  
+
   return saved;
 };
 
 exports.updateLeave = async (id, data, context) => {
   const filter = withTenant({ _id: id });
   const user_id = getUserIdFromCtx(context);
-  
+
   // 1. Recalculate total_days if dates change
   if (data.from_date || data.to_date) {
     const existing = await Leave.findOne(filter);
     if (existing) {
-       const from = new Date(data.from_date || existing.from_date);
-       const to = new Date(data.to_date || existing.to_date);
-       
-       const leaveTypeReq = data.leave_type || existing.leave_type;
-       const leaveTypeConfig = await LeaveType.findOne({ name: leaveTypeReq.toLowerCase() });
-       if (leaveTypeConfig) {
-         const settings = await Settings.findOne({});
-         const publicHolidays = await getHolidaysInRange(from, to);
-         
-         let totalDays = calculateWorkingDays(from, to, settings, {
-           weekends_covered: leaveTypeConfig.weekends_covered,
-           holiday_covered: leaveTypeConfig.holiday_covered
-         }, publicHolidays);
-         
-         if (existing.is_half_day) totalDays = 0.5;
-         data.total_days = totalDays;
-       }
+      const from = new Date(data.from_date || existing.from_date);
+      const to = new Date(data.to_date || existing.to_date);
+
+      const leaveTypeReq = data.leave_type || existing.leave_type;
+      const leaveTypeConfig = await LeaveType.findOne({
+        name: leaveTypeReq.toLowerCase(),
+      });
+      if (leaveTypeConfig) {
+        const settings = await Settings.findOne({});
+        const publicHolidays = await getHolidaysInRange(from, to);
+
+        let totalDays = calculateWorkingDays(
+          from,
+          to,
+          settings,
+          {
+            weekends_covered: leaveTypeConfig.weekends_covered,
+            holiday_covered: leaveTypeConfig.holiday_covered,
+          },
+          publicHolidays,
+        );
+
+        if (existing.is_half_day) totalDays = 0.5;
+        data.total_days = totalDays;
+      }
     }
   }
 
   // Admin-only date edit — log as UPDATED business event
-  const updated = await Leave.findOneAndUpdate(filter, { $set: data }, { new: true }).lean();
-  
+  const updated = await Leave.findOneAndUpdate(
+    filter,
+    { $set: data },
+    { new: true },
+  ).lean();
+
   // Admin-only date edit — log as UPDATED business event
   if (updated && (data.from_date || data.to_date)) {
-    const emp = await Employee.findOne(withTenant({ _id: updated.employee_id })).lean();
-    const empName = emp ? `${emp.first_name} ${emp.last_name}` : updated.employee_id;
+    const emp = await Employee.findOne(
+      withTenant({ _id: updated.employee_id }),
+    ).lean();
+    const empName = emp
+      ? `${emp.first_name} ${emp.last_name}`
+      : updated.employee_id;
     const eventLogService = require("../eventLog/service");
     await eventLogService.logEvent({
       user_id,
@@ -540,7 +647,7 @@ exports.updateLeave = async (id, data, context) => {
       action_type: "UPDATED",
       record_id: id,
       description: `${empName} leave dates updated`,
-      new_data: updated
+      new_data: updated,
     });
   }
   return updated;
@@ -556,7 +663,7 @@ exports.deleteLeave = async (id, context) => {
     action: "LEAVE_DELETED",
     user_id: getUserIdFromCtx(context),
     tenant_id: deleted.tenant_id,
-    metadata: { leave_id: id }
+    metadata: { leave_id: id },
   });
 
   return { success: true, message: "Leave record deleted successfully" };

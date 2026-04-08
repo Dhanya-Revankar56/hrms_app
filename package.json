@@ -21,7 +21,8 @@
   "homepage": "https://github.com/Dhanya-Revankar56/hrms_app#readme",
   "devDependencies": {
     "husky": "^8.0.3",
-    "lint-staged": "^16.4.0"
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1"
   },
   "workspaces": [
     "backend",

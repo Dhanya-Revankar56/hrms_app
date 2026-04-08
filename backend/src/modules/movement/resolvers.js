@@ -5,13 +5,19 @@ const employeeService = require("../employee/service");
 // 🛡 Multi-Tenant Movement Resolvers
 const resolvers = {
   Query: {
-    movements: async (_, { employee_id, status, movement_type, department, pagination }, ctx) => {
+    movements: async (
+      _,
+      { employee_id, status, movement_type, department, pagination },
+      ctx,
+    ) => {
       const role = ctx.user?.role;
       let filterId = employee_id;
       let filterDept = department;
 
       if (role === "EMPLOYEE") {
-        const empRecord = await Employee.findOne({ user_id: ctx.user.id }).select("_id").lean();
+        const empRecord = await Employee.findOne({ user_id: ctx.user.id })
+          .select("_id")
+          .lean();
         filterId = empRecord?._id || ctx.user.id; // Fallback to user_id if employee record missing
       } else if (role === "HEAD OF DEPARTMENT") {
         const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
@@ -23,15 +29,15 @@ const resolvers = {
         }
       }
 
-      return await movementService.listMovements({ 
-        employee_id: filterId, 
-        status, 
-        movement_type, 
-        department: filterDept, 
-        pagination 
+      return await movementService.listMovements({
+        employee_id: filterId,
+        status,
+        movement_type,
+        department: filterDept,
+        pagination,
       });
     },
-    movement: async (_, { id }, ctx) => {
+    movement: async (_, { id }, _ctx) => {
       return await movementService.getMovementById(id);
     },
   },
@@ -50,12 +56,13 @@ const resolvers = {
 
   Movement: {
     id: (parent) => parent._id?.toString() || parent.id,
-    tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
+    tenant_id: (parent) =>
+      parent.tenant_id?.toString() || parent.institution_id,
     movement_date: (parent) => {
       if (!parent.movement_date) return null;
       try {
         return new Date(parent.movement_date).toISOString();
-      } catch (_e) {
+      } catch (__) {
         return parent.movement_date;
       }
     },
@@ -64,9 +71,8 @@ const resolvers = {
       if (!parent.employee_id) return null;
       try {
         return await employeeService.getEmployeeById(parent.employee_id);
-      } catch (err) {
-        // Return null instead of throwing to prevent crashing the whole movements list
-        return null; 
+      } catch (_err) {
+        return null;
       }
     },
   },

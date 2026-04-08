@@ -1,0 +1,11 @@
+{
+  "*.{js,ts,tsx}": [
+    "npx prettier --write"
+  ],
+  "backend/**/*.js": [
+    "npx eslint --fix"
+  ],
+  "frontend/hrms-frontend/src/**/*.{ts,tsx}": [
+    "npx eslint --fix"
+  ]
+}

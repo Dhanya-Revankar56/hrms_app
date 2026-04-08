@@ -5,13 +5,19 @@ const employeeService = require("../employee/service");
 // 🛡 Multi-Tenant Relieving Resolvers
 const resolvers = {
   Query: {
-    relievings: async (_, { employee_id, status, department, pagination }, ctx) => {
+    relievings: async (
+      _,
+      { employee_id, status, department, pagination },
+      ctx,
+    ) => {
       const role = ctx.user?.role;
       let filterId = employee_id;
       let filterDept = department;
 
       if (role === "EMPLOYEE") {
-        const empRecord = await Employee.findOne({ user_id: ctx.user.id }).select("_id").lean();
+        const empRecord = await Employee.findOne({ user_id: ctx.user.id })
+          .select("_id")
+          .lean();
         filterId = empRecord?._id;
       } else if (role === "HEAD OF DEPARTMENT") {
         const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
@@ -21,14 +27,14 @@ const resolvers = {
         filterDept = hodRecord?.work_detail?.department?.toString();
       }
 
-      return await relievingService.listRelievings({ 
-        employee_id: filterId, 
-        status, 
-        department: filterDept, 
-        pagination 
+      return await relievingService.listRelievings({
+        employee_id: filterId,
+        status,
+        department: filterDept,
+        pagination,
       });
     },
-    relieving: async (_, { id }, ctx) => {
+    relieving: async (_, { id }, _ctx) => {
       return await relievingService.getRelievingById(id);
     },
   },
@@ -47,10 +53,13 @@ const resolvers = {
 
   Relieving: {
     id: (parent) => parent._id?.toString() || parent.id,
-    tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
+    tenant_id: (parent) =>
+      parent.tenant_id?.toString() || parent.institution_id,
     employee_id: (parent) => {
       if (!parent.employee_id) return null;
-      return typeof parent.employee_id === 'object' ? (parent.employee_id._id?.toString() || parent.employee_id.id) : parent.employee_id.toString();
+      return typeof parent.employee_id === "object"
+        ? parent.employee_id._id?.toString() || parent.employee_id.id
+        : parent.employee_id.toString();
     },
     employee: async (parent) => {
       if (!parent.employee_id) return null;
@@ -58,7 +67,11 @@ const resolvers = {
       if (parent.employee_id._id || parent.employee_id.first_name) {
         return parent.employee_id;
       }
-      return await employeeService.getEmployeeById(parent.employee_id);
+      try {
+        return await employeeService.getEmployeeById(parent.employee_id);
+      } catch (_err) {
+        return null;
+      }
     },
   },
 };

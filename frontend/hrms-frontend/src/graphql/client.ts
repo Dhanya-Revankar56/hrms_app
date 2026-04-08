@@ -1,5 +1,5 @@
-import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
-import { setContext } from '@apollo/client/link/context';
+import { ApolloClient, InMemoryCache, createHttpLink } from "@apollo/client";
+import { setContext } from "@apollo/client/link/context";
 
 /**
  * Apollo Client Setup
@@ -7,21 +7,21 @@ import { setContext } from '@apollo/client/link/context';
  */
 
 const httpLink = createHttpLink({
-  uri: 'http://localhost:5000/graphql',
+  uri: `${import.meta.env.VITE_API_URL}/graphql`,
 });
 
 const authLink = setContext((_, { headers }) => {
   // Get the token and institution ID from localStorage
-  const token = localStorage.getItem('token');
-  const institutionId = localStorage.getItem('institution_id');
-  
+  const token = localStorage.getItem("token");
+  const institutionId = localStorage.getItem("institution_id");
+
   return {
     headers: {
       ...headers,
-      'x-institution-id': institutionId || "",
+      "x-institution-id": institutionId || "",
       authorization: token ? `Bearer ${token}` : "",
-    }
-  }
+    },
+  };
 });
 
 export const client = new ApolloClient({

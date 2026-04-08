@@ -1,10 +1,15 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
-import { GET_RELIEVINGS, CREATE_RELIEVING, UPDATE_RELIEVING } from "../graphql/relievingQueries";
+import {
+  GET_RELIEVINGS,
+  CREATE_RELIEVING,
+  UPDATE_RELIEVING,
+} from "../graphql/relievingQueries";
 import { GET_EMPLOYEES, REHIRE_EMPLOYEE } from "../graphql/employeeQueries";
 import { GET_DASHBOARD_STATS } from "../graphql/settingsQueries";
 import { GET_LEAVES } from "../graphql/leaveQueries";
 import { GET_MOVEMENTS } from "../graphql/movementQueries";
+import { isAdmin, isHod } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -28,8 +33,14 @@ type ExitReason =
   | "Retirement"
   | "Other";
 
-type SortField = "name" | "empId" | "department" | "resignDate" | "lastDay" | "status";
-type SortDir   = "asc" | "desc";
+type SortField =
+  | "name"
+  | "empId"
+  | "department"
+  | "resignDate"
+  | "lastDay"
+  | "status";
+type SortDir = "asc" | "desc";
 
 interface Clearance {
   dept: string;
@@ -158,19 +169,26 @@ interface FormErrors {
    CONSTANTS
 ───────────────────────────────────────────── */
 
-
 const DEPARTMENTS: string[] = [
-  "All","Computer Science And Engineering","Data Science","Aiml",
-  "Information science","Library","Administration",
-
+  "All",
+  "Computer Science And Engineering",
+  "Data Science",
+  "Aiml",
+  "Information science",
+  "Library",
+  "Administration",
 ];
 
 const EXIT_REASONS: ExitReason[] = [
-  "Personal Reasons","Better Opportunity","Higher Studies",
-  "Health Issues","Relocation","Family Reasons","Retirement","Other",
+  "Personal Reasons",
+  "Better Opportunity",
+  "Higher Studies",
+  "Health Issues",
+  "Relocation",
+  "Family Reasons",
+  "Retirement",
+  "Other",
 ];
-
-
 
 // let nextId = ... (Removed legacy mock id manager)
 
@@ -185,9 +203,22 @@ function formatDate(ts: string | number | Date | null | undefined): string {
   if (!ts) return "—";
   const d = isNaN(Number(ts)) ? new Date(ts) : new Date(Number(ts));
   if (isNaN(d.getTime())) return String(ts);
-  
+
   const day = d.getDate();
-  const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const m = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   const month = m[d.getMonth()];
   const year = d.getFullYear();
   return `${day} ${month} ${year}`;
@@ -198,8 +229,6 @@ function calcNoticeDays(resign: string, last: string): number {
   const diff = new Date(last).getTime() - new Date(resign).getTime();
   return diff < 0 ? 0 : Math.round(diff / 86400000);
 }
-
-
 
 /* ─────────────────────────────────────────────
    CSS
@@ -606,43 +635,67 @@ const CSS = `
 ───────────────────────────────────────────── */
 function StatusBadge({ status }: { status: ExitStatus }) {
   const map: Record<ExitStatus, string> = {
-    "Pending Approval":       "er-badge er-badge-pending",
-    "Approved":               "er-badge er-badge-approved",
-    "Clearance In Progress":  "er-badge er-badge-clearance",
-    "Relieved":               "er-badge er-badge-relieved",
-    "Rejected":               "er-badge er-badge-rejected",
+    "Pending Approval": "er-badge er-badge-pending",
+    Approved: "er-badge er-badge-approved",
+    "Clearance In Progress": "er-badge er-badge-clearance",
+    Relieved: "er-badge er-badge-relieved",
+    Rejected: "er-badge er-badge-rejected",
   };
   return <span className={map[status]}>{status}</span>;
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
-    <svg width="10" height="10" fill="none" viewBox="0 0 24 24"
-      stroke={active ? "#1d4ed8" : "#cbd5e1"} strokeWidth={2.5}>
-      {active && dir === "asc"
-        ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7 7 7m-7-7v18" />
-        : <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7-7-7m7 7V3" />
-      }
+    <svg
+      width="10"
+      height="10"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke={active ? "#1d4ed8" : "#cbd5e1"}
+      strokeWidth={2.5}
+    >
+      {active && dir === "asc" ? (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M5 10l7-7 7 7m-7-7v18"
+        />
+      ) : (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M19 14l-7 7-7-7m7 7V3"
+        />
+      )}
     </svg>
   );
 }
 
 interface SortThProps {
-  field: SortField; label: string;
-  sortField: SortField; sortDir: SortDir;
+  field: SortField;
+  label: string;
+  sortField: SortField;
+  sortDir: SortDir;
   onSort: (f: SortField) => void;
 }
 function SortTh({ field, label, sortField, sortDir, onSort }: SortThProps) {
   return (
-    <th className={sortField === field ? "er-sorted" : ""} onClick={() => onSort(field)}>
+    <th
+      className={sortField === field ? "er-sorted" : ""}
+      onClick={() => onSort(field)}
+    >
       <div className="er-th-inner">
-        {label}<SortIcon active={sortField === field} dir={sortDir} />
+        {label}
+        <SortIcon active={sortField === field} dir={sortDir} />
       </div>
     </th>
   );
 }
 
-interface VFProps { label: string; value: string; }
+interface VFProps {
+  label: string;
+  value: string;
+}
 function VF({ label, value }: VFProps) {
   return (
     <div className="er-info-field">
@@ -651,7 +704,6 @@ function VF({ label, value }: VFProps) {
     </div>
   );
 }
-
 
 /* ─────────────────────────────────────────────
    EXIT REQUEST FORM
@@ -675,7 +727,13 @@ interface DotsMenuProps {
   onReject: () => void;
   onRelieve: () => void;
 }
-function DotsMenu({ rec, onView, onApprove, onReject, onRelieve }: DotsMenuProps) {
+function DotsMenu({
+  rec,
+  onView,
+  onApprove,
+  onReject,
+  onRelieve,
+}: DotsMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const isPending = rec.status === "Pending Approval";
@@ -693,32 +751,107 @@ function DotsMenu({ rec, onView, onApprove, onReject, onRelieve }: DotsMenuProps
   }, [open]);
 
   return (
-    <div className="er-dots-wrap" ref={wrapRef} style={{ zIndex: open ? 2000 : 1 }}>
-      <button className="er-dots-btn" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}>
+    <div
+      className="er-dots-wrap"
+      ref={wrapRef}
+      style={{ zIndex: open ? 2000 : 1 }}
+    >
+      <button
+        className="er-dots-btn"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+      >
         <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-          <circle cx="12" cy="5" r="2.5"/><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="19" r="2.5"/>
+          <circle cx="12" cy="5" r="2.5" />
+          <circle cx="12" cy="12" r="2.5" />
+          <circle cx="12" cy="19" r="2.5" />
         </svg>
       </button>
       {open && (
         <div className="er-dots-menu">
-          <button className="er-dots-item" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onView(); }}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          <button
+            className="er-dots-item"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+              onView();
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
             </svg>
             View
           </button>
           {isPending && (
             <>
-              <div className="er-dots-divider"/>
-              <button className="er-dots-item approve" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onApprove(); }}>
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+              <div className="er-dots-divider" />
+              <button
+                className="er-dots-item approve"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setOpen(false);
+                  onApprove();
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
                 Confirm Relieve
               </button>
-              <button className="er-dots-item reject" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onReject(); }}>
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              <button
+                className="er-dots-item reject"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setOpen(false);
+                  onReject();
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
                 Reject
               </button>
@@ -726,10 +859,29 @@ function DotsMenu({ rec, onView, onApprove, onReject, onRelieve }: DotsMenuProps
           )}
           {canRelieve && (
             <>
-              <div className="er-dots-divider"/>
-              <button className="er-dots-item relieve" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); onRelieve(); }}>
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="er-dots-divider" />
+              <button
+                className="er-dots-item relieve"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setOpen(false);
+                  onRelieve();
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Confirm Relieve
               </button>
@@ -741,7 +893,6 @@ function DotsMenu({ rec, onView, onApprove, onReject, onRelieve }: DotsMenuProps
   );
 }
 
-
 /* ─────────────────────────────────────────────
    RECORD EXIT MODAL
 ───────────────────────────────────────────── */
@@ -750,12 +901,24 @@ interface RecordExitModalProps {
   onClose: () => void;
   onToast: (msg: string) => void;
   employees: RelievingEmployee[];
-  createRelieving: (options: { variables: { input: CreateRelievingInput } }) => void;
+  createRelieving: (options: {
+    variables: { input: CreateRelievingInput };
+  }) => void;
 }
-function RecordExitModal({ open, onClose, onToast, employees, createRelieving }: RecordExitModalProps) {
+function RecordExitModal({
+  open,
+  onClose,
+  onToast,
+  employees,
+  createRelieving,
+}: RecordExitModalProps) {
   const blank: FormState = {
-    empId: "", resignDate: "", lastWorkingDay: "",
-    exitReason: "Personal Reasons", exitReasonDetail: "", reportingManager: "",
+    empId: "",
+    resignDate: "",
+    lastWorkingDay: "",
+    exitReason: "Personal Reasons",
+    exitReasonDetail: "",
+    reportingManager: "",
   };
   const [form, setForm] = useState<FormState>(blank);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -763,7 +926,9 @@ function RecordExitModal({ open, onClose, onToast, employees, createRelieving }:
   if (!open) return null;
 
   const noticeDays = calcNoticeDays(form.resignDate, form.lastWorkingDay);
-  const selectedEmp = employees.find((e) => e.id === form.empId || e.employee_id === form.empId);
+  const selectedEmp = employees.find(
+    (e) => e.id === form.empId || e.employee_id === form.empId,
+  );
 
   function setF<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((p: FormState) => ({ ...p, [k]: v }));
@@ -772,12 +937,18 @@ function RecordExitModal({ open, onClose, onToast, employees, createRelieving }:
 
   function validate(): boolean {
     const e: FormErrors = {};
-    if (!form.empId)             e.empId           = "Please select an employee.";
-    if (!form.resignDate)        e.resignDate      = "Resignation date is required.";
-    if (!form.lastWorkingDay)    e.lastWorkingDay   = "Last working day is required.";
-    if (form.resignDate && form.lastWorkingDay && form.lastWorkingDay < form.resignDate)
+    if (!form.empId) e.empId = "Please select an employee.";
+    if (!form.resignDate) e.resignDate = "Resignation date is required.";
+    if (!form.lastWorkingDay)
+      e.lastWorkingDay = "Last working day is required.";
+    if (
+      form.resignDate &&
+      form.lastWorkingDay &&
+      form.lastWorkingDay < form.resignDate
+    )
       e.lastWorkingDay = "Last working day cannot be before resignation date.";
-    if (!form.exitReasonDetail.trim()) e.exitReasonDetail = "Please provide exit reason details.";
+    if (!form.exitReasonDetail.trim())
+      e.exitReasonDetail = "Please provide exit reason details.";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -792,11 +963,13 @@ function RecordExitModal({ open, onClose, onToast, employees, createRelieving }:
           resignation_date: form.resignDate,
           last_working_date: form.lastWorkingDay,
           notice_period_days: noticeDays,
-          reason: form.exitReason
-        }
-      }
+          reason: form.exitReason,
+        },
+      },
     });
-    onToast(`Exit request submitted for ${selectedEmp.first_name} ${selectedEmp.last_name}.`);
+    onToast(
+      `Exit request submitted for ${selectedEmp.first_name} ${selectedEmp.last_name}.`,
+    );
     setForm({ ...blank });
     setErrors({});
     onClose();
@@ -804,44 +977,103 @@ function RecordExitModal({ open, onClose, onToast, employees, createRelieving }:
 
   return (
     <div className="er-modal-overlay" onClick={onClose}>
-      <div className="er-modal" style={{ width: '580px' }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="er-form-icon" style={{ background: '#fff1f2' }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#e11d48" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+      <div
+        className="er-modal"
+        style={{ width: "580px" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "22px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div className="er-form-icon" style={{ background: "#fff1f2" }}>
+              <svg
+                width="20"
+                height="20"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="#e11d48"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Record Exit Request</h3>
-              <p className="er-sub" style={{ margin: 0, fontSize: '12.5px' }}>Submit a new employee resignation record</p>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>
+                Record Exit Request
+              </h3>
+              <p className="er-sub" style={{ margin: 0, fontSize: "12.5px" }}>
+                Submit a new employee resignation record
+              </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}>
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          <button
+            onClick={onClose}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              color: "#94a3b8",
+            }}
+          >
+            <svg
+              width="22"
+              height="22"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         <div className="er-form-grid">
           <div>
-            <label className="er-label">Employee<span className="er-req">*</span></label>
-            <select className={`er-select${errors.empId ? " er-input-error" : ""}`}
-              value={form.empId} onChange={(e) => setF("empId", e.target.value)}>
+            <label className="er-label">
+              Employee<span className="er-req">*</span>
+            </label>
+            <select
+              className={`er-select${errors.empId ? " er-input-error" : ""}`}
+              value={form.empId}
+              onChange={(e) => setF("empId", e.target.value)}
+            >
               <option value="">Select Employee…</option>
               {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({emp.employee_id})</option>
+                <option key={emp.id} value={emp.id}>
+                  {emp.first_name} {emp.last_name} ({emp.employee_id})
+                </option>
               ))}
             </select>
             {errors.empId && <div className="er-error-msg">{errors.empId}</div>}
           </div>
           <div>
-            <label className="er-label">Exit Reason<span className="er-req">*</span></label>
-            <select className="er-select" value={form.exitReason}
-              onChange={(e) => setF("exitReason", e.target.value as ExitReason)}>
+            <label className="er-label">
+              Exit Reason<span className="er-req">*</span>
+            </label>
+            <select
+              className="er-select"
+              value={form.exitReason}
+              onChange={(e) => setF("exitReason", e.target.value as ExitReason)}
+            >
               {EXIT_REASONS.map((r: ExitReason) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>
+                  {r}
+                </option>
               ))}
             </select>
           </div>
@@ -849,38 +1081,69 @@ function RecordExitModal({ open, onClose, onToast, employees, createRelieving }:
 
         <div className="er-form-grid-3">
           <div>
-            <label className="er-label">Resignation Date<span className="er-req">*</span></label>
-            <input type="date" className={`er-input${errors.resignDate ? " er-input-error" : ""}`}
-              value={form.resignDate} onChange={(e) => setF("resignDate", e.target.value)}/>
-            {errors.resignDate && <div className="er-error-msg">{errors.resignDate}</div>}
+            <label className="er-label">
+              Resignation Date<span className="er-req">*</span>
+            </label>
+            <input
+              type="date"
+              className={`er-input${errors.resignDate ? " er-input-error" : ""}`}
+              value={form.resignDate}
+              onChange={(e) => setF("resignDate", e.target.value)}
+            />
+            {errors.resignDate && (
+              <div className="er-error-msg">{errors.resignDate}</div>
+            )}
           </div>
           <div>
-            <label className="er-label">Last Working Day<span className="er-req">*</span></label>
-            <input type="date" className={`er-input${errors.lastWorkingDay ? " er-input-error" : ""}`}
-              value={form.lastWorkingDay} onChange={(e) => setF("lastWorkingDay", e.target.value)}/>
-            {errors.lastWorkingDay && <div className="er-error-msg">{errors.lastWorkingDay}</div>}
+            <label className="er-label">
+              Last Working Day<span className="er-req">*</span>
+            </label>
+            <input
+              type="date"
+              className={`er-input${errors.lastWorkingDay ? " er-input-error" : ""}`}
+              value={form.lastWorkingDay}
+              onChange={(e) => setF("lastWorkingDay", e.target.value)}
+            />
+            {errors.lastWorkingDay && (
+              <div className="er-error-msg">{errors.lastWorkingDay}</div>
+            )}
           </div>
           <div>
             <label className="er-label">Notice Period</label>
-            <div className="er-days-badge" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }}>
+            <div
+              className="er-days-badge"
+              style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0" }}
+            >
               {noticeDays > 0 ? `${noticeDays} days` : "—"}
             </div>
           </div>
         </div>
 
         <div className="er-form-full">
-          <label className="er-label">Detailed Reason / Notes<span className="er-req">*</span></label>
-          <textarea className={`er-textarea${errors.exitReasonDetail ? " er-input-error" : ""}`}
-            style={{ height: '90px' }}
+          <label className="er-label">
+            Detailed Reason / Notes<span className="er-req">*</span>
+          </label>
+          <textarea
+            className={`er-textarea${errors.exitReasonDetail ? " er-input-error" : ""}`}
+            style={{ height: "90px" }}
             placeholder="Describe specific reasons for resignation…"
             value={form.exitReasonDetail}
-            onChange={(e) => setF("exitReasonDetail", e.target.value)}/>
-          {errors.exitReasonDetail && <div className="er-error-msg">{errors.exitReasonDetail}</div>}
+            onChange={(e) => setF("exitReasonDetail", e.target.value)}
+          />
+          {errors.exitReasonDetail && (
+            <div className="er-error-msg">{errors.exitReasonDetail}</div>
+          )}
         </div>
 
-        <div className="er-modal-actions" style={{ marginTop: '10px' }}>
-          <button className="er-modal-cancel" onClick={onClose}>Cancel</button>
-          <button className="er-modal-confirm" style={{ background: '#e11d48' }} onClick={handleSubmit}>
+        <div className="er-modal-actions" style={{ marginTop: "10px" }}>
+          <button className="er-modal-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="er-modal-confirm"
+            style={{ background: "#e11d48" }}
+            onClick={handleSubmit}
+          >
             Submit Request
           </button>
         </div>
@@ -905,64 +1168,125 @@ interface DrawerProps {
 }
 
 function ExitDrawer({
-  rec, onClose, onApprove, onReject, onRelieve, onRejoin,
-  onClearanceUpdate, onSettlementToggle, onInterviewSave,
+  rec,
+  onClose,
+  onApprove,
+  onReject,
+  onRelieve,
+  onRejoin,
+  onClearanceUpdate,
+  onSettlementToggle,
+  onInterviewSave,
 }: DrawerProps) {
   const [hrRemarks, setHrRemarks] = useState<string>(rec.hrRemarks || "");
   const [clearanceRemarks, setClearanceRemarks] = useState<string[]>(
-    (rec.clearances || []).map((c: Clearance) => c.remarks || "")
+    (rec.clearances || []).map((c: Clearance) => c.remarks || ""),
   );
   const [intDone, setIntDone] = useState<boolean>(!!rec.exitInterviewDone);
-  const [intNotes, setIntNotes] = useState<string>(rec.exitInterviewNotes || "");
+  const [intNotes, setIntNotes] = useState<string>(
+    rec.exitInterviewNotes || "",
+  );
 
-  const approvedCount   = (rec.clearances || []).filter((c: Clearance) => c.status === "Approved").length;
+  const approvedCount = (rec.clearances || []).filter(
+    (c: Clearance) => c.status === "Approved",
+  ).length;
   const totalClearances = (rec.clearances || []).length;
-  const clearancePct    = totalClearances > 0 ? Math.round((approvedCount / totalClearances) * 100) : 0;
+  const clearancePct =
+    totalClearances > 0
+      ? Math.round((approvedCount / totalClearances) * 100)
+      : 0;
 
   const settleKeys: Array<[keyof Settlement, string]> = [
-    ["salarySettled",          "Salary Settlement"],
-    ["pfSettled",              "PF Settlement"],
-    ["gratuitySettled",        "Gratuity Settlement"],
-    ["expenseSettled",         "Expense Claims"],
-    ["noDuesIssued",           "No Dues Certificate"],
+    ["salarySettled", "Salary Settlement"],
+    ["pfSettled", "PF Settlement"],
+    ["gratuitySettled", "Gratuity Settlement"],
+    ["expenseSettled", "Expense Claims"],
+    ["noDuesIssued", "No Dues Certificate"],
     ["experienceLetterIssued", "Experience Letter"],
   ];
   const settledCount = settleKeys.filter(([k]) => rec.settlement?.[k]).length;
 
   const allClear = totalClearances > 0 && approvedCount === totalClearances;
-  const canRelieve = rec.status === "Clearance In Progress" && allClear && settledCount === settleKeys.length;
+  const canRelieve =
+    rec.status === "Clearance In Progress" &&
+    allClear &&
+    settledCount === settleKeys.length;
 
   return (
     <>
       <div className="er-overlay" onClick={onClose} />
       <div className="er-drawer">
         <div className="er-drawer-head">
-          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-            <div className="er-drawer-av" style={{ background: rec.avatarColor }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              className="er-drawer-av"
+              style={{ background: rec.avatarColor }}
+            >
               {getInitials(rec.firstName, rec.lastName)}
             </div>
             <div>
-              <div className="er-drawer-name">{rec.firstName} {rec.lastName}</div>
-              <div className="er-drawer-sub">{rec.empId} · {rec.department}</div>
-              <div style={{ marginTop:6, display:"flex", gap:8, flexWrap:"wrap" }}>
+              <div className="er-drawer-name">
+                {rec.firstName} {rec.lastName}
+              </div>
+              <div className="er-drawer-sub">
+                {rec.empId} · {rec.department}
+              </div>
+              <div
+                style={{
+                  marginTop: 6,
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
                 <StatusBadge status={rec.status} />
-                <span style={{ fontFamily:"'Inter',sans-serif", fontSize:11.5, fontWeight:600, color:"#94a3b8", fontVariantNumeric:"tabular-nums" }}>
+                <span
+                  style={{
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
                   LWD: {formatDate(rec.lastWorkingDay)}
                 </span>
               </div>
             </div>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            {(rec.status === "Relieved" || rec.status === "Approved" || rec.status === "Rejected") && (
-              <button className="er-header-btn er-header-btn-primary" 
-                style={{ background:"#15803d", borderColor:"#15803d", height:34, fontSize:12 }}
-                onClick={() => onRejoin(rec.employeeDbId, `${rec.firstName} ${rec.lastName}`)}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {(rec.status === "Relieved" ||
+              rec.status === "Approved" ||
+              rec.status === "Rejected") && (
+              <button
+                className="er-header-btn er-header-btn-primary"
+                style={{
+                  background: "#15803d",
+                  borderColor: "#15803d",
+                  height: 34,
+                  fontSize: 12,
+                }}
+                onClick={() =>
+                  onRejoin(rec.employeeDbId, `${rec.firstName} ${rec.lastName}`)
+                }
+              >
                 Re-join
               </button>
             )}
             <button className="er-drawer-close" onClick={onClose}>
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                width="13"
+                height="13"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -972,16 +1296,23 @@ function ExitDrawer({
           <div className="er-drawer-section">
             <div className="er-drawer-section-title">Exit Details</div>
             <div className="er-info-grid">
-              <VF label="Designation"       value={rec.designation} />
+              <VF label="Designation" value={rec.designation} />
               <VF label="Reporting Manager" value={rec.reportingManager} />
-              <VF label="Joining Date"      value={formatDate(rec.joiningDate)} />
-              <VF label="Resignation Date"  value={formatDate(rec.resignDate)} />
-              <VF label="Last Working Day"  value={formatDate(rec.lastWorkingDay)} />
-              <VF label="Notice Period"     value={`${rec.noticePeriod} days`} />
-              <VF label="Exit Reason"       value={rec.exitReason} />
-              <VF label="Applied On"        value={formatDate(rec.appliedDate)} />
-              {rec.approvedBy && <VF label="Approved By" value={rec.approvedBy} />}
-              {rec.approvedOn && <VF label="Approved On" value={formatDate(rec.approvedOn)} />}
+              <VF label="Joining Date" value={formatDate(rec.joiningDate)} />
+              <VF label="Resignation Date" value={formatDate(rec.resignDate)} />
+              <VF
+                label="Last Working Day"
+                value={formatDate(rec.lastWorkingDay)}
+              />
+              <VF label="Notice Period" value={`${rec.noticePeriod} days`} />
+              <VF label="Exit Reason" value={rec.exitReason} />
+              <VF label="Applied On" value={formatDate(rec.appliedDate)} />
+              {rec.approvedBy && (
+                <VF label="Approved By" value={rec.approvedBy} />
+              )}
+              {rec.approvedOn && (
+                <VF label="Approved On" value={formatDate(rec.approvedOn)} />
+              )}
             </div>
           </div>
 
@@ -1000,93 +1331,182 @@ function ExitDrawer({
                 <span>{clearancePct}%</span>
               </div>
               <div className="er-progress-track">
-                <div className="er-progress-fill" style={{ width:`${clearancePct}%` }} />
+                <div
+                  className="er-progress-fill"
+                  style={{ width: `${clearancePct}%` }}
+                />
               </div>
             </div>
-            <div className="er-clearance-list" style={{ marginTop:12 }}>
+            <div className="er-clearance-list" style={{ marginTop: 12 }}>
               {rec.clearances.map((cl: Clearance, idx: number) => (
-                <div key={cl.dept} className={`er-clearance-item ${cl.status.toLowerCase()}`}>
-                  <div className={`er-clearance-icon ${cl.status.toLowerCase()}`}>
+                <div
+                  key={cl.dept}
+                  className={`er-clearance-item ${cl.status.toLowerCase()}`}
+                >
+                  <div
+                    className={`er-clearance-icon ${cl.status.toLowerCase()}`}
+                  >
                     {cl.status === "Approved" ? (
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      <svg
+                        width="16"
+                        height="16"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     ) : (
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        width="16"
+                        height="16"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                     )}
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="er-clearance-dept">{cl.dept}</div>
-                    {cl.clearedBy
-                      ? <div className="er-clearance-by">Cleared by {cl.clearedBy} on {formatDate(cl.clearedOn)}</div>
-                      : <div className="er-clearance-by">Not yet cleared</div>
-                    }
-                    {cl.remarks && <div className="er-clearance-remarks">"{cl.remarks}"</div>}
-                    {cl.status === "Pending" && rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
-                      <div>
-                        <input type="text" className="er-clearance-input"
-                          placeholder="Add clearance remarks…"
-                          value={clearanceRemarks[idx]}
-                          onChange={(e) => {
-                            const updated = [...clearanceRemarks];
-                            updated[idx] = e.target.value;
-                            setClearanceRemarks(updated);
-                          }}/>
-                        <button className="er-clearance-approve-btn"
-                          onClick={() => onClearanceUpdate()}>
-                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          Mark Cleared
-                        </button>
+                    {cl.clearedBy ? (
+                      <div className="er-clearance-by">
+                        Cleared by {cl.clearedBy} on {formatDate(cl.clearedOn)}
                       </div>
+                    ) : (
+                      <div className="er-clearance-by">Not yet cleared</div>
                     )}
+                    {cl.remarks && (
+                      <div className="er-clearance-remarks">"{cl.remarks}"</div>
+                    )}
+                    {isHod() &&
+                      cl.status === "Pending" &&
+                      rec.status !== "Pending Approval" &&
+                      rec.status !== "Rejected" && (
+                        <div>
+                          <input
+                            type="text"
+                            className="er-clearance-input"
+                            placeholder="Add clearance remarks…"
+                            value={clearanceRemarks[idx]}
+                            onChange={(e) => {
+                              const updated = [...clearanceRemarks];
+                              updated[idx] = e.target.value;
+                              setClearanceRemarks(updated);
+                            }}
+                          />
+                          <button
+                            className="er-clearance-approve-btn"
+                            onClick={() => onClearanceUpdate()}
+                          >
+                            <svg
+                              width="12"
+                              height="12"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2.5}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Mark Cleared
+                          </button>
+                        </div>
+                      )}
                   </div>
                   <div className="er-clearance-status">
-                    <span className={`er-clearance-pill ${cl.status.toLowerCase()}`}>{cl.status}</span>
+                    <span
+                      className={`er-clearance-pill ${cl.status.toLowerCase()}`}
+                    >
+                      {cl.status}
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
-            <div className="er-drawer-section">
-              <div className="er-drawer-section-title">
-                Final Settlement ({settledCount}/{settleKeys.length})
+          {isAdmin() &&
+            rec.status !== "Pending Approval" &&
+            rec.status !== "Rejected" && (
+              <div className="er-drawer-section">
+                <div className="er-drawer-section-title">
+                  Final Settlement ({settledCount}/{settleKeys.length})
+                </div>
+                <div className="er-settlement-grid">
+                  {settleKeys.map(
+                    ([key, label]: [keyof Settlement, string]) => (
+                      <div
+                        key={key}
+                        className={`er-settle-item${rec.settlement[key] ? " done" : ""}`}
+                        onClick={() => onSettlementToggle(rec.id, key)}
+                      >
+                        <div className="er-settle-check">
+                          {rec.settlement[key] && (
+                            <svg
+                              width="11"
+                              height="11"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        {label}
+                      </div>
+                    ),
+                  )}
+                </div>
               </div>
-              <div className="er-settlement-grid">
-                {settleKeys.map(([key, label]: [keyof Settlement, string]) => (
-                  <div key={key} className={`er-settle-item${rec.settlement[key] ? " done" : ""}`}
-                    onClick={() => onSettlementToggle(rec.id, key)}>
-                    <div className="er-settle-check">
-                      {rec.settlement[key] && (
-                        <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    {label}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            )}
 
           {rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
             <div className="er-drawer-section">
               <div className="er-drawer-section-title">Exit Interview</div>
               <div className="er-interview-box">
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <div className={`er-settle-item${intDone ? " done" : ""}`}
-                    style={{ flex:1, cursor:"pointer" }}
-                    onClick={() => setIntDone((v: boolean) => !v)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    className={`er-settle-item${intDone ? " done" : ""}`}
+                    style={{ flex: 1, cursor: "pointer" }}
+                    onClick={() => setIntDone((v: boolean) => !v)}
+                  >
                     <div className="er-settle-check">
                       {intDone && (
-                        <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        <svg
+                          width="11"
+                          height="11"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       )}
                     </div>
@@ -1094,14 +1514,29 @@ function ExitDrawer({
                   </div>
                 </div>
                 {intDone && (
-                  <textarea className="er-interview-notes"
+                  <textarea
+                    className="er-interview-notes"
                     placeholder="Interview notes / feedback summary…"
                     value={intNotes}
-                    onChange={(e) => setIntNotes(e.target.value)}/>
+                    onChange={(e) => setIntNotes(e.target.value)}
+                  />
                 )}
                 <button
-                  style={{ marginTop:10, height:30, padding:"0 14px", borderRadius:7, border:"1.5px solid #e2e8f0", background:"#f8fafc", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12.5, fontWeight:600, color:"#334155" }}
-                  onClick={() => onInterviewSave(rec.id, intDone, intNotes)}>
+                  style={{
+                    marginTop: 10,
+                    height: 30,
+                    padding: "0 14px",
+                    borderRadius: 7,
+                    border: "1.5px solid #e2e8f0",
+                    background: "#f8fafc",
+                    cursor: "pointer",
+                    fontFamily: "'DM Sans',sans-serif",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: "#334155",
+                  }}
+                  onClick={() => onInterviewSave(rec.id, intDone, intNotes)}
+                >
                   Save Interview Status
                 </button>
               </div>
@@ -1113,46 +1548,108 @@ function ExitDrawer({
             {rec.hrRemarks && rec.status !== "Pending Approval" ? (
               <div className="er-reason-box">{rec.hrRemarks}</div>
             ) : (
-              <textarea className="er-hr-remarks"
+              <textarea
+                className="er-hr-remarks"
                 placeholder="Add HR remarks before approving or rejecting…"
                 value={hrRemarks}
-                onChange={(e) => setHrRemarks(e.target.value)}/>
+                onChange={(e) => setHrRemarks(e.target.value)}
+              />
             )}
           </div>
         </div>
 
         <div className="er-drawer-foot">
-          {rec.status === "Pending Approval" && (
+          {isAdmin() && rec.status === "Pending Approval" && (
             <>
-              <button className="er-drawer-btn er-drawer-reject"
-                onClick={() => onReject(rec.id, `${rec.firstName} ${rec.lastName}`, hrRemarks)}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <button
+                className="er-drawer-btn er-drawer-reject"
+                onClick={() =>
+                  onReject(
+                    rec.id,
+                    `${rec.firstName} ${rec.lastName}`,
+                    hrRemarks,
+                  )
+                }
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
                 Reject
               </button>
-              <button className="er-drawer-btn er-drawer-approve"
-                onClick={() => onApprove(rec.id, hrRemarks)}>
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <button
+                className="er-drawer-btn er-drawer-approve"
+                onClick={() => onApprove(rec.id, hrRemarks)}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
                 Confirm Relieve
               </button>
             </>
           )}
-          {rec.status === "Clearance In Progress" && (
-            <button className="er-drawer-btn er-drawer-relieve"
-              style={{ opacity: canRelieve ? 1 : 0.5, cursor: canRelieve ? "pointer" : "not-allowed" }}
-              onClick={() => { if (canRelieve) onRelieve(rec.id); }}
-              title={canRelieve ? "Mark as Relieved" : "Complete all clearances and settlement first"}>
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {isAdmin() && rec.status === "Clearance In Progress" && (
+            <button
+              className="er-drawer-btn er-drawer-relieve"
+              style={{
+                opacity: canRelieve ? 1 : 0.5,
+                cursor: canRelieve ? "pointer" : "not-allowed",
+              }}
+              onClick={() => {
+                if (canRelieve) onRelieve(rec.id);
+              }}
+              title={
+                canRelieve
+                  ? "Mark as Relieved"
+                  : "Complete all clearances and settlement first"
+              }
+            >
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               {canRelieve ? "Confirm Relieve" : "Clearances Pending"}
             </button>
           )}
-          {(rec.status === "Relieved" || rec.status === "Approved" || rec.status === "Rejected") && (
-            <button className="er-drawer-btn er-drawer-neutral" style={{ flex:"unset", width:"100%" }} onClick={onClose}>
+          {(rec.status === "Relieved" ||
+            rec.status === "Approved" ||
+            rec.status === "Rejected") && (
+            <button
+              className="er-drawer-btn er-drawer-neutral"
+              style={{ flex: "unset", width: "100%" }}
+              onClick={onClose}
+            >
               Close
             </button>
           )}
@@ -1170,20 +1667,50 @@ interface ConfirmRelieveModalProps {
   onConfirm: () => void;
   onCancel: () => void;
 }
-function ConfirmRelieveModal({ name, onConfirm, onCancel }: ConfirmRelieveModalProps) {
+function ConfirmRelieveModal({
+  name,
+  onConfirm,
+  onCancel,
+}: ConfirmRelieveModalProps) {
   return (
     <div className="er-modal-overlay" onClick={onCancel}>
-      <div className="er-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <div className="er-modal-icon" style={{ background:"#f0fdf4", color:"#15803d" }}>
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      <div
+        className="er-modal"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
+        <div
+          className="er-modal-icon"
+          style={{ background: "#f0fdf4", color: "#15803d" }}
+        >
+          <svg
+            width="20"
+            height="20"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </div>
         <h3>Confirm Relieving?</h3>
-        <p>Are you sure you want to confirm relieving for <strong>{name}</strong>? This action will update their official status.</p>
+        <p>
+          Are you sure you want to confirm relieving for <strong>{name}</strong>
+          ? This action will update their official status.
+        </p>
         <div className="er-modal-actions">
-          <button className="er-modal-cancel" onClick={onCancel}>Cancel</button>
-          <button className="er-modal-confirm" style={{ background:"#15803d" }} onClick={onConfirm}>
+          <button className="er-modal-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className="er-modal-confirm"
+            style={{ background: "#15803d" }}
+            onClick={onConfirm}
+          >
             Yes, Confirm Relieve
           </button>
         </div>
@@ -1203,18 +1730,43 @@ interface RejectModalProps {
 function RejectModal({ name, onConfirm, onCancel }: RejectModalProps) {
   return (
     <div className="er-modal-overlay" onClick={onCancel}>
-      <div className="er-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <div className="er-modal-icon" style={{ background:"#fef2f2", color:"#dc2626" }}>
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      <div
+        className="er-modal"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
+        <div
+          className="er-modal-icon"
+          style={{ background: "#fef2f2", color: "#dc2626" }}
+        >
+          <svg
+            width="20"
+            height="20"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
         </div>
         <h3>Reject Exit Request?</h3>
-        <p>Are you sure you want to reject {name}'s exit request? They will be notified and the request will be closed.</p>
+        <p>
+          Are you sure you want to reject {name}'s exit request? They will be
+          notified and the request will be closed.
+        </p>
         <div className="er-modal-actions">
-          <button className="er-modal-cancel" onClick={onCancel}>Cancel</button>
-          <button className="er-modal-confirm" style={{ background:"#dc2626" }} onClick={onConfirm}>
+          <button className="er-modal-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className="er-modal-confirm"
+            style={{ background: "#dc2626" }}
+            onClick={onConfirm}
+          >
             Reject Request
           </button>
         </div>
@@ -1234,17 +1786,47 @@ interface RejoinModalProps {
 function RejoinModal({ name, onConfirm, onCancel }: RejoinModalProps) {
   return (
     <div className="er-modal-overlay" onClick={onCancel}>
-      <div className="er-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <div className="er-modal-icon" style={{ background:"#f0fdf4", color:"#15803d" }}>
-          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      <div
+        className="er-modal"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
+        <div
+          className="er-modal-icon"
+          style={{ background: "#f0fdf4", color: "#15803d" }}
+        >
+          <svg
+            width="22"
+            height="22"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            />
           </svg>
         </div>
         <h3>Confirm Re-joining?</h3>
-        <p>Are you sure you want to restore <strong>{name}</strong> to the active staff management list? Their system access will be re-enabled.</p>
+        <p>
+          Are you sure you want to restore <strong>{name}</strong> to the active
+          staff management list? Their system access will be re-enabled.
+        </p>
         <div className="er-modal-actions">
-          <button className="er-modal-cancel" onClick={onCancel}>Cancel</button>
-          <button className="er-modal-confirm" style={{ background:"#15803d", minWidth: "180px", whiteSpace: "nowrap" }} onClick={onConfirm}>
+          <button className="er-modal-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className="er-modal-confirm"
+            style={{
+              background: "#15803d",
+              minWidth: "180px",
+              whiteSpace: "nowrap",
+            }}
+            onClick={onConfirm}
+          >
             Yes, Restore Employee
           </button>
         </div>
@@ -1260,19 +1842,27 @@ export default function Relieving() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const [filters, setFilters] = useState<FilterState>({
-    search: "", department: "All", status: "All", dateFrom: "",
+    search: "",
+    department: "All",
+    status: "All",
+    dateFrom: "",
   });
 
-  const { data, loading, error, refetch } = useQuery<RelievingData>(GET_RELIEVINGS, {
-    variables: {
-      pagination: { page: currentPage, limit: itemsPerPage },
-      status: filters.status === "All" ? undefined : filters.status,
+  const { data, loading, error, refetch } = useQuery<RelievingData>(
+    GET_RELIEVINGS,
+    {
+      variables: {
+        pagination: { page: currentPage, limit: itemsPerPage },
+        status: filters.status === "All" ? undefined : filters.status,
+      },
+      fetchPolicy: "network-only",
     },
-    fetchPolicy: "network-only"
-  });
+  );
 
-  const { data: empData } = useQuery<{ getAllEmployees: { items: RelievingEmployee[] } }>(GET_EMPLOYEES, {
-    variables: { pagination: { page: 1, limit: 1000 } }
+  const { data: empData } = useQuery<{
+    getAllEmployees: { items: RelievingEmployee[] };
+  }>(GET_EMPLOYEES, {
+    variables: { pagination: { page: 1, limit: 1000 } },
   });
   const fetchedEmployees = empData?.getAllEmployees?.items || [];
 
@@ -1281,22 +1871,26 @@ export default function Relieving() {
       showToast("Exit request recorded successfully.");
       refetch();
     },
-    onError: (err) => showToast("Error: " + err.message)
+    onError: (err) => showToast("Error: " + err.message),
   });
 
   const [updateRelieving] = useMutation(UPDATE_RELIEVING, {
     onCompleted: () => {
       showToast("Exit record updated successfully.");
       refetch();
-    }
+    },
   });
 
-  const [reHireEmployee] = useMutation<{ reHireEmployee: { first_name: string } }>(REHIRE_EMPLOYEE, {
+  const [reHireEmployee] = useMutation<{
+    reHireEmployee: { first_name: string };
+  }>(REHIRE_EMPLOYEE, {
     onCompleted: (data) => {
-      showToast(`${data.reHireEmployee.first_name} has been restored to Employee Management.`);
+      showToast(
+        `${data.reHireEmployee.first_name} has been restored to Employee Management.`,
+      );
       refetch();
     },
-    onError: (err) => showToast("Error: " + err.message)
+    onError: (err) => showToast("Error: " + err.message),
   });
 
   const records: ExitRecord[] = useMemo(() => {
@@ -1310,7 +1904,9 @@ export default function Relieving() {
       avatarColor: "#2563eb", // Consistent blue as requested
       officialEmail: r.employee?.user_email || "N/A",
       phone: r.employee?.user_contact || "N/A",
-      reportingManager: r.employee?.work_detail?.reporting_to ? "Manager Assigned" : "Admin",
+      reportingManager: r.employee?.work_detail?.reporting_to
+        ? "Manager Assigned"
+        : "Admin",
       joiningDate: r.employee?.work_detail?.date_of_joining || "N/A",
       resignDate: r.resignation_date,
       lastWorkingDay: r.last_working_date,
@@ -1324,12 +1920,16 @@ export default function Relieving() {
       hrRemarks: r.remarks || "",
       clearances: [],
       settlement: {
-        salarySettled: false, pfSettled: false, gratuitySettled: false,
-        expenseSettled: false, noDuesIssued: false, experienceLetterIssued: false
+        salarySettled: false,
+        pfSettled: false,
+        gratuitySettled: false,
+        expenseSettled: false,
+        noDuesIssued: false,
+        experienceLetterIssued: false,
       },
       exitInterviewDone: r.exit_interview_done || false,
       exitInterviewNotes: r.remarks || "",
-      employeeDbId: r.employee?.id || ""
+      employeeDbId: r.employee?.id || "",
     }));
   }, [data]);
 
@@ -1338,13 +1938,25 @@ export default function Relieving() {
   const totalCount = pageInfo?.totalCount || 0;
 
   const [sortField, setSortField] = useState<SortField>("resignDate");
-  const [sortDir, setSortDir]     = useState<SortDir>("desc");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [drawerRec, setDrawerRec] = useState<ExitRecord | null>(null);
-  const [formOpen, setFormOpen]   = useState<boolean>(false);
-  const [toast, setToast]         = useState<string>("");
-  const [rejectTarget, setRejectTarget] = useState<{ id: string; name: string; remarks: string } | null>(null);
-  const [relieveTarget, setRelieveTarget] = useState<{ id: string; name: string; status: ExitStatus; remarks?: string } | null>(null);
-  const [rejoinTarget, setRejoinTarget] = useState<{ id: string; name: string } | null>(null);
+  const [formOpen, setFormOpen] = useState<boolean>(false);
+  const [toast, setToast] = useState<string>("");
+  const [rejectTarget, setRejectTarget] = useState<{
+    id: string;
+    name: string;
+    remarks: string;
+  } | null>(null);
+  const [relieveTarget, setRelieveTarget] = useState<{
+    id: string;
+    name: string;
+    status: ExitStatus;
+    remarks?: string;
+  } | null>(null);
+  const [rejoinTarget, setRejoinTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -1356,42 +1968,79 @@ export default function Relieving() {
     let list = [...records];
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      list = list.filter((r: ExitRecord) =>
-        `${r.firstName} ${r.lastName}`.toLowerCase().includes(q) ||
-        r.empId.toLowerCase().includes(q)
+      list = list.filter(
+        (r: ExitRecord) =>
+          `${r.firstName} ${r.lastName}`.toLowerCase().includes(q) ||
+          r.empId.toLowerCase().includes(q),
       );
     }
     if (filters.department !== "All")
-      list = list.filter((r: ExitRecord) => r.department === filters.department);
+      list = list.filter(
+        (r: ExitRecord) => r.department === filters.department,
+      );
     if (filters.status !== "All")
       list = list.filter((r: ExitRecord) => r.status === filters.status);
     if (filters.dateFrom)
-      list = list.filter((r: ExitRecord) => r.lastWorkingDay >= filters.dateFrom);
+      list = list.filter(
+        (r: ExitRecord) => r.lastWorkingDay >= filters.dateFrom,
+      );
 
     list.sort((a: ExitRecord, b: ExitRecord) => {
-      let va = "", vb = "";
-      if (sortField === "name")       { va = `${a.firstName} ${a.lastName}`; vb = `${b.firstName} ${b.lastName}`; }
-      if (sortField === "empId")      { va = a.empId;      vb = b.empId; }
-      if (sortField === "department") { va = a.department; vb = b.department; }
-      if (sortField === "resignDate") { va = a.resignDate; vb = b.resignDate; }
-      if (sortField === "lastDay")    { va = a.lastWorkingDay; vb = b.lastWorkingDay; }
-      if (sortField === "status")     { va = a.status;     vb = b.status; }
+      let va = "",
+        vb = "";
+      if (sortField === "name") {
+        va = `${a.firstName} ${a.lastName}`;
+        vb = `${b.firstName} ${b.lastName}`;
+      }
+      if (sortField === "empId") {
+        va = a.empId;
+        vb = b.empId;
+      }
+      if (sortField === "department") {
+        va = a.department;
+        vb = b.department;
+      }
+      if (sortField === "resignDate") {
+        va = a.resignDate;
+        vb = b.resignDate;
+      }
+      if (sortField === "lastDay") {
+        va = a.lastWorkingDay;
+        vb = b.lastWorkingDay;
+      }
+      if (sortField === "status") {
+        va = a.status;
+        vb = b.status;
+      }
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
     return list;
   }, [records, filters, sortField, sortDir]);
 
   /* Stats */
-  const stats = useMemo(() => ({
-    total:    records.length,
-    pending:  records.filter((r: ExitRecord) => r.status === "Pending Approval").length,
-    clearance:records.filter((r: ExitRecord) => r.status === "Clearance In Progress" || r.status === "Approved").length,
-    relieved: records.filter((r: ExitRecord) => r.status === "Relieved").length,
-  }), [records]);
+  const stats = useMemo(
+    () => ({
+      total: records.length,
+      pending: records.filter(
+        (r: ExitRecord) => r.status === "Pending Approval",
+      ).length,
+      clearance: records.filter(
+        (r: ExitRecord) =>
+          r.status === "Clearance In Progress" || r.status === "Approved",
+      ).length,
+      relieved: records.filter((r: ExitRecord) => r.status === "Relieved")
+        .length,
+    }),
+    [records],
+  );
 
   function handleSort(field: SortField) {
-    if (sortField === field) setSortDir((d: SortDir) => (d === "asc" ? "desc" : "asc"));
-    else { setSortField(field); setSortDir("asc"); }
+    if (sortField === field)
+      setSortDir((d: SortDir) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortField(field);
+      setSortDir("asc");
+    }
   }
 
   function setFilter<K extends keyof FilterState>(key: K, val: FilterState[K]) {
@@ -1412,15 +2061,15 @@ export default function Relieving() {
     updateRelieving({
       variables: {
         id: rejectTarget.id,
-        input: { status: "Rejected", remarks: rejectTarget.remarks }
+        input: { status: "Rejected", remarks: rejectTarget.remarks },
       },
       refetchQueries: [
         { query: GET_RELIEVINGS },
         { query: GET_DASHBOARD_STATS },
         { query: GET_EMPLOYEES },
         { query: GET_LEAVES },
-        { query: GET_MOVEMENTS }
-      ]
+        { query: GET_MOVEMENTS },
+      ],
     });
     if (drawerRec?.id === rejectTarget.id) setDrawerRec(null);
     showToast("Exit request rejected.");
@@ -1436,15 +2085,15 @@ export default function Relieving() {
     updateRelieving({
       variables: {
         id: id,
-        input: { status: "Relieved" }
+        input: { status: "Relieved" },
       },
       refetchQueries: [
         { query: GET_RELIEVINGS },
         { query: GET_DASHBOARD_STATS },
         { query: GET_EMPLOYEES },
         { query: GET_LEAVES },
-        { query: GET_MOVEMENTS }
-      ]
+        { query: GET_MOVEMENTS },
+      ],
     });
     if (drawerRec?.id === id) setDrawerRec(null);
     showToast("Employee marked as Relieved. All clearances complete.");
@@ -1461,8 +2110,8 @@ export default function Relieving() {
       refetchQueries: [
         { query: GET_RELIEVINGS },
         { query: GET_EMPLOYEES },
-        { query: GET_DASHBOARD_STATS }
-      ]
+        { query: GET_DASHBOARD_STATS },
+      ],
     });
     if (drawerRec?.id === rejoinTarget.id) setDrawerRec(null);
     setRejoinTarget(null);
@@ -1476,8 +2125,8 @@ export default function Relieving() {
   /* Settlement toggle */
   function handleSettlementToggle(id: string, key: keyof Settlement) {
     // For now, no specific backend field for this, but can map to assets_returned if it fits
-    if (key === 'noDuesIssued') {
-       updateRelieving({ variables: { id, input: { assets_returned: true } } });
+    if (key === "noDuesIssued") {
+      updateRelieving({ variables: { id, input: { assets_returned: true } } });
     }
   }
 
@@ -1486,35 +2135,131 @@ export default function Relieving() {
     updateRelieving({
       variables: {
         id,
-        input: { exit_interview_done: done, remarks: notes }
-      }
+        input: { exit_interview_done: done, remarks: notes },
+      },
     });
     showToast("Exit interview status saved.");
   }
 
-
-  if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'70vh', background:'#fff' }}>
-      <div style={{ textAlign:'center' }}>
-        <div style={{ width:'40px', height:'40px', border:'3px solid #f1f5f9', borderTopColor:'#1d4ed8', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }} />
-        <p style={{ fontFamily:"'DM Sans',sans-serif", color:'#64748b', fontSize:14, fontWeight:500 }}>Loading relieving records...</p>
+  if (loading)
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "70vh",
+          background: "#fff",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "3px solid #f1f5f9",
+              borderTopColor: "#1d4ed8",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+              margin: "0 auto 12px",
+            }}
+          />
+          <p
+            style={{
+              fontFamily: "'DM Sans',sans-serif",
+              color: "#64748b",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+          >
+            Loading relieving records...
+          </p>
+        </div>
+        <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
       </div>
-      <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
-    </div>
-  );
+    );
 
-  if (error) return (
-    <div style={{ padding:40, textAlign:'center', background:'#fff', minHeight:'60vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ width:50, height:50, background:'#fef2f2', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
-        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#dc2626" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
+  if (error)
+    return (
+      <div
+        style={{
+          padding: 40,
+          textAlign: "center",
+          background: "#fff",
+          minHeight: "60vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 50,
+            height: 50,
+            background: "#fef2f2",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+          }}
+        >
+          <svg
+            width="24"
+            height="24"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="#dc2626"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <h3
+          style={{
+            fontFamily: "'DM Sans',sans-serif",
+            color: "#0f172a",
+            margin: 0,
+          }}
+        >
+          Failed to load data
+        </h3>
+        <p
+          style={{
+            fontFamily: "'DM Sans',sans-serif",
+            color: "#64748b",
+            fontSize: 14,
+            marginTop: 8,
+            maxWidth: 400,
+          }}
+        >
+          {error.message ||
+            "An unexpected error occurred while fetching exit requests."}
+        </p>
+        <button
+          onClick={() => refetch()}
+          style={{
+            marginTop: 20,
+            padding: "10px 20px",
+            borderRadius: 9,
+            background: "#1d4ed8",
+            color: "#fff",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: 13,
+            boxShadow: "0 4px 12px rgba(29,78,216,0.2)",
+          }}
+        >
+          Try Again
+        </button>
       </div>
-      <h3 style={{ fontFamily:"'DM Sans',sans-serif", color:'#0f172a', margin:0 }}>Failed to load data</h3>
-      <p style={{ fontFamily:"'DM Sans',sans-serif", color:'#64748b', fontSize:14, marginTop:8, maxWidth:400 }}>{error.message || "An unexpected error occurred while fetching exit requests."}</p>
-      <button onClick={() => refetch()} style={{ marginTop:20, padding:'10px 20px', borderRadius:9, background:'#1d4ed8', color:'#fff', border:'none', cursor:'pointer', fontWeight:700, fontSize:13, boxShadow:'0 4px 12px rgba(29,78,216,0.2)' }}>Try Again</button>
-    </div>
-  );
+    );
 
   /* ── RENDER ── */
   return (
@@ -1525,23 +2270,55 @@ export default function Relieving() {
       <div className="er-header">
         <div>
           <h1 className="er-title">Employee Relieving</h1>
-          <p className="er-sub">Manage employee exits, resignation approvals, clearances, and final settlements.</p>
+          <p className="er-sub">
+            Manage employee exits, resignation approvals, clearances, and final
+            settlements.
+          </p>
         </div>
-        <div className="er-header-actions">
-          <button className="er-header-btn" onClick={() => showToast("Exit report exported.")}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export Report
-          </button>
-          <button className="er-header-btn er-header-btn-primary"
-            onClick={() => setFormOpen((v: boolean) => !v)}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Record Exit
-          </button>
-        </div>
+        {isAdmin() && (
+          <div className="er-header-actions">
+            <button
+              className="er-header-btn"
+              onClick={() => showToast("Exit report exported.")}
+            >
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              Export Report
+            </button>
+            <button
+              className="er-header-btn er-header-btn-primary"
+              onClick={() => setFormOpen((v: boolean) => !v)}
+            >
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Record Exit
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Record Exit Modal — triggered by header button */}
@@ -1555,21 +2332,59 @@ export default function Relieving() {
 
       {/* Stat Cards */}
       <div className="er-stats">
-        {([
-          { label:"Total Exit Requests",   value:stats.total,     sub:"All time",              color:"#1d4ed8", bg:"#eff6ff" },
-          { label:"Pending Approvals",     value:stats.pending,   sub:"Awaiting HR decision",  color:"#b45309", bg:"#fffbeb" },
-          { label:"Clearance In Progress", value:stats.clearance, sub:"In exit process",        color:"#1d4ed8", bg:"#eff6ff" },
-          { label:"Employees Relieved",    value:stats.relieved,  sub:"Successfully exited",   color:"#059669", bg:"#f0fdf4" },
-        ] as const).map((s) => (
+        {(
+          [
+            {
+              label: "Total Exit Requests",
+              value: stats.total,
+              sub: "All time",
+              color: "#1d4ed8",
+              bg: "#eff6ff",
+            },
+            {
+              label: "Pending Approvals",
+              value: stats.pending,
+              sub: "Awaiting HR decision",
+              color: "#b45309",
+              bg: "#fffbeb",
+            },
+            {
+              label: "Clearance In Progress",
+              value: stats.clearance,
+              sub: "In exit process",
+              color: "#1d4ed8",
+              bg: "#eff6ff",
+            },
+            {
+              label: "Employees Relieved",
+              value: stats.relieved,
+              sub: "Successfully exited",
+              color: "#059669",
+              bg: "#f0fdf4",
+            },
+          ] as const
+        ).map((s) => (
           <div key={s.label} className="er-stat-card">
             <div className="er-stat-icon" style={{ background: s.bg }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke={s.color} strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg
+                width="20"
+                height="20"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke={s.color}
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
             </div>
             <div>
-              <div className="er-stat-val" style={{ color: s.color }}>{s.value}</div>
+              <div className="er-stat-val" style={{ color: s.color }}>
+                {s.value}
+              </div>
               <div className="er-stat-lbl">{s.label}</div>
               <div className="er-stat-sub">{s.sub}</div>
             </div>
@@ -1577,33 +2392,56 @@ export default function Relieving() {
         ))}
       </div>
 
-
       {/* Table Section */}
       <div className="er-section">
-
         {/* Filter Bar — single date filter for Relieving Date */}
         <div className="er-filter-bar">
           <div className="er-search-wrap">
             <span className="er-search-icon">
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              <svg
+                width="13"
+                height="13"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"
+                />
               </svg>
             </span>
-            <input className="er-search" placeholder="Search name or ID…"
-              value={filters.search} onChange={(e) => setFilter("search", e.target.value)}/>
+            <input
+              className="er-search"
+              placeholder="Search name or ID…"
+              value={filters.search}
+              onChange={(e) => setFilter("search", e.target.value)}
+            />
           </div>
 
           <div className="er-filter-divider" />
 
-          <select className="er-filter-sel" value={filters.department}
-            onChange={(e) => setFilter("department", e.target.value)}>
+          <select
+            className="er-filter-sel"
+            value={filters.department}
+            onChange={(e) => setFilter("department", e.target.value)}
+          >
             {DEPARTMENTS.map((d: string) => (
-              <option key={d} value={d}>{d === "All" ? "All Departments" : d}</option>
+              <option key={d} value={d}>
+                {d === "All" ? "All Departments" : d}
+              </option>
             ))}
           </select>
 
-          <select className="er-filter-sel" value={filters.status}
-            onChange={(e) => setFilter("status", e.target.value as FilterState["status"])}>
+          <select
+            className="er-filter-sel"
+            value={filters.status}
+            onChange={(e) =>
+              setFilter("status", e.target.value as FilterState["status"])
+            }
+          >
             <option value="All">All Status</option>
             <option value="Pending Approval">Pending Approval</option>
             <option value="Approved">Approved</option>
@@ -1612,11 +2450,16 @@ export default function Relieving() {
             <option value="Rejected">Rejected</option>
           </select>
 
-          <input type="date" className="er-filter-date"
+          <input
+            type="date"
+            className="er-filter-date"
             value={filters.dateFrom}
-            onChange={(e) => setFilter("dateFrom", e.target.value)}/>
+            onChange={(e) => setFilter("dateFrom", e.target.value)}
+          />
 
-          <span className="er-filter-count">{filtered.length} of {records.length} records</span>
+          <span className="er-filter-count">
+            {filtered.length} of {records.length} records
+          </span>
         </div>
 
         {/* Table — columns: Emp ID | Employee | Department | Designation | Relieving Date | Status | Actions */}
@@ -1624,9 +2467,19 @@ export default function Relieving() {
           {filtered.length === 0 ? (
             <div className="er-empty">
               <div className="er-empty-icon">
-                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <svg
+                  width="22"
+                  height="22"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.7}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
                 </svg>
               </div>
               <p>No exit records found</p>
@@ -1636,19 +2489,48 @@ export default function Relieving() {
             <table className="er-table">
               <thead>
                 <tr>
-                  <SortTh field="empId"      label="Emp ID"          sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                  <SortTh field="name"        label="Employee"        sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                  <SortTh field="department"  label="Department"      sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                  <SortTh
+                    field="empId"
+                    label="Emp ID"
+                    sortField={sortField}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    field="name"
+                    label="Employee"
+                    sortField={sortField}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    field="department"
+                    label="Department"
+                    sortField={sortField}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
                   <th>Designation</th>
-                  <SortTh field="lastDay"     label="Relieving Date"  sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                  <SortTh field="status"      label="Status"          sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                  <th style={{ textAlign:"center" }}>Actions</th>
+                  <SortTh
+                    field="lastDay"
+                    label="Relieving Date"
+                    sortField={sortField}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortTh
+                    field="status"
+                    label="Status"
+                    sortField={sortField}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <th style={{ textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((rec: ExitRecord, idx) => (
                   <tr key={rec.id} className={idx < 5 ? "er-row-in" : ""}>
-
                     {/* Emp ID — Inter */}
                     <td>
                       <span className="er-emp-id">{rec.empId}</span>
@@ -1657,39 +2539,70 @@ export default function Relieving() {
                     {/* Employee Name */}
                     <td>
                       <div className="er-emp-cell">
-                        <div className="er-emp-av" style={{ background: rec.avatarColor }}>
+                        <div
+                          className="er-emp-av"
+                          style={{ background: rec.avatarColor }}
+                        >
                           {getInitials(rec.firstName, rec.lastName)}
                         </div>
                         <div>
-                          <div className="er-emp-name">{rec.firstName} {rec.lastName}</div>
+                          <div className="er-emp-name">
+                            {rec.firstName} {rec.lastName}
+                          </div>
                           <div className="er-emp-sub">{rec.officialEmail}</div>
                         </div>
                       </div>
                     </td>
 
                     {/* Department */}
-                    <td><span className="er-dept-pill">{rec.department}</span></td>
+                    <td>
+                      <span className="er-dept-pill">{rec.department}</span>
+                    </td>
 
                     {/* Designation */}
-                    <td><span className="er-desig">{rec.designation}</span></td>
+                    <td>
+                      <span className="er-desig">{rec.designation}</span>
+                    </td>
 
                     {/* Relieving Date — Inter */}
-                    <td><span className="er-date-val">{formatDate(rec.lastWorkingDay)}</span></td>
+                    <td>
+                      <span className="er-date-val">
+                        {formatDate(rec.lastWorkingDay)}
+                      </span>
+                    </td>
 
                     {/* Status */}
-                    <td><StatusBadge status={rec.status} /></td>
+                    <td>
+                      <StatusBadge status={rec.status} />
+                    </td>
 
                     {/* Actions — 3-dot menu */}
-                    <td style={{ textAlign:"center" }}>
+                    <td style={{ textAlign: "center" }}>
                       <DotsMenu
                         rec={rec}
                         onView={() => setDrawerRec(rec)}
-                        onApprove={() => initiateApprove(rec.id, `${rec.firstName} ${rec.lastName}`, "")}
-                        onReject={() => initiateReject(rec.id, `${rec.firstName} ${rec.lastName}`, "")}
-                        onRelieve={() => initiateRelieve(rec.id, `${rec.firstName} ${rec.lastName}`)}
+                        onApprove={() =>
+                          initiateApprove(
+                            rec.id,
+                            `${rec.firstName} ${rec.lastName}`,
+                            "",
+                          )
+                        }
+                        onReject={() =>
+                          initiateReject(
+                            rec.id,
+                            `${rec.firstName} ${rec.lastName}`,
+                            "",
+                          )
+                        }
+                        onRelieve={() =>
+                          initiateRelieve(
+                            rec.id,
+                            `${rec.firstName} ${rec.lastName}`,
+                          )
+                        }
                       />
                     </td>
-
                   </tr>
                 ))}
               </tbody>
@@ -1701,28 +2614,32 @@ export default function Relieving() {
         {totalPages > 1 && (
           <div className="er-pagination">
             <div className="er-pag-info">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+              {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}{" "}
+              results
             </div>
             <div className="er-pag-btns">
-              <button 
-                className="er-pag-btn" 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              <button
+                className="er-pag-btn"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
                 Previous
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button 
-                  key={p} 
-                  className={`er-pag-btn ${p === currentPage ? 'active' : ''}`} 
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  className={`er-pag-btn ${p === currentPage ? "active" : ""}`}
                   onClick={() => setCurrentPage(p)}
                 >
                   {p}
                 </button>
               ))}
-              <button 
-                className="er-pag-btn" 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              <button
+                className="er-pag-btn"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={currentPage === totalPages}
               >
                 Next
@@ -1737,12 +2654,20 @@ export default function Relieving() {
         <ExitDrawer
           rec={drawerRec}
           onClose={() => setDrawerRec(null)}
-          onApprove={(id: string, remarks: string) => { initiateApprove(id, `${drawerRec.firstName} ${drawerRec.lastName}`, remarks); }}
+          onApprove={(id: string, remarks: string) => {
+            initiateApprove(
+              id,
+              `${drawerRec.firstName} ${drawerRec.lastName}`,
+              remarks,
+            );
+          }}
           onReject={(id: string, name: string, remarks: string) => {
             initiateReject(id, name, remarks);
             setDrawerRec(null);
           }}
-          onRelieve={(id: string) => { initiateRelieve(id, `${drawerRec.firstName} ${drawerRec.lastName}`); }}
+          onRelieve={(id: string) => {
+            initiateRelieve(id, `${drawerRec.firstName} ${drawerRec.lastName}`);
+          }}
           onRejoin={initiateRejoin}
           onClearanceUpdate={handleClearanceUpdate}
           onSettlementToggle={handleSettlementToggle}
@@ -1784,8 +2709,19 @@ export default function Relieving() {
       {/* Toast */}
       {toast && (
         <div className="er-toast">
-          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#22c55e" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          <svg
+            width="15"
+            height="15"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="#22c55e"
+            strokeWidth={2.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
           {toast}
         </div>

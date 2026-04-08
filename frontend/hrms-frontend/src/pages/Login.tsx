@@ -17,6 +17,8 @@ const LOGIN_MUTATION = `
   }
 `;
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -44,7 +46,7 @@ export default function Login() {
     localStorage.clear();
 
     try {
-      const response = await fetch("http://localhost:5000/graphql", {
+      const response = await fetch(`${API_URL}/graphql`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -58,7 +60,9 @@ export default function Login() {
       const result = await response.json();
 
       if (result.errors) {
-        setError(result.errors[0]?.message || "Login failed. Please try again.");
+        setError(
+          result.errors[0]?.message || "Login failed. Please try again.",
+        );
         return;
       }
 
@@ -73,7 +77,10 @@ export default function Login() {
 
       navigate("/dashboard");
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Network error. Please check your connection.";
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : "Network error. Please check your connection.";
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -86,7 +93,7 @@ export default function Login() {
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         minHeight: "100vh",
-        fontFamily: "Inter, sans-serif"
+        fontFamily: "Inter, sans-serif",
       }}
     >
       {/* LEFT PANEL */}
@@ -97,12 +104,10 @@ export default function Login() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          padding: "60px"
+          padding: "60px",
         }}
       >
-        <h1 style={{ fontSize: "34px", marginBottom: "20px" }}>
-          CampusHR
-        </h1>
+        <h1 style={{ fontSize: "34px", marginBottom: "20px" }}>CampusHR</h1>
         <p style={{ opacity: 0.8, lineHeight: 1.6 }}>
           "Building stronger institutions through smarter workforce management."
         </p>
@@ -114,7 +119,7 @@ export default function Login() {
           background: "#f1f5f9",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
         }}
       >
         <div
@@ -123,12 +128,10 @@ export default function Login() {
             background: "white",
             padding: "40px",
             borderRadius: "12px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.08)"
+            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
           }}
         >
-          <h2 style={{ marginBottom: "10px" }}>
-            Welcome back
-          </h2>
+          <h2 style={{ marginBottom: "10px" }}>Welcome back</h2>
           <p style={{ color: "#64748b", marginBottom: "30px" }}>
             Sign in to your account
           </p>
@@ -141,7 +144,7 @@ export default function Login() {
                 padding: "10px",
                 borderRadius: "6px",
                 marginBottom: "20px",
-                fontSize: "14px"
+                fontSize: "14px",
               }}
             >
               {error}
@@ -159,7 +162,7 @@ export default function Login() {
                 padding: "12px",
                 marginBottom: "15px",
                 borderRadius: "8px",
-                border: "1px solid #e2e8f0"
+                border: "1px solid #e2e8f0",
               }}
             />
 
@@ -173,7 +176,7 @@ export default function Login() {
                 padding: "12px",
                 marginBottom: "20px",
                 borderRadius: "8px",
-                border: "1px solid #e2e8f0"
+                border: "1px solid #e2e8f0",
               }}
             />
 
@@ -188,7 +191,7 @@ export default function Login() {
                 border: "none",
                 borderRadius: "8px",
                 cursor: "pointer",
-                fontWeight: 600
+                fontWeight: 600,
               }}
             >
               {loading ? "Signing in..." : "Sign in"}

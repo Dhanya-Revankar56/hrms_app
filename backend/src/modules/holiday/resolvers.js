@@ -3,11 +3,11 @@ const holidayService = require("./service");
 // 🛡 Multi-Tenant Holiday Resolvers
 const resolvers = {
   Query: {
-    holidays: async (_, { year, month }, ctx) => {
+    holidays: async (_, { year, month }, _ctx) => {
       const result = await holidayService.listHolidays({ year, month });
       return result.items || [];
     },
-    holiday: async (_, { id }, ctx) => {
+    holiday: async (_, { id }, _ctx) => {
       return await holidayService.getHolidayById(id);
     },
   },
@@ -26,7 +26,8 @@ const resolvers = {
 
   Holiday: {
     id: (parent) => parent._id?.toString() || parent.id,
-    tenant_id: (parent) => parent.tenant_id?.toString() || parent.institution_id,
+    tenant_id: (parent) =>
+      parent.tenant_id?.toString() || parent.institution_id,
     date: (parent) => {
       const dt = parent.date || parent.holiday_date;
       return dt instanceof Date ? dt.toISOString() : dt;

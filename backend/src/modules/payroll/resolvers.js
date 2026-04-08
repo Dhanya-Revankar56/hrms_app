@@ -3,20 +3,24 @@ const payrollService = require("./service");
 // 🛡 Multi-Tenant Payroll Resolvers
 const resolvers = {
   Query: {
-    salaryRecord: async (_, { employee_id }, ctx) => {
+    salaryRecord: async (_, { employee_id }, _ctx) => {
       return await payrollService.getSalaryRecord(employee_id);
     },
-    payslips: async (_, { employee_id, pagination }, ctx) => {
+    payslips: async (_, { employee_id, pagination }, _ctx) => {
       return await payrollService.getPayslips(employee_id, pagination);
     },
   },
 
   Mutation: {
-    updateSalaryRecord: async (_, { employee_id, input }, ctx) => {
+    updateSalaryRecord: async (_, { employee_id, input }, _ctx) => {
       return await payrollService.updateSalaryRecord(employee_id, input);
     },
-    generatePayslip: async (_, { employee_id, month, amount }, ctx) => {
-      return await payrollService.generatePayslip({ employee_id, month, amount });
+    generatePayslip: async (_, { employee_id, month, amount }, _ctx) => {
+      return await payrollService.generatePayslip({
+        employee_id,
+        month,
+        amount,
+      });
     },
   },
 
@@ -25,7 +29,7 @@ const resolvers = {
   },
   Payslip: {
     id: (parent) => parent._id.toString(),
-  }
+  },
 };
 
 module.exports = resolvers;
