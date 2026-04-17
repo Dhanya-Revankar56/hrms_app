@@ -340,14 +340,30 @@ const Reports: React.FC = () => {
     return true;
   };
 
-  const onGenerate = async (mode: "view" | "download") => {
+  const onGenerate = async (mode: "download" | "view") => {
     if (!activeReport) return;
     if (!validateFilters()) return;
 
     if (mode === "view") setViewing(true);
     else setDownloading(true);
 
-    const url = `${API_URL}/api/reports?${buildQueryString()}&${mode === "view" ? "view" : "download"}=pdf`;
+    // 🕊️ PRE-EMPTIVE TAB: Open immediately to bypass popup blockers in deployed environments
+    let newTab: Window | null = null;
+    if (mode === "view") {
+      newTab = window.open("about:blank", "_blank");
+      if (newTab) {
+        newTab.document.write(
+          '<div style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; color: #64748b; background: #f8fafc;">' +
+            '<div style="font-size: 40px; margin-bottom: 20px;">📄</div>' +
+            "<div>Preparing your report, please wait...</div>" +
+            "</div>",
+        );
+      }
+    }
+
+    const url = `${API_URL}/api/reports?${buildQueryString()}&${
+      mode === "view" ? "view" : "download"
+    }=pdf`;
     try {
       const token = localStorage.getItem("token");
       const tenantId = localStorage.getItem("tenant_id");
@@ -358,24 +374,39 @@ const Reports: React.FC = () => {
         },
       });
       if (!response.ok) throw new Error("Failed to generate report");
+
       const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+
+      // 🎯 FORCE MIME TYPE: Ensure browser handles it as a PDF document for native viewing
+      const pdfBlob = new Blob([blob], { type: "application/pdf" });
+      const blobUrl = window.URL.createObjectURL(pdfBlob);
+
       if (mode === "view") {
-        const w = window.open(blobUrl, "_blank");
-        if (!w) {
-          const a = document.createElement("a");
-          a.href = blobUrl;
-          a.download = `${activeReport.name}.pdf`;
-          a.click();
+        if (newTab) {
+          newTab.location.href = blobUrl;
+          // Set the title of the tab to the report name after a short delay
+          setTimeout(() => {
+            if (newTab) {
+              try {
+                newTab.document.title = activeReport!.name;
+              } catch {
+                // Ignore cross-origin title errors
+              }
+            }
+          }, 1000);
+        } else {
+          // Final fallback
+          window.open(blobUrl, "_blank");
         }
       } else {
         const a = document.createElement("a");
         a.href = blobUrl;
-        a.download = `${activeReport.name}.pdf`;
+        a.download = `${activeReport!.name}.pdf`;
         a.click();
       }
     } catch (err) {
       console.error("PDF Error:", err);
+      if (newTab) newTab.close();
       alert("Error generating PDF.");
     } finally {
       setViewing(false);
