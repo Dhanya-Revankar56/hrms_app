@@ -12,12 +12,55 @@ module.exports = [
     model: "Employee",
     template: "employee-count",
     preFilter: { is_active: { $ne: false } },
-    filters: [],
+    filters: [
+      {
+        key: "departmentId",
+        type: "objectId",
+        applyTo: "work_detail.department",
+        op: "$eq",
+      },
+      {
+        key: "category",
+        type: "enum",
+        applyTo: "personal_detail.category",
+        op: "$eq",
+        options: ["Teaching", "Non-Teaching", "Support Staff", "General"],
+      },
+    ],
     fieldMap: {
       "work_detail.department.name": "Department",
+      "personal_detail.category": "Category",
       _id: "Total Employees Count",
     },
-    populate: [{ path: "work_detail.department", select: "name" }],
+    pipeline: [
+      {
+        $lookup: {
+          from: "departments",
+          localField: "work_detail.department",
+          foreignField: "_id",
+          as: "dept_info",
+        },
+      },
+      { $unwind: { path: "$dept_info", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: {
+            dept: "$dept_info.name",
+            cat: "$personal_detail.category",
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: "$count",
+          "work_detail.department.name": {
+            $ifNull: ["$_id.dept", "Uncategorized"],
+          },
+          "personal_detail.category": { $ifNull: ["$_id.cat", "General"] },
+        },
+      },
+    ],
     sortBy: { field: "work_detail.department.name", order: 1 },
   },
 

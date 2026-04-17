@@ -18,6 +18,18 @@ const mapActionToEvent = (action) => {
 /**
  * Extracts a friendly module name from the action string
  */
+const formatDate = (date) => {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(date));
+};
+
 const extractModule = (action) => {
   const parts = (action || "").split("_");
   return parts[0]?.toLowerCase() || "system";
@@ -159,6 +171,7 @@ exports.listEventLogs = async ({
     description: i.metadata?.description || `Performed ${i.action} action`,
     new_data: i.metadata,
     timestamp: i.timestamp.toISOString(),
+    formatted_timestamp: formatDate(i.timestamp),
     tenant_id: i.tenant_id.toString(),
   }));
 

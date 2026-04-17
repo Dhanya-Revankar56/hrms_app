@@ -12,7 +12,11 @@ dns.setDefaultResultOrder("ipv4first");
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 60000,
+      connectTimeoutMS: 60000,
+      heartbeatFrequencyMS: 5000,
+      socketTimeoutMS: 60000,
+      maxPoolSize: 10,
       family: 4,
     });
     console.log(`✅ MongoDB connected: ${conn.connection.host}`);

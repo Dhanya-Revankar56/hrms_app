@@ -39,6 +39,13 @@ const resolveModel = (modelName) => {
 };
 
 /**
+ * Central service registry — maps service method strings to actual module exports.
+ */
+const SERVICE_MAP = {
+  listEventLogs: () => require("../../eventLog/service").listEventLogs,
+};
+
+/**
  * Fetch documents from MongoDB using a report config + pre-built filter.
  *
  * @param {Object} config - Report config from registry
@@ -46,7 +53,44 @@ const resolveModel = (modelName) => {
  * @returns {Array}       - Lean Mongoose documents
  */
 const fetchData = async (config, filter) => {
+  // 🚀 CUSTOM SERVICE LOGIC
+  // If the report specifies a serviceMethod, we delegate data fetching
+  // to that service (e.g., for complex joins or enriched data).
+  if (config.serviceMethod) {
+    const method = SERVICE_MAP[config.serviceMethod]();
+    if (!method)
+      throw new Error(`Service method ${config.serviceMethod} not found`);
+
+    // Map standard report filters to service-specific arguments
+    const serviceArgs = {
+      ...filter,
+      date_from: filter.timestamp?.$gte || filter.date?.$gte,
+      date_to: filter.timestamp?.$lte || filter.date?.$lte,
+      pagination: { limit: config.limit || 5000, page: 1 },
+    };
+
+    const result = await method(serviceArgs);
+    return result.items || result;
+  }
+
   const Model = resolveModel(config.model);
+
+  // 🚀 AGGREGATION PIPELINE SUPPORT
+  // If the report defines a pipeline, use it for server-side processing.
+  if (config.pipeline) {
+    const pipeline = Array.isArray(config.pipeline)
+      ? [...config.pipeline]
+      : typeof config.pipeline === "function"
+        ? config.pipeline(filter)
+        : [];
+
+    // Prepend match stage to respect the filtered criteria
+    if (Object.keys(filter).length > 0) {
+      pipeline.unshift({ $match: filter });
+    }
+
+    return await Model.aggregate(pipeline).option({ skipTenant: true });
+  }
 
   let query = Model.find(filter).setOptions({ skipTenant: true });
 

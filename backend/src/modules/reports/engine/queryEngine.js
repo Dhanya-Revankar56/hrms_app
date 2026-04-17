@@ -16,10 +16,16 @@ const toObjectId = (val) => {
   return val;
 };
 
-const parseDate = (str) => {
+const parseDate = (str, isEnd = false) => {
   if (!str) return null;
   const d = new Date(str);
-  return isNaN(d.getTime()) ? null : d;
+  if (isNaN(d.getTime())) return null;
+  if (isEnd) {
+    d.setHours(23, 59, 59, 999);
+  } else {
+    d.setHours(0, 0, 0, 0);
+  }
+  return d;
 };
 
 /**
@@ -32,14 +38,21 @@ const resolveSpecialFilter = async (filterDef, value, req = null) => {
       withTenant({ "work_detail.department": deptId }, req),
     )
       .setOptions({ skipTenant: true })
-      .select("_id")
+      .select("_id user_id")
       .lean();
 
-    const ids = employees.map((e) => e._id);
-    const finalIds = filterDef.castToString
-      ? ids.map((id) => id.toString())
-      : ids;
-    return { $in: finalIds };
+    const actorIds = employees.map((e) => e.user_id).filter((id) => id);
+    const targetIds = employees.map((e) => e._id);
+
+    return {
+      __spreadKeys: true,
+      user_id: filterDef.castToString
+        ? actorIds.map((id) => id.toString())
+        : actorIds,
+      record_id: filterDef.castToString
+        ? targetIds.map((id) => id.toString())
+        : targetIds,
+    };
   }
 
   // 🕒 2. Check if a leave record overlaps a specific date
@@ -152,7 +165,7 @@ const buildQuery = async (config, params, req = null) => {
 
     switch (filterDef.type) {
       case "date": {
-        const date = parseDate(rawValue);
+        const date = parseDate(rawValue, filterDef.op === "$lte");
         if (!date) break;
         if (!filter[filterDef.applyTo]) filter[filterDef.applyTo] = {};
         filter[filterDef.applyTo][filterDef.op] = date;

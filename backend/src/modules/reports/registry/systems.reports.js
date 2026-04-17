@@ -4,7 +4,8 @@ module.exports = [
     id: "eventLog.audit",
     label: "Event Register Audit Log",
     category: "system",
-    model: "EventLog",
+    model: "AuditLog",
+    serviceMethod: "listEventLogs",
     template: "system-report",
     filters: [
       { key: "startDate", type: "date", applyTo: "timestamp", op: "$gte" },
@@ -15,11 +16,11 @@ module.exports = [
         type: "objectId",
         applyTo: "user_id",
         subQuery: "employeesByDepartment",
-        castToString: true, // Flag to ensure IDs are converted to strings for EventLog.user_id
+        castToString: true,
       },
     ],
     fieldMap: {
-      timestamp: "Time",
+      formatted_timestamp: "Time",
       user_name: "User",
       action_type: "Action",
       description: "Description",

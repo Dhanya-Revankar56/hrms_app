@@ -59,25 +59,6 @@ const ReportEngine = {
       // ── 4. Fetch data ───────────────────────────────────────────────────
       let rawDocs = await fetchData(config, filter);
 
-      // 📊 Special Case: Employee Count Report (Group & Count in memory)
-      if (reportId === "employee.count") {
-        const counts = {};
-        rawDocs.forEach((emp) => {
-          const dept = emp.work_detail?.department?.name || "Uncategorized";
-          const cat = emp.personal_detail?.category || "General";
-          const key = `${dept}|${cat}`;
-          if (!counts[key])
-            counts[key] = { department: dept, category: cat, count: 0 };
-          counts[key].count++;
-        });
-        // Transform counts map back into a flat array of 'fake' docs for normalization
-        rawDocs = Object.values(counts).map((c) => ({
-          work_detail: { department: { name: c.department } },
-          personal_detail: { category: c.category },
-          _id: c.count, // We map _id to the count in fieldMap
-        }));
-      }
-
       // 📊 Special Case: Leave Balance Report — pivot leave types into single-column-per-type layout
       if (config.pivotMode === "leaveBalance") {
         const empMap = {};

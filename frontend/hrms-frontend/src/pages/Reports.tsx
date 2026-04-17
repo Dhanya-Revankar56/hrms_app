@@ -201,6 +201,8 @@ const CSS = `
   @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 `;
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const Reports: React.FC = () => {
   const [view, setView] = useState<"CATEGORIES" | "REPORTS" | "GENERATE">(
     "CATEGORIES",
@@ -281,7 +283,7 @@ const Reports: React.FC = () => {
   const fetchPreview = useCallback(async () => {
     if (!activeReport) return;
     setLoadingPreview(true);
-    const url = `http://localhost:5000/api/reports?${buildQueryString({ limit: "10" })}`;
+    const url = `${API_URL}/api/reports?${buildQueryString({ limit: "10" })}`;
     try {
       const token = localStorage.getItem("token");
       const tenantId = localStorage.getItem("tenant_id");
@@ -345,7 +347,7 @@ const Reports: React.FC = () => {
     if (mode === "view") setViewing(true);
     else setDownloading(true);
 
-    const url = `http://localhost:5000/api/reports?${buildQueryString()}&${mode === "view" ? "view" : "download"}=pdf`;
+    const url = `${API_URL}/api/reports?${buildQueryString()}&${mode === "view" ? "view" : "download"}=pdf`;
     try {
       const token = localStorage.getItem("token");
       const tenantId = localStorage.getItem("tenant_id");
@@ -384,7 +386,7 @@ const Reports: React.FC = () => {
 
   const handleCsvExport = () => {
     if (!activeReport) return;
-    const url = `http://localhost:5000/api/reports?${buildQueryString()}&download=csv`;
+    const url = `${API_URL}/api/reports?${buildQueryString()}&download=csv`;
     const token = localStorage.getItem("token");
     const tenantId = localStorage.getItem("tenant_id");
     fetch(url, {
@@ -800,9 +802,8 @@ const Reports: React.FC = () => {
               </div>
             )}
 
-            {/* Department — all reports (except Employee Count) */}
-            {activeReport?.id !== "employee.count" &&
-              !isHolidayMonthly(activeReport?.id) &&
+            {/* Department Filter */}
+            {!isHolidayMonthly(activeReport?.id) &&
               !isHolidayYearly(activeReport?.id) && (
                 <div className={`rep-field ${isUserHod ? "is-locked" : ""}`}>
                   <label>Department {isUserHod ? "(Locked)" : ""}</label>
@@ -824,7 +825,26 @@ const Reports: React.FC = () => {
                 </div>
               )}
 
-            {/* Filters */}
+            {/* Category Filter — For Employee Count & List */}
+            {(activeReport?.id === "employee.count" ||
+              activeReport?.id === "employee.list") && (
+              <div className="rep-field">
+                <label>Category</label>
+                <select
+                  className="rep-select"
+                  value={filters.category}
+                  onChange={(e) =>
+                    setFilters({ ...filters, category: e.target.value })
+                  }
+                >
+                  <option value="All">All Categories</option>
+                  <option value="Teaching">Teaching</option>
+                  <option value="Non-Teaching">Non-Teaching</option>
+                  <option value="Support Staff">Support Staff</option>
+                  <option value="General">General</option>
+                </select>
+              </div>
+            )}
 
             {/* Leave Type — daily, monthly, approval */}
             {(isDailyLeave(activeReport?.id) ||
