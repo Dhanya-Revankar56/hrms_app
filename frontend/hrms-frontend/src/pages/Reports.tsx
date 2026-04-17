@@ -18,6 +18,26 @@ interface Category {
   icon: React.ReactNode;
   reports: Report[];
   description: string;
+  isComingSoon?: boolean;
+}
+
+interface SettingsData {
+  settings: {
+    departments: {
+      id: string;
+      name: string;
+    }[];
+  };
+}
+
+interface ProfileData {
+  me: {
+    work_detail?: {
+      department?: {
+        id: string;
+      };
+    };
+  };
 }
 
 const LEAVE_TYPES = [
@@ -208,8 +228,8 @@ const Reports: React.FC = () => {
     academicYear: "2025-26",
   });
 
-  const { data: settingsData } = useQuery(GET_SETTINGS);
-  const { data: profileData } = useQuery(GET_MY_PROFILE);
+  const { data: settingsData } = useQuery<SettingsData>(GET_SETTINGS);
+  const { data: profileData } = useQuery<ProfileData>(GET_MY_PROFILE);
 
   const departments = settingsData?.settings?.departments || [];
 
@@ -233,12 +253,6 @@ const Reports: React.FC = () => {
       }
     }
   }, [isUserHod, currentUserDeptId, filters.department]);
-
-  useEffect(() => {
-    if (view === "GENERATE" && activeReport) {
-      fetchPreview();
-    }
-  }, [view, activeReport, filters, fetchPreview]);
 
   const buildQueryString = useCallback(
     (extra: Record<string, string> = {}) => {
@@ -291,7 +305,13 @@ const Reports: React.FC = () => {
     } finally {
       setLoadingPreview(false);
     }
-  }, [activeReport, buildQueryString]); // buildQueryString is defined outside but uses filters, I should probably also wrap buildQueryString in useCallback or just put activeReport and buildQueryString here.
+  }, [activeReport, buildQueryString]);
+
+  useEffect(() => {
+    if (view === "GENERATE" && activeReport) {
+      fetchPreview();
+    }
+  }, [view, activeReport, filters, fetchPreview]);
 
   const validateFilters = () => {
     if (
@@ -527,8 +547,14 @@ const Reports: React.FC = () => {
           {previewColumns.map((col) => {
             const val = row[col];
             if (col === "Leave Status" || col === "Status")
-              return <td key={col}>{statusBadge(val)}</td>;
-            return <td key={col}>{val ?? "—"}</td>;
+              return <td key={col}>{statusBadge(val as string)}</td>;
+            return (
+              <td key={col}>
+                {val !== null && typeof val === "object"
+                  ? JSON.stringify(val)
+                  : String(val ?? "—")}
+              </td>
+            );
           })}
         </tr>
       );
