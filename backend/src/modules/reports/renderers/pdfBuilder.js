@@ -6,6 +6,18 @@ const Settings = require("../../settings/model");
 const Employee = require("../../employee/model");
 const Department = require("../../settings/department.model");
 
+// 🌐 Cloud Dependencies (Conditional for serverless environments)
+let chromium;
+try {
+  if (process.env.NODE_ENV === "production") {
+    chromium = require("@sparticuz/chromium");
+  }
+} catch (e) {
+  console.warn(
+    "[PDFBuilder] @sparticuz/chromium not found, falling back to local Chrome",
+  );
+}
+
 /**
  * 🖨 PDF BUILDER
  * Converts normalized report rows + report config into a styled PDF
@@ -121,10 +133,17 @@ const getInstitutionInfo = async (tenantId) => {
   try {
     if (!tenantId) return defaults;
 
+    console.log(`[PDFBuilder] Fetching settings for tenant: ${tenantId}`);
+
+    // Add a quick timeout for settings lookup to prevent hanging on flaky networks
     const settings = await Settings.findOne({ tenant_id: tenantId })
       .setOptions({ skipTenant: true })
       .lean();
-    if (!settings) return defaults;
+
+    if (!settings) {
+      console.warn("[PDFBuilder] Settings not found, using defaults");
+      return defaults;
+    }
 
     // Build a single-line address string for the letterhead footer
     const addrParts = [
@@ -197,10 +216,20 @@ const getInstitutionInfo = async (tenantId) => {
  * @param {Object}   res      - Express response object
  */
 const generatePDF = async (rows, columns, config, params, tenantId, res) => {
+  console.log(`[PDFBuilder] Starting generation for: ${config.id || "report"}`);
+
   // 1. Institution info from Settings
-  const institution = await getInstitutionInfo(tenantId);
+  console.log("[PDFBuilder] Fetching institution metadata...");
+  const institution = await getInstitutionInfo(tenantId).catch((err) => {
+    console.warn(
+      "[PDFBuilder] Metadata lookup failed, using fallbacks:",
+      err.message,
+    );
+    return { name: "Institution", code: "HRMS" };
+  });
 
   // 2. Data Grouping (Optional) — Restructure rows for segregated layouts
+  console.log(`[PDFBuilder] Processing ${rows.length} rows...`);
   let displayData = rows;
   let isGrouped = false;
 
@@ -354,26 +383,36 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
   const template = loadTemplate(config.template || "base-report");
   const htmlContent = template(templateData);
 
-  // 4. Render PDF with Puppeteer + system Chrome
-  const executablePath = findChrome();
+  // 4. Render PDF with Puppeteer
   let browser;
 
   try {
-    browser = await puppeteer.launch({
-      executablePath,
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-      ],
-    });
+    console.log("[PDFBuilder] Launching Chromium...");
+
+    const isProduction = process.env.NODE_ENV === "production";
+    const launchOptions = {
+      headless: isProduction ? chromium.headless : "new",
+      args: isProduction
+        ? chromium.args
+        : [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+          ],
+      executablePath: isProduction
+        ? await chromium.executablePath()
+        : findChrome(),
+    };
+
+    browser = await puppeteer.launch(launchOptions);
+    console.log("[PDFBuilder] Browser launched successfully");
 
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(60000);
     page.setDefaultTimeout(60000);
 
+    console.log("[PDFBuilder] Rendering HTML to PDF...");
     // Set content and wait for all resources to settle
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
 
