@@ -26,12 +26,12 @@ async function startServer() {
     context: ({ req }) => {
       // 🛡 Extract user identity safely
       const user = req ? getUserFromToken(req) : null;
-      
-      return { 
+
+      return {
         req, // 🛡 Include req for resolvers that need IP/UserAgent
         tenant_id: user?.tenant_id || null,
         institution_id: user?.tenant_id || null,
-        user 
+        user,
       };
     },
     formatError: (err) => {
@@ -55,11 +55,37 @@ async function startServer() {
   // 🛡 Zero-Leakage Tenant Scoping Middleware (Enterprise Grade)
   app.use((req, res, next) => {
     const user = req ? getUserFromToken(req) : null;
-    const tenantId = user?.tenant_id || null;
+    req.user = user; // 🛡 Attach for REST controllers
 
-    // Use the new multi-property context for the plugin
+    const tenantId = user?.tenant_id || null;
+    req.tenant_id = tenantId; // 🛡 Flat access for REST utilities
+    req.institution_id = tenantId; // Backward compatibility
+
+    // 🛡 Protection for REST API (except health check)
+    if (!tenantId && req.path.startsWith("/api/reports")) {
+      console.warn(
+        `[Server] Blocked unauthenticated report request to ${req.path}. User: ${user ? "present" : "null"}, Tenant: ${tenantId}`,
+      );
+      return res
+        .status(401)
+        .json({ success: false, error: "Authentication required" });
+    }
+
+    if (!tenantId && req.path.startsWith("/graphql")) {
+      return next(); // 🔓 Public access for GraphQL login/registration
+    }
+
+    if (!tenantId) {
+      return next(); // 🔓 Public access for other routes
+    }
+
+    // 🔒 Isolated execution context for database queries
     runWithTenant({ tenantId, role: user?.role }, () => next());
   });
+
+  // REST API Routes
+  const reportRoutes = require("./src/modules/reports/routes");
+  app.use("/api/reports", reportRoutes);
 
   // Mount GraphQL
   apolloServer.applyMiddleware({ app, path: "/graphql" });

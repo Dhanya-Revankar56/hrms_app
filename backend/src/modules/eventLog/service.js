@@ -1,5 +1,6 @@
 const AuditLog = require("../audit/model");
 const Employee = require("../employee/model");
+const mongoose = require("mongoose");
 const { withTenant } = require("../../utils/tenantUtils");
 
 /**
@@ -26,11 +27,19 @@ exports.logEvent = async (data) => {
   // Pass-through to AuditLog for modern unified logging
   try {
     const filter = withTenant({});
-    const log = new AuditLog({ 
+    const log = new AuditLog({
       action: data.action_type || `${data.module_name}_${data.action_type}`,
+      module:
+        data.module || data.module_name || extractModule(data.action_type),
       user_id: data.user_id,
       tenant_id: filter.tenant_id,
-      metadata: { ...data.new_data, ...data.changes, description: data.description }
+      metadata: {
+        ...data.new_data,
+        ...data.changes,
+        description: data.description,
+        record_id: data.record_id,
+        module: data.module || data.module_name,
+      },
     });
     await log.save();
     return log.toObject();
@@ -39,47 +48,71 @@ exports.logEvent = async (data) => {
   }
 };
 
-exports.listEventLogs = async ({ module_name, action_type, user_id, record_id, date_from, date_to, pagination }) => {
+exports.listEventLogs = async ({
+  module_name,
+  action_type,
+  user_id,
+  record_id,
+  date_from,
+  date_to,
+  search,
+  pagination,
+}) => {
   const filter = withTenant({});
-  
+  const orConditions = [];
+
+  if (search) {
+    orConditions.push({
+      "metadata.description": { $regex: new RegExp(search, "i") },
+    });
+  }
+
   // 🛡 Exclusion: Hide technical logs (login, session, etc.) from the Business Event Register
   filter.action = { $nin: ["USER_LOGIN", "USER_LOGOUT", "USER_REFRESH"] };
 
-  // Filter by action pattern if module_name provided
+  // Filter by module if provided
   if (module_name) {
-    filter.action = { ...filter.action, $regex: new RegExp(`^${module_name}`, "i") };
+    filter.module = module_name;
   }
-  
+
   if (action_type) {
     // This is trickier since we map it, but we can search for substrings
     filter.action = new RegExp(action_type, "i");
   }
 
-  const orConditions = [];
-
   if (user_id) {
-    orConditions.push(Array.isArray(user_id) ? { user_id: { $in: user_id } } : { user_id });
+    orConditions.push(
+      Array.isArray(user_id) ? { user_id: { $in: user_id } } : { user_id },
+    );
   }
 
   if (record_id) {
     // Record ID could be in various metadata fields (e.g., employee_id, relieving_id, leave_id)
-    const recIds = Array.isArray(record_id) ? record_id.map(id => id.toString()) : [record_id.toString()];
+    const recIdsStr = Array.isArray(record_id)
+      ? record_id.map((id) => id.toString())
+      : [record_id.toString()];
+    const recIdsObj = recIdsStr
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    const allRecIds = [...recIdsStr, ...recIdsObj];
+
     orConditions.push({
       $or: [
-        { "metadata.id": { $in: recIds } },
-        { "metadata.employee_id": { $in: recIds } },
-        { "metadata.relieving_id": { $in: recIds } },
-        { "metadata.leave_id": { $in: recIds } },
-        { "metadata.movement_id": { $in: recIds } },
-        { "metadata.record_id": { $in: recIds } }
-      ]
+        { "metadata.id": { $in: allRecIds } },
+        { "metadata.employee_id": { $in: allRecIds } },
+        { "metadata.relieving_id": { $in: allRecIds } },
+        { "metadata.leave_id": { $in: allRecIds } },
+        { "metadata.movement_id": { $in: allRecIds } },
+        { "metadata.attendance_id": { $in: allRecIds } },
+        { "metadata.record_id": { $in: allRecIds } },
+      ],
     });
   }
 
   if (orConditions.length > 0) {
     filter.$or = orConditions;
   }
-  
+
   if (date_from || date_to) {
     filter.timestamp = {};
     if (date_from) filter.timestamp.$gte = new Date(date_from);
@@ -97,29 +130,36 @@ exports.listEventLogs = async ({ module_name, action_type, user_id, record_id, d
       .limit(limit)
       .populate("user_id")
       .lean(),
-    AuditLog.countDocuments(filter)
+    AuditLog.countDocuments(filter),
   ]);
 
   // Enrich with Employee details for display names
-  const userIds = items.map(i => i.user_id?._id || i.user_id).filter(id => id);
-  const employees = await Employee.find({ user_id: { $in: userIds } }).select("user_id first_name last_name").lean();
+  const userIds = items
+    .map((i) => i.user_id?._id || i.user_id)
+    .filter((id) => id);
+  const employees = await Employee.find({ user_id: { $in: userIds } })
+    .select("user_id first_name last_name")
+    .lean();
   const empMap = employees.reduce((acc, e) => {
     acc[e.user_id.toString()] = `${e.first_name} ${e.last_name}`;
     return acc;
   }, {});
 
   // Map to EventLog schema
-  const mappedItems = items.map(i => ({
+  const mappedItems = items.map((i) => ({
     id: i._id.toString(),
     user_id: (i.user_id?._id || i.user_id)?.toString(),
-    user_name: empMap[(i.user_id?._id || i.user_id)?.toString()] || i.user_id?.email || "System",
+    user_name:
+      empMap[(i.user_id?._id || i.user_id)?.toString()] ||
+      i.user_id?.email ||
+      "System",
     user_role: i.user_id?.role || "SYSTEM",
     action_type: mapActionToEvent(i.action),
-    module_name: extractModule(i.action),
+    module_name: i.module || extractModule(i.action),
     description: i.metadata?.description || `Performed ${i.action} action`,
     new_data: i.metadata,
     timestamp: i.timestamp.toISOString(),
-    tenant_id: i.tenant_id.toString()
+    tenant_id: i.tenant_id.toString(),
   }));
 
   return {
@@ -128,7 +168,7 @@ exports.listEventLogs = async ({ module_name, action_type, user_id, record_id, d
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
       currentPage: page,
-      hasNextPage: page * limit < totalCount
-    }
+      hasNextPage: page * limit < totalCount,
+    },
   };
 };

@@ -1,8 +1,14 @@
 const Attendance = require("./model");
-const { withTenant, applyTenantFilter, getUserIdFromCtx } = require("../../utils/tenantUtils");
+const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 const AuditLog = require("../audit/model");
 
-exports.listAttendance = async ({ employee_id, status, from_date, to_date, pagination }) => {
+exports.listAttendance = async ({
+  employee_id,
+  status,
+  from_date,
+  to_date,
+  pagination,
+}) => {
   const filter = withTenant({});
   if (employee_id) filter.employee_id = employee_id;
   if (status) filter.status = status;
@@ -16,7 +22,7 @@ exports.listAttendance = async ({ employee_id, status, from_date, to_date, pagin
 
   const [items, totalCount] = await Promise.all([
     Attendance.find(filter).sort({ date: -1 }).skip(skip).limit(limit).lean(),
-    Attendance.countDocuments(filter)
+    Attendance.countDocuments(filter),
   ]);
 
   return {
@@ -25,8 +31,8 @@ exports.listAttendance = async ({ employee_id, status, from_date, to_date, pagin
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
       currentPage: page,
-      hasNextPage: page * limit < totalCount
-    }
+      hasNextPage: page * limit < totalCount,
+    },
   };
 };
 
@@ -49,17 +55,23 @@ exports.updateAttendance = async (id, data, context) => {
   const updated = await Attendance.findOneAndUpdate(
     filter,
     { $set: data },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   ).lean();
 
   if (!updated) throw new Error("Attendance record not found");
 
   // 🛡 Audit Log
   await AuditLog.create({
-    action: "ATTENDANCE_UPDATED",
+    action: "UPDATED",
+    module: "attendance",
     user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
-    metadata: { attendance_id: id, status: updated.status }
+    metadata: {
+      employee_id: updated.employee_id,
+      attendance_id: id,
+      status: updated.status,
+      description: "attendance record updated",
+    },
   });
 
   return updated;
@@ -72,10 +84,15 @@ exports.deleteAttendance = async (id, context) => {
 
   // 🛡 Audit Log
   await AuditLog.create({
-    action: "ATTENDANCE_DELETED",
+    action: "DELETED",
+    module: "attendance",
     user_id: getUserIdFromCtx(context),
     tenant_id: filter.tenant_id,
-    metadata: { attendance_id: id }
+    metadata: {
+      employee_id: deleted.employee_id,
+      attendance_id: id,
+      description: "attendance record deleted",
+    },
   });
 
   return { success: true, message: "Attendance record deleted successfully" };

@@ -17,7 +17,7 @@ const LOGIN_MUTATION = `
   }
 `;
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -75,7 +75,11 @@ export default function Login() {
       localStorage.setItem("institution_id", user.tenant_id); // Compatibility
       localStorage.setItem("user", JSON.stringify(user));
 
-      navigate("/dashboard");
+      if (user.role === "EMPLOYEE") {
+        navigate(`/employees/${user.id}`);
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err: unknown) {
       const errorMsg =
         err instanceof Error

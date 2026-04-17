@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ reportTitle }} — {{ institution.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4; margin: 12mm 10mm 12mm 10mm; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 10px;
+      color: #000;
+      background: #fff;
+      line-height: 1.4;
+    }
+
+    /* ══ HEADER (Logo Left) ══════════════════════════════════════════════════ */
+    .header-container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 5px;
+      padding-bottom: 5px;
+    }
+    .logo-box {
+      width: 80px;
+      height: 80px;
+      flex-shrink: 0;
+    }
+    .logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .inst-info {
+      flex: 1;
+      text-align: center;
+    }
+    .inst-name { font-size: 18px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; margin-bottom: 4px; }
+    .inst-details { font-size: 8px; color: #444; margin-bottom: 1px; }
+    .header-line { border-bottom: 2.5px solid #1e3a8a; margin-top: 5px; margin-bottom: 12px; }
+
+    /* ══ TITLE ══════════════════════════════════════════════════════════════ */
+    .report-title {
+      text-align: center;
+      font-size: 16px; 
+      font-weight: 700; 
+      color: #1e3a8a; 
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ══ FILTER SUMMARY (KV Layout) ═════════════════════════════════════════ */
+    .filter-summary {
+      margin-bottom: 20px;
+      margin-left: 10px;
+    }
+    .filter-row {
+      display: flex;
+      margin-bottom: 4px;
+      font-size: 10.5px;
+    }
+    .filter-key {
+      width: 130px;
+      font-weight: 700;
+      color: #333;
+    }
+    .filter-separator {
+      width: 20px;
+      text-align: center;
+    }
+    .filter-value {
+      flex: 1;
+      color: #000;
+    }
+
+    /* ══ DATA TABLE ═════════════════════════════════════════════════════════ */
+    .report-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    .report-table thead th {
+      background: #dce8f8; /* Light blue header */
+      color: #1e3a8a;
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid #000;
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+    .report-table tbody td {
+      padding: 6px 10px;
+      border: 1px solid #000;
+      vertical-align: middle;
+      font-size: 9.5px;
+      color: #000;
+    }
+
+    .sl-no { width: 40px; text-align: center !important; }
+
+    /* ══ GROUPING ═══════════════════════════════════════════════════════════ */
+    .group-header {
+      font-weight: 700;
+      font-size: 10.5px;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      color: #1e3a8a;
+      padding-left: 2px;
+    }
+
+    /* ══ SIGNATURES ═════════════════════════════════════════════════════════ */
+    .signature-container {
+      margin-top: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 10px;
+    }
+    .signature-box {
+      text-align: center;
+      min-width: 160px;
+    }
+    .signature-line {
+      border-top: 1px solid #000;
+      padding-top: 5px;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .signature-name {
+      margin-bottom: 4px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    @media print {
+      .report-table thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER (Logo Left) -->
+  <div class="header-container">
+    {{#if institution.logo}}
+    <div class="logo-box">
+      <img src="{{ institution.logo }}" alt="Logo" class="logo-img" />
+    </div>
+    {{/if}}
+    <div class="inst-info">
+      <div class="inst-name">{{ institution.name }}</div>
+      <div class="inst-details">Human Resource Management System | {{ institution.code }}</div>
+      <div class="inst-details">{{ institution.address }}</div>
+      <div class="inst-details">
+        {{#if institution.email}}✉ {{ institution.email }}{{/if}}
+        {{#if institution.phone}}&nbsp;&nbsp;☎ {{ institution.phone }}{{/if}}
+      </div>
+    </div>
+  </div>
+  <div class="header-line"></div>
+
+  <!-- TITLE -->
+  <div class="report-title">{{ reportTitle }}</div>
+
+  <!-- FILTERS (Vertical Layout) -->
+  {{#if appliedFilters}}
+  <div class="filter-summary">
+    {{#each appliedFilters}}
+    <div class="filter-row">
+      <div class="filter-key">{{ this.key }}</div>
+      <div class="filter-separator">:</div>
+      <div class="filter-value">{{ this.value }}</div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  <!-- DATA TABLE -->
+  {{#if hasRows}}
+    {{#if isGrouped}}
+      {{#each rows}}
+        <div class="group-header">System Log Section: {{ this.groupValue }}</div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th class="sl-no">Sl No</th>
+              {{#each ../columns}}<th>{{ this }}</th>{{/each}}
+            </tr>
+          </thead>
+          <tbody>
+            {{#each this.rows}}
+            <tr>
+              <td class="sl-no">{{ rowIndex @index }}</td>
+              {{#each ../../columns}}
+                <td>{{str (lookup .. this)}}</td>
+              {{/each}}
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      {{/each}}
+    {{else}}
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th class="sl-no">Sl No</th>
+            {{#each columns}}<th>{{ this }}</th>{{/each}}
+          </tr>
+        </thead>
+        <tbody>
+          {{#each rows}}
+          <tr>
+            <td class="sl-no">{{ rowIndex @index }}</td>
+            {{#each ../columns}}
+              <td>{{str (lookup .. this)}}</td>
+            {{/each}}
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    {{/if}}
+  {{else}}
+    <div style="text-align:center; padding: 40px; color: #999;">No records found.</div>
+  {{/if}}
+
+  <!-- FOOTER -->
+  <div class="signature-container">
+    <div class="signature-box">
+      {{#if signatureInfo.showHOD}}
+        <div class="signature-name">{{ signatureInfo.hodName }}</div>
+        <div class="signature-line">HOD ({{ signatureInfo.deptName }})</div>
+      {{else}}
+        <div style="height: 30px;"></div>
+        <div class="signature-line">System Administrator</div>
+      {{/if}}
+    </div>
+    
+    <div style="flex: 1;"></div>
+
+    <div class="signature-box">
+      <div style="height: 30px;"></div>
+      <div class="signature-line">Principal / Director</div>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 25px; font-size: 7.5px; color: #999;">
+    System-generated report generated on {{ generatedOn }}
+  </div>
+
+</body>
+</html>

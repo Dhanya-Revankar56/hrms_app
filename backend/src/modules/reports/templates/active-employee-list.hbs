@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ reportTitle }} — {{ institution.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4; margin: 12mm 10mm 12mm 10mm; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      font-size: 10px;
+      color: #1a1a2e;
+      background: #fff;
+      line-height: 1.4;
+    }
+
+    /* ══ HEADER ══════════════════════════════════════════════════════════ */
+    .header-container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 15px;
+    }
+    .logo-box {
+      width: 70px;
+      height: 70px;
+      flex-shrink: 0;
+    }
+    .logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .header-text {
+      flex-grow: 1;
+      text-align: center;
+    }
+    .inst-name { font-size: 18px; font-weight: 700; color: #000; letter-spacing: 0.5px; text-transform: uppercase; }
+    .inst-address { font-size: 9px; color: #444; margin-top: 4px; }
+    .report-title-box { margin-top: 10px; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; }
+    .report-title { font-size: 13px; font-weight: 700; color: #2563eb; text-transform: uppercase; }
+
+    /* ══ DATA TABLE ════════════════════════════════════════════════════════ */
+    .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .report-table thead th {
+      background: #dce8f8; /* Light blue header from screenshot */
+      color: #1e3a8a;
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid #000; /* Boxed borders */
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+    .report-table tbody td {
+      padding: 6px 10px;
+      border: 1px solid #000;
+      vertical-align: middle;
+      font-size: 9.5px;
+    }
+
+    .sl-no { width: 40px; text-align: center !important; }
+    .name-col { width: 220px; }
+    .emp-id { font-size: 8.5px; color: #666; margin-top: 2px; }
+    .desig-dept { font-weight: 500; }
+
+    /* ══ STRIPING ═════════════════════════════════════════════════════════ */
+    .report-table tbody tr:nth-child(even) { background: #fafafa; }
+
+    /* ══ FOOTER ═══════════════════════════════════════════════════════════ */
+    .footer { margin-top: 30px; font-size: 8px; color: #888; text-align: center; }
+
+    @media print {
+      .report-table thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header-container">
+    {{#if institution.logo}}
+      <div class="logo-box">
+        <img src="{{ institution.logo }}" alt="Logo" class="logo-img" />
+      </div>
+    {{/if}}
+    <div class="header-text">
+      <div style="font-size: 10px; color: #666; margin-bottom: 2px;">{{ institution.shortName }}</div>
+      <div class="inst-name">{{ institution.name }}</div>
+      <div class="inst-address">{{ institution.address }}</div>
+      
+      <div class="report-title-box">
+        <div class="report-title">{{ reportTitle }}</div>
+      </div>
+    </div>
+  </div>
+
+  {{#if hasRows}}
+    {{#if isGrouped}}
+      {{#each rows}}
+        <div style="margin-top: 15px; font-weight: 800; font-size: 11px; color: #1e3a8a; background: #f8fafc; padding: 4px 8px; border-left: 4px solid #1e3a8a;">
+          DEPT: {{ this.groupValue }}
+        </div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th class="sl-no">Sl No</th>
+              <th class="name-col">Employee Name</th>
+              <th>Designation/ Department</th>
+              <th>Employee Type</th>
+              <th>Category</th>
+              <th>Contact</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each this.rows}}
+            <tr>
+              <td class="sl-no">{{ rowIndex @index }}</td>
+              <td class="name-col">
+                <div style="font-weight: 600;">{{ lookup this "Name" }}</div>
+                <div class="emp-id">{{ lookup this "Emp ID" }}</div>
+              </td>
+              <td class="desig-dept">
+                {{ lookup this "Designation" }}<br/>
+                <span style="font-size: 8px; color: #666;">{{ lookup this "Department" }}</span>
+              </td>
+              <td>{{ lookup this "Employee Type" }}</td>
+              <td>{{ lookup this "Category" }}</td>
+              <td>{{ lookup this "Contact" }}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      {{/each}}
+    {{else}}
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th class="sl-no">Sl No</th>
+            <th class="name-col">Employee Name</th>
+            <th>Designation/ Department</th>
+            <th>Employee Type</th>
+            <th>Category</th>
+            <th>Contact</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each rows}}
+          <tr>
+            <td class="sl-no">{{ rowIndex @index }}</td>
+            <td class="name-col">
+              <div style="font-weight: 600;">{{ lookup this "Name" }}</div>
+              <div class="emp-id">{{ lookup this "Emp ID" }}</div>
+            </td>
+            <td class="desig-dept">
+              {{ lookup this "Designation" }}<br/>
+              <span style="font-size: 8px; color: #666;">{{ lookup this "Department" }}</span>
+            </td>
+            <td>{{ lookup this "Employee Type" }}</td>
+            <td>{{ lookup this "Category" }}</td>
+            <td>{{ lookup this "Contact" }}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    {{/if}}
+  {{else}}
+    <div style="text-align:center; padding: 40px; color: #999;">No records found for the selected criteria.</div>
+  {{/if}}
+
+  <div class="footer">
+    Generated on {{ generatedOn }} | HRMS Automated Report
+  </div>
+
+</body>
+</html>

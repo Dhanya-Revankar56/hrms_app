@@ -7,10 +7,21 @@ const resolvers = {
     attendances: async (
       _,
       { employee_id, status, from_date, to_date, pagination },
-      _ctx,
+      ctx,
     ) => {
+      const role = ctx.user?.role;
+      let filterId = employee_id;
+
+      if (role === "EMPLOYEE") {
+        const Employee = require("../employee/model");
+        const empRecord = await Employee.findOne({ user_id: ctx.user.id })
+          .select("_id")
+          .lean();
+        filterId = empRecord?._id || ctx.user.id;
+      }
+
       return await attendanceService.listAttendance({
-        employee_id,
+        employee_id: filterId,
         status,
         from_date,
         to_date,

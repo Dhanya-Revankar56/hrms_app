@@ -6,15 +6,18 @@ import { useQuery, useMutation } from "@apollo/client/react";
 import { isAdmin } from "../utils/auth";
 import { GET_EMPLOYEES, UPDATE_EMPLOYEE } from "../graphql/employeeQueries";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
-import { formatDateForDisplay, formatDateForInput, formatDateForBackend } from "../utils/dateUtils";
+import {
+  formatDateForDisplay,
+  formatDateForInput,
+  formatDateForBackend,
+} from "../utils/dateUtils";
 
 /* ─────────────────────────────────────────────
    TYPES
  ───────────────────────────────────────────── */
 type EmpStatus = "Active" | "On Leave" | "Resigned" | "Terminated" | "Relieved";
-type EmpRole   = "HR Admin" | "Department Admin" | "Employee";
+type EmpRole = "HR Admin" | "Department Admin" | "Employee";
 type DocStatus = "Approved" | "Pending" | "Rejected";
-
 
 interface EmpDocument {
   name: string;
@@ -156,17 +159,31 @@ interface SettingsData {
    CONSTANTS
  ───────────────────────────────────────────── */
 const AVATAR_COLORS: string[] = [
-  "#1d4ed8", "#059669", "#7c3aed", "#d97706",
-  "#0891b2", "#dc2626", "#db2777", "#0f766e",
+  "#1d4ed8",
+  "#059669",
+  "#7c3aed",
+  "#d97706",
+  "#0891b2",
+  "#dc2626",
+  "#db2777",
+  "#0f766e",
 ];
 
 const TITLES = ["Dr.", "Mr.", "Mrs.", "Shri.", "Smt."];
 const HIRING_SOURCES = ["Advertisement", "LinkedIN", "Referral", "Job Portal"];
-const BLOOD_GROUPS   = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
-const RELIGIONS      = ["Buddhists", "Christian", "Hindu", "Jains", "Muslim", "Others", "Sikhs"];
-const GENDERS        = ["Male", "Female", "Other"];
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
+const RELIGIONS = [
+  "Buddhists",
+  "Christian",
+  "Hindu",
+  "Jains",
+  "Muslim",
+  "Others",
+  "Sikhs",
+];
+const GENDERS = ["Male", "Female", "Other"];
 const MARITAL_STATUS = ["Single", "Married", "Divorced", "Widowed"];
-const APP_ROLES      = ["ADMIN", "HEAD OF DEPARTMENT", "EMPLOYEE"];
+const APP_ROLES = ["ADMIN", "HEAD OF DEPARTMENT", "EMPLOYEE"];
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap');
@@ -246,6 +263,7 @@ const CSS = `
   .em-drawer-lbl { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em; }
   .em-drawer-input, .em-drawer-select { width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #f8fafc; outline: none; font-size: 14px; color: #334155; transition: 0.2s; font-family: inherit; box-sizing: border-box; }
   .em-drawer-input:focus, .em-drawer-select:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .em-drawer-input:disabled, .em-drawer-select:disabled { background: #e2e8f0; color: #64748b; cursor: not-allowed; border-color: #cbd5e1; }
   .em-drawer-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
 
   .ob-btn { height: 40px; padding: 0 24px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 13.5px; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'DM Sans', sans-serif; }
@@ -308,18 +326,32 @@ function mapBackendToManaged(b: BackendEmployee): ManagedEmployee {
     state: b.address?.state || "",
     city: b.address?.city || "",
     pinCode: b.address?.pin_code || "",
-    status: (b.app_status === "active" ? "Active" : b.app_status === "on-leave" ? "On Leave" : b.app_status === "relieved" ? "Relieved" : "Resigned") as EmpStatus,
-    role: (b.app_role === "Admin" ? "HR Admin" : b.app_role === "DeptAdmin" ? "Department Admin" : "Employee") as EmpRole,
+    status: (b.app_status === "active"
+      ? "Active"
+      : b.app_status === "on-leave"
+        ? "On Leave"
+        : b.app_status === "relieved"
+          ? "Relieved"
+          : "Resigned") as EmpStatus,
+    role: (b.app_role === "Admin"
+      ? "HR Admin"
+      : b.app_role === "DeptAdmin"
+        ? "Department Admin"
+        : "Employee") as EmpRole,
     documents: [],
     salaryGrade: "",
-    avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+    avatarColor:
+      AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
     bankDetails: (b.bank_detail || []).map((bank) => ({
       bank_name: bank.bank_name || "",
       account_no: bank.account_no || "",
       ifsc: bank.ifsc || "",
-      bank_type: bank.bank_type || "Primary"
+      bank_type: bank.bank_type || "Primary",
     })),
-    appRole: (b.app_role?.toLowerCase() === "hod" ? "HEAD OF DEPARTMENT" : (b.app_role || "employee")).toUpperCase(),
+    appRole: (b.app_role?.toLowerCase() === "hod"
+      ? "HEAD OF DEPARTMENT"
+      : b.app_role || "employee"
+    ).toUpperCase(),
   };
 }
 
@@ -338,42 +370,76 @@ interface EditableFieldProps {
   onChange: (val: string) => void;
   type?: string;
   options?: { label: string; value: string }[] | string[];
+  disabled?: boolean;
 }
 
-function EditableField({ label, value, isEdit, onChange, type = "text", options }: EditableFieldProps) {
+function EditableField({
+  label,
+  value,
+  isEdit,
+  onChange,
+  type = "text",
+  options,
+  disabled,
+}: EditableFieldProps) {
   return (
     <div className="em-drawer-field">
       <label className="em-drawer-lbl">{label}</label>
       {isEdit ? (
         options ? (
-          <select className="em-drawer-select" value={value} onChange={e => onChange(e.target.value)}>
+          <select
+            className="em-drawer-select"
+            disabled={disabled}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          >
             <option value="">Select {label}</option>
-            {options.map(opt => {
+            {options.map((opt) => {
               const lbl = typeof opt === "string" ? opt : opt.label;
               const val = typeof opt === "string" ? opt : opt.value;
-              return <option key={val} value={val}>{lbl}</option>;
+              return (
+                <option key={val} value={val}>
+                  {lbl}
+                </option>
+              );
             })}
           </select>
         ) : (
-          <input 
-            className="em-drawer-input" 
-            type={type} 
-            value={type === "date" ? formatDateForInput(value) : value} 
-            onChange={e => onChange(e.target.value)} 
+          <input
+            className="em-drawer-input"
+            type={disabled && type === "date" ? "text" : type}
+            disabled={disabled}
+            value={
+              disabled && type === "date"
+                ? formatDateForDisplay(value)
+                : type === "date"
+                  ? formatDateForInput(value)
+                  : value
+            }
+            onChange={(e) => onChange(e.target.value)}
           />
         )
       ) : (
-        <div className="em-view-val">{type === "date" ? formatDateForDisplay(value) : (value || "—")}</div>
+        <div className="em-view-val">
+          {type === "date" ? formatDateForDisplay(value) : value || "—"}
+        </div>
       )}
     </div>
   );
 }
 
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="em-section-group">
-      <div className="em-section-title">{title} <div className="em-section-line" /></div>
+      <div className="em-section-title">
+        {title} <div className="em-section-line" />
+      </div>
       <div className="em-grid">{children}</div>
     </div>
   );
@@ -385,59 +451,81 @@ export default function EmployeeManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
   const [filters, setFilters] = useState<FilterState>({
-    search: "", status: "All", department: "All", employmentType: "All", role: "All"
+    search: "",
+    status: "All",
+    department: "All",
+    employmentType: "All",
+    role: "All",
   });
-  
+
   /* Feature States */
   const [drawerEmp, setDrawerEmp] = useState<ManagedEmployee | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<"Basic" | "Personal" | "Work" | "Bank">("Basic");
+  const [activeTab, setActiveTab] = useState<
+    "Basic" | "Personal" | "Work" | "Bank"
+  >("Basic");
   const [editForm, setEditForm] = useState<ManagedEmployee | null>(null);
   const [toast, setToast] = useState("");
 
-  const { data: employeesData, loading, error, refetch: refetchEmployees } = useQuery<{
+  const {
+    data: employeesData,
+    loading,
+    error,
+    refetch: refetchEmployees,
+  } = useQuery<{
     getAllEmployees: {
       items: BackendEmployee[];
       pageInfo: { totalPages: number; totalCount: number };
       activeCount: number;
       onLeaveCount: number;
-    }
+    };
   }>(GET_EMPLOYEES, {
-    fetchPolicy: 'network-only',
+    fetchPolicy: "network-only",
     variables: {
       status: filters.status === "All" ? null : filters.status.toLowerCase(),
       department: filters.department === "All" ? null : filters.department,
       search: filters.search || null,
       pagination: {
         page: currentPage,
-        limit: itemsPerPage
-      }
-    }
+        limit: itemsPerPage,
+      },
+    },
   });
 
   /* Derive error message — avoids setState inside useEffect (react-hooks/set-state-in-effect) */
   const { data: settingsData } = useQuery<SettingsData>(GET_SETTINGS);
   const [updateEmployee, { loading: updating }] = useMutation(UPDATE_EMPLOYEE);
 
-  const departments = useMemo(() => (settingsData?.settings?.departments || []), [settingsData]);
-  const employeeTypes = useMemo<string[]>(() => ["All", ...(settingsData?.settings?.employee_types?.map((t) => t.name) || [])], [settingsData]);
+  const departments = useMemo(
+    () => settingsData?.settings?.departments || [],
+    [settingsData],
+  );
+  const employeeTypes = useMemo<string[]>(
+    () => [
+      "All",
+      ...(settingsData?.settings?.employee_types?.map((t) => t.name) || []),
+    ],
+    [settingsData],
+  );
 
   const employees = useMemo<ManagedEmployee[]>(() => {
-    return (employeesData?.getAllEmployees?.items || []).map(mapBackendToManaged);
+    return (employeesData?.getAllEmployees?.items || []).map(
+      mapBackendToManaged,
+    );
   }, [employeesData]);
 
   const queryErrorMsg = error ? `Error: ${error.message}` : "";
   const totalPages = employeesData?.getAllEmployees?.pageInfo?.totalPages || 1;
   const totalCount = employeesData?.getAllEmployees?.pageInfo?.totalCount || 0;
 
-  const handleAction = (emp: ManagedEmployee, mode: 'view' | 'edit') => {
-    if (mode === 'view') {
+  const handleAction = (emp: ManagedEmployee, mode: "view" | "edit") => {
+    if (mode === "view") {
       navigate(`/employees/${emp.id}`);
       return;
     }
     setDrawerEmp(emp);
     setEditForm(JSON.parse(JSON.stringify(emp))); // Deep clone for editing
-    setIsEditMode(mode === 'edit');
+    setIsEditMode(mode === "edit");
     setActiveTab("Basic"); // Reset to first tab
   };
 
@@ -472,67 +560,177 @@ export default function EmployeeManagement() {
               employee_type: editForm.employmentType,
               date_of_joining: formatDateForBackend(editForm.joiningDate),
               hiring_source: editForm.hiringSource,
-            }
-          }
-        }
+            },
+          },
+        },
       });
       setToast("Employee updated successfully!");
       refetchEmployees();
       setDrawerEmp(null);
       setTimeout(() => setToast(""), 3000);
     } catch (err: unknown) {
-      const error = err as { graphQLErrors?: { message: string }[]; message?: string };
-      const msg = error.graphQLErrors?.[0]?.message || error.message || "Something went wrong";
+      const error = err as {
+        graphQLErrors?: { message: string }[];
+        message?: string;
+      };
+      const msg =
+        error.graphQLErrors?.[0]?.message ||
+        error.message ||
+        "Something went wrong";
       setToast(`Error: ${msg}`);
       setTimeout(() => setToast(""), 5000);
     }
   };
 
-  if (loading && !employeesData) return <div className="em-container">Loading...</div>;
-  if (error && !employeesData) return <div className="em-container">{queryErrorMsg || "Error loading employees. Please try again later."}</div>;
+  if (loading && !employeesData)
+    return <div className="em-container">Loading...</div>;
+  if (error && !employeesData)
+    return (
+      <div className="em-container">
+        {queryErrorMsg || "Error loading employees. Please try again later."}
+      </div>
+    );
 
   return (
     <div className="em-container">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      
+
       <div className="em-header">
         <h1 className="em-title">Employee Management</h1>
-        <p className="em-subtitle">View and manage all organization resources</p>
+        <p className="em-subtitle">
+          View and manage all organization resources
+        </p>
       </div>
 
       <div className="em-stats">
         <div className="em-stat-card">
-          <div className="em-stat-icon" style={{background: "#eff6ff"}}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-          <div><div className="em-stat-val">{totalCount}</div><div className="em-stat-lbl">Total Employees</div></div>
+          <div className="em-stat-icon" style={{ background: "#eff6ff" }}>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="2"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div>
+            <div className="em-stat-val">{totalCount}</div>
+            <div className="em-stat-lbl">Total Employees</div>
+          </div>
         </div>
         <div className="em-stat-card">
-          <div className="em-stat-icon" style={{background: "#f0fdf4"}}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-          <div><div className="em-stat-val">{employeesData?.getAllEmployees?.activeCount || 0}</div><div className="em-stat-lbl">Active Now</div></div>
+          <div className="em-stat-icon" style={{ background: "#f0fdf4" }}>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="2"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <div>
+            <div className="em-stat-val">
+              {employeesData?.getAllEmployees?.activeCount || 0}
+            </div>
+            <div className="em-stat-lbl">Active Now</div>
+          </div>
         </div>
         <div className="em-stat-card">
-          <div className="em-stat-icon" style={{background: "#fffbeb"}}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-          <div><div className="em-stat-val">{employeesData?.getAllEmployees?.onLeaveCount || 0}</div><div className="em-stat-lbl">On Leave</div></div>
+          <div className="em-stat-icon" style={{ background: "#fffbeb" }}>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#b45309"
+              strokeWidth="2"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <div>
+            <div className="em-stat-val">
+              {employeesData?.getAllEmployees?.onLeaveCount || 0}
+            </div>
+            <div className="em-stat-lbl">On Leave</div>
+          </div>
         </div>
       </div>
 
       <div className="em-table-card">
         <div className="em-filter-bar">
-          <input className="em-search" placeholder="Search by name or ID..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
-          <select className="em-select" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value as EmpStatus | "All"})}>
+          <input
+            className="em-search"
+            placeholder="Search by name or ID..."
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          />
+          <select
+            className="em-select"
+            value={filters.status}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                status: e.target.value as EmpStatus | "All",
+              })
+            }
+          >
             <option value="All">All Status</option>
             <option value="Active">Active</option>
             <option value="On Leave">On Leave</option>
             <option value="Resigned">Resigned</option>
             <option value="Relieved">Relieved</option>
           </select>
-          <select className="em-select" value={filters.department} onChange={e => setFilters({...filters, department: e.target.value})}>
+          <select
+            className="em-select"
+            value={filters.department}
+            onChange={(e) =>
+              setFilters({ ...filters, department: e.target.value })
+            }
+          >
             <option value="All">All Departments</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
           </select>
-          <select className="em-select" value={filters.employmentType} onChange={e => setFilters({...filters, employmentType: e.target.value})}>
-            {employeeTypes.map(t => <option key={t} value={t}>{t === "All" ? "All Types" : t}</option>)}
+          <select
+            className="em-select"
+            value={filters.employmentType}
+            onChange={(e) =>
+              setFilters({ ...filters, employmentType: e.target.value })
+            }
+          >
+            {employeeTypes.map((t) => (
+              <option key={t} value={t}>
+                {t === "All" ? "All Types" : t}
+              </option>
+            ))}
           </select>
-          {loading && <span style={{marginLeft: 'auto', fontSize: '12px', color: '#3b82f6', fontWeight: 600}}>Refreshing...</span>}
+          {loading && (
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: "12px",
+                color: "#3b82f6",
+                fontWeight: 600,
+              }}
+            >
+              Refreshing...
+            </span>
+          )}
         </div>
 
         <div className="em-table-wrap">
@@ -550,27 +748,72 @@ export default function EmployeeManagement() {
                 <tr key={emp.id}>
                   <td>
                     <div className="em-emp-cell">
-                      <div className="em-avatar" style={{background: emp.avatarColor}}>{getInitials(emp.firstName, emp.lastName)}</div>
+                      <div
+                        className="em-avatar"
+                        style={{ background: emp.avatarColor }}
+                      >
+                        {getInitials(emp.firstName, emp.lastName)}
+                      </div>
                       <div>
-                        <div style={{fontWeight: 700}}>{emp.firstName} {emp.lastName}</div>
-                        <div style={{fontSize: 12, color: "#64748b"}}>{emp.empId}</div>
+                        <div style={{ fontWeight: 700 }}>
+                          {emp.firstName} {emp.lastName}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>
+                          {emp.empId}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <div style={{fontWeight: 500}}>{emp.hrDepartment}</div>
-                    <div style={{fontSize: 12, color: "#64748b"}}>{emp.designation}</div>
+                    <div style={{ fontWeight: 500 }}>{emp.hrDepartment}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>
+                      {emp.designation}
+                    </div>
                   </td>
                   <td>{emp.employmentType}</td>
-                  <td><span className={`em-badge ${emp.status === "Active" ? "em-status-active" : "em-status-leave"}`}>{emp.status}</span></td>
+                  <td>
+                    <span
+                      className={`em-badge ${emp.status === "Active" ? "em-status-active" : "em-status-leave"}`}
+                    >
+                      {emp.status}
+                    </span>
+                  </td>
                   <td>
                     <div className="em-actions">
-                      <button className="em-act-btn" title="View Profile" onClick={() => handleAction(emp, 'view')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <button
+                        className="em-act-btn"
+                        title="View Profile"
+                        onClick={() => handleAction(emp, "view")}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                        >
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
                       </button>
                       {isAdmin() && (
-                        <button className="em-act-btn" title="Edit Profile" onClick={() => handleAction(emp, 'edit')}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <button
+                          className="em-act-btn"
+                          title="Edit Profile"
+                          onClick={() => handleAction(emp, "edit")}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                          >
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
                         </button>
                       )}
                     </div>
@@ -578,7 +821,18 @@ export default function EmployeeManagement() {
                 </tr>
               ))}
               {employees.length === 0 && (
-                <tr><td colSpan={5} style={{textAlign:'center', padding: 40, color: '#94a3b8'}}>No employees found matching the filters.</td></tr>
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{
+                      textAlign: "center",
+                      padding: 40,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    No employees found matching the filters.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -588,14 +842,34 @@ export default function EmployeeManagement() {
         {totalCount > itemsPerPage && (
           <div className="em-pagination">
             <div className="em-pag-info">
-              Showing {(currentPage-1)*itemsPerPage+1} to {Math.min(currentPage*itemsPerPage, totalCount)} of {totalCount} employees
+              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+              {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}{" "}
+              employees
             </div>
             <div className="em-pag-btns">
-              <button className="em-pag-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Previous</button>
-              {Array.from({length: totalPages}, (_, i) => i + 1).map(n => (
-                <button key={n} className={`em-pag-btn ${currentPage === n ? 'active' : ''}`} onClick={() => setCurrentPage(n)}>{n}</button>
+              <button
+                className="em-pag-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  className={`em-pag-btn ${currentPage === n ? "active" : ""}`}
+                  onClick={() => setCurrentPage(n)}
+                >
+                  {n}
+                </button>
               ))}
-              <button className="em-pag-btn" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</button>
+              <button
+                className="em-pag-btn"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
@@ -607,25 +881,78 @@ export default function EmployeeManagement() {
           <div className="em-drawer">
             <div className="em-drawer-header">
               <div className="em-emp-cell">
-                <div className="em-avatar" style={{background: drawerEmp.avatarColor, width: 64, height: 64, fontSize: 24, flexShrink: 0}}>{getInitials(drawerEmp.firstName, drawerEmp.lastName)}</div>
+                <div
+                  className="em-avatar"
+                  style={{
+                    background: drawerEmp.avatarColor,
+                    width: 64,
+                    height: 64,
+                    fontSize: 24,
+                    flexShrink: 0,
+                  }}
+                >
+                  {getInitials(drawerEmp.firstName, drawerEmp.lastName)}
+                </div>
                 <div>
-                  <h2 style={{margin: 0, fontSize: 20}}>{drawerEmp.title} {drawerEmp.firstName} {drawerEmp.lastName}</h2>
-                  <div style={{color: "#64748b", fontSize: 14}}>{drawerEmp.empId} • {drawerEmp.designation}</div>
+                  <h2 style={{ margin: 0, fontSize: 20 }}>
+                    {drawerEmp.title} {drawerEmp.firstName} {drawerEmp.lastName}
+                  </h2>
+                  <div style={{ color: "#64748b", fontSize: 14 }}>
+                    {drawerEmp.empId} • {drawerEmp.designation}
+                  </div>
                 </div>
               </div>
-              <div style={{display:'flex', gap: 10}}>
-                {!isEditMode && isAdmin() && <button className="ob-btn-primary" style={{height: 32, padding:'0 12px', fontSize: 12, borderRadius: 6, fontWeight: 700}} onClick={() => setIsEditMode(true)}>Edit Profile</button>}
-                <button className="em-act-btn" style={{borderColor: '#e2e8f0', color: '#64748b'}} onClick={() => setDrawerEmp(null)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <div style={{ display: "flex", gap: 10 }}>
+                {!isEditMode && isAdmin() && (
+                  <button
+                    className="ob-btn-primary"
+                    style={{
+                      height: 32,
+                      padding: "0 12px",
+                      fontSize: 12,
+                      borderRadius: 6,
+                      fontWeight: 700,
+                    }}
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    Edit Profile
+                  </button>
+                )}
+                <button
+                  className="em-act-btn"
+                  style={{ borderColor: "#e2e8f0", color: "#64748b" }}
+                  onClick={() => setDrawerEmp(null)}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </div>
             </div>
 
             <div className="em-drawer-nav">
-              <div className="em-tabs" style={{display: 'flex', gap: '4px'}}>
-                {(['Basic', 'Personal', 'Work', 'Bank'] as const).map(tab => (
-                  <button 
-                    key={tab} 
-                    className={`em-nav-btn ${activeTab === tab ? 'active' : ''}`}
-                    style={activeTab === tab ? {background: '#3b82f6', color: '#fff', borderColor: '#3b82f6'} : {}}
+              <div className="em-tabs" style={{ display: "flex", gap: "4px" }}>
+                {(["Basic", "Personal", "Work", "Bank"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    className={`em-nav-btn ${activeTab === tab ? "active" : ""}`}
+                    style={
+                      activeTab === tab
+                        ? {
+                            background: "#3b82f6",
+                            color: "#fff",
+                            borderColor: "#3b82f6",
+                          }
+                        : {}
+                    }
                     onClick={() => setActiveTab(tab)}
                   >
                     {tab}
@@ -638,77 +965,300 @@ export default function EmployeeManagement() {
               {/* Basic Tab */}
               {activeTab === "Basic" && (
                 <Section title="Basic Contact Information">
-                  <EditableField label="Title" value={editForm.title} isEdit={isEditMode} onChange={v => setEditForm({...editForm, title: v})} options={TITLES} />
-                  <EditableField label="First Name" value={editForm.firstName} isEdit={isEditMode} onChange={v => setEditForm({...editForm, firstName: v})} />
-                  <EditableField label="Last Name" value={editForm.lastName} isEdit={isEditMode} onChange={v => setEditForm({...editForm, lastName: v})} />
-                  <EditableField label="Official Email" value={editForm.officialEmail} isEdit={isEditMode} onChange={v => setEditForm({...editForm, officialEmail: v})} />
-                  <EditableField label="Phone Number" value={editForm.phone} isEdit={isEditMode} onChange={v => setEditForm({...editForm, phone: v})} />
-                  <EditableField label="System Role" value={editForm.appRole} isEdit={isEditMode} onChange={v => setEditForm({...editForm, appRole: v})} options={APP_ROLES} />
+                  <EditableField
+                    label="Title"
+                    value={editForm.title}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, title: v })}
+                    options={TITLES}
+                  />
+                  <EditableField
+                    label="First Name"
+                    value={editForm.firstName}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, firstName: v })}
+                  />
+                  <EditableField
+                    label="Last Name"
+                    value={editForm.lastName}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, lastName: v })}
+                  />
+                  <EditableField
+                    label="Official Email"
+                    value={editForm.officialEmail}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, officialEmail: v })
+                    }
+                  />
+                  <EditableField
+                    label="Phone Number"
+                    value={editForm.phone}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, phone: v })}
+                  />
+                  <EditableField
+                    label="System Role"
+                    value={editForm.appRole}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, appRole: v })}
+                    options={APP_ROLES}
+                  />
                 </Section>
               )}
 
               {/* Personal Tab */}
               {activeTab === "Personal" && (
                 <Section title="Personal Identifiers">
-                  <EditableField label="Date of Birth" value={editForm.dob} isEdit={isEditMode} onChange={v => setEditForm({...editForm, dob: v})} type="date" />
-                  <EditableField label="Gender" value={editForm.gender} isEdit={isEditMode} onChange={v => setEditForm({...editForm, gender: v})} options={GENDERS} />
-                  <EditableField label="Marital Status" value={editForm.maritalStatus} isEdit={isEditMode} onChange={v => setEditForm({...editForm, maritalStatus: v})} options={MARITAL_STATUS} />
-                  <EditableField label="Blood Group" value={editForm.bloodGroup} isEdit={isEditMode} onChange={v => setEditForm({...editForm, bloodGroup: v})} options={BLOOD_GROUPS} />
-                  <EditableField label="Religion" value={editForm.religion} isEdit={isEditMode} onChange={v => setEditForm({...editForm, religion: v})} options={RELIGIONS} />
-                  <EditableField label="Father's Name" value={editForm.fatherName} isEdit={isEditMode} onChange={v => setEditForm({...editForm, fatherName: v})} />
-                  <EditableField label="Aadhaar Number" value={editForm.aadhaar} isEdit={isEditMode} onChange={v => setEditForm({...editForm, aadhaar: v})} />
-                  <EditableField label="PAN Number" value={editForm.pan} isEdit={isEditMode} onChange={v => setEditForm({...editForm, pan: v})} />
+                  <EditableField
+                    label="Date of Birth"
+                    value={editForm.dob}
+                    isEdit={isEditMode}
+                    disabled={true}
+                    onChange={(v) => setEditForm({ ...editForm, dob: v })}
+                    type="date"
+                  />
+                  <EditableField
+                    label="Gender"
+                    value={editForm.gender}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, gender: v })}
+                    options={GENDERS}
+                  />
+                  <EditableField
+                    label="Marital Status"
+                    value={editForm.maritalStatus}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, maritalStatus: v })
+                    }
+                    options={MARITAL_STATUS}
+                  />
+                  <EditableField
+                    label="Blood Group"
+                    value={editForm.bloodGroup}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, bloodGroup: v })
+                    }
+                    options={BLOOD_GROUPS}
+                  />
+                  <EditableField
+                    label="Religion"
+                    value={editForm.religion}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, religion: v })}
+                    options={RELIGIONS}
+                  />
+                  <EditableField
+                    label="Father's Name"
+                    value={editForm.fatherName}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, fatherName: v })
+                    }
+                  />
+                  <EditableField
+                    label="Aadhaar Number"
+                    value={editForm.aadhaar}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, aadhaar: v })}
+                  />
+                  <EditableField
+                    label="PAN Number"
+                    value={editForm.pan}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, pan: v })}
+                  />
                 </Section>
               )}
 
               {/* Work Tab */}
               {activeTab === "Work" && (
                 <Section title="Employment & Work">
-                  <EditableField label="Joining Date" value={editForm.joiningDate} isEdit={isEditMode} onChange={v => setEditForm({...editForm, joiningDate: v})} type="date" />
-                  <EditableField label="Department" value={editForm.hrDepartmentId} isEdit={isEditMode} onChange={v => {
-                    const dept = departments.find(d => d.id === v);
-                    setEditForm({...editForm, hrDepartmentId: v, hrDepartment: dept?.name || ""});
-                  }} options={departments.map(d => ({ label: d.name, value: d.id }))} />
-                  <EditableField label="Designation" value={editForm.designationId} isEdit={isEditMode} onChange={v => {
-                    const desg = settingsData?.settings?.designations.find(d => d.id === v);
-                    setEditForm({...editForm, designationId: v, designation: desg?.name || ""});
-                  }} options={settingsData?.settings?.designations.map(d => ({ label: d.name, value: d.id }))} />
-                  <EditableField label="Employment Type" value={editForm.employmentType} isEdit={isEditMode} onChange={v => setEditForm({...editForm, employmentType: v})} options={settingsData?.settings?.employee_types.map(t => t.name)} />
-                  <EditableField label="Employee Category" value={editForm.category} isEdit={isEditMode} onChange={v => setEditForm({...editForm, category: v})} options={settingsData?.settings?.employee_categories.map(c => c.name)} />
-                  <EditableField label="Hiring Source" value={editForm.hiringSource} isEdit={isEditMode} onChange={v => setEditForm({...editForm, hiringSource: v})} options={HIRING_SOURCES} />
-                  <EditableField label="Work Location" value={editForm.workLocation} isEdit={isEditMode} onChange={v => setEditForm({...editForm, workLocation: v})} />
+                  <EditableField
+                    label="Joining Date"
+                    value={editForm.joiningDate}
+                    disabled={true}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, joiningDate: v })
+                    }
+                    type="date"
+                  />
+                  <EditableField
+                    label="Department"
+                    value={editForm.hrDepartmentId}
+                    isEdit={isEditMode}
+                    onChange={(v) => {
+                      const dept = departments.find((d) => d.id === v);
+                      setEditForm({
+                        ...editForm,
+                        hrDepartmentId: v,
+                        hrDepartment: dept?.name || "",
+                      });
+                    }}
+                    options={departments.map((d) => ({
+                      label: d.name,
+                      value: d.id,
+                    }))}
+                  />
+                  <EditableField
+                    label="Designation"
+                    value={editForm.designationId}
+                    isEdit={isEditMode}
+                    onChange={(v) => {
+                      const desg = settingsData?.settings?.designations.find(
+                        (d) => d.id === v,
+                      );
+                      setEditForm({
+                        ...editForm,
+                        designationId: v,
+                        designation: desg?.name || "",
+                      });
+                    }}
+                    options={settingsData?.settings?.designations.map((d) => ({
+                      label: d.name,
+                      value: d.id,
+                    }))}
+                  />
+                  <EditableField
+                    label="Employment Type"
+                    value={editForm.employmentType}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, employmentType: v })
+                    }
+                    options={settingsData?.settings?.employee_types.map(
+                      (t) => t.name,
+                    )}
+                  />
+                  <EditableField
+                    label="Employee Category"
+                    value={editForm.category}
+                    isEdit={isEditMode}
+                    onChange={(v) => setEditForm({ ...editForm, category: v })}
+                    options={settingsData?.settings?.employee_categories.map(
+                      (c) => c.name,
+                    )}
+                  />
+                  <EditableField
+                    label="Hiring Source"
+                    value={editForm.hiringSource}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, hiringSource: v })
+                    }
+                    options={HIRING_SOURCES}
+                  />
+                  <EditableField
+                    label="Work Location"
+                    value={editForm.workLocation}
+                    isEdit={isEditMode}
+                    onChange={(v) =>
+                      setEditForm({ ...editForm, workLocation: v })
+                    }
+                  />
                 </Section>
               )}
 
               {/* Bank Tab */}
               {activeTab === "Bank" && (
                 <Section title="Bank Details">
-                  <div className="em-grid" style={{ gridColumn: 'span 2' }}>
+                  <div className="em-grid" style={{ gridColumn: "span 2" }}>
                     {editForm.bankDetails?.length > 0 ? (
                       editForm.bankDetails.map((bank, idx) => (
-                        <div key={idx} style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '12px', gridColumn: 'span 2' }}>
-                          <div style={{ fontWeight: 700, fontSize: '11px', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>{bank.bank_type} Account</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <EditableField label="Bank Name" value={bank.bank_name} isEdit={isEditMode} onChange={v => {
-                              const newBanks = [...editForm.bankDetails];
-                              newBanks[idx] = { ...newBanks[idx], bank_name: v };
-                              setEditForm({ ...editForm, bankDetails: newBanks });
-                            }} />
-                            <EditableField label="Account No" value={bank.account_no} isEdit={isEditMode} onChange={v => {
-                              const newBanks = [...editForm.bankDetails];
-                              newBanks[idx] = { ...newBanks[idx], account_no: v };
-                              setEditForm({ ...editForm, bankDetails: newBanks });
-                            }} />
-                            <EditableField label="IFSC Code" value={bank.ifsc} isEdit={isEditMode} onChange={v => {
-                              const newBanks = [...editForm.bankDetails];
-                              newBanks[idx] = { ...newBanks[idx], ifsc: v };
-                              setEditForm({ ...editForm, bankDetails: newBanks });
-                            }} />
+                        <div
+                          key={idx}
+                          style={{
+                            background: "#f8fafc",
+                            padding: "16px",
+                            borderRadius: "10px",
+                            border: "1px solid #e2e8f0",
+                            marginBottom: "12px",
+                            gridColumn: "span 2",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "11px",
+                              color: "#3b82f6",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            {bank.bank_type} Account
+                          </div>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              gap: "12px",
+                            }}
+                          >
+                            <EditableField
+                              label="Bank Name"
+                              value={bank.bank_name}
+                              isEdit={isEditMode}
+                              onChange={(v) => {
+                                const newBanks = [...editForm.bankDetails];
+                                newBanks[idx] = {
+                                  ...newBanks[idx],
+                                  bank_name: v,
+                                };
+                                setEditForm({
+                                  ...editForm,
+                                  bankDetails: newBanks,
+                                });
+                              }}
+                            />
+                            <EditableField
+                              label="Account No"
+                              value={bank.account_no}
+                              isEdit={isEditMode}
+                              onChange={(v) => {
+                                const newBanks = [...editForm.bankDetails];
+                                newBanks[idx] = {
+                                  ...newBanks[idx],
+                                  account_no: v,
+                                };
+                                setEditForm({
+                                  ...editForm,
+                                  bankDetails: newBanks,
+                                });
+                              }}
+                            />
+                            <EditableField
+                              label="IFSC Code"
+                              value={bank.ifsc}
+                              isEdit={isEditMode}
+                              onChange={(v) => {
+                                const newBanks = [...editForm.bankDetails];
+                                newBanks[idx] = { ...newBanks[idx], ifsc: v };
+                                setEditForm({
+                                  ...editForm,
+                                  bankDetails: newBanks,
+                                });
+                              }}
+                            />
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: '13px', gridColumn: 'span 2' }}>No bank details provided.</div>
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "32px",
+                          color: "#94a3b8",
+                          fontSize: "13px",
+                          gridColumn: "span 2",
+                        }}
+                      >
+                        No bank details provided.
+                      </div>
                     )}
                   </div>
                 </Section>
@@ -716,8 +1266,26 @@ export default function EmployeeManagement() {
             </div>
 
             <div className="em-drawer-footer">
-              <button className="ob-btn" style={{background: "#fff", border: "1.5px solid #e2e8f0", color: "#64748b"}} onClick={() => setDrawerEmp(null)}>{isEditMode ? 'Cancel' : 'Close'}</button>
-              {isEditMode && <button className="ob-btn-primary ob-btn" onClick={handleUpdate} disabled={updating}>{updating ? 'Saving...' : 'Save Changes'}</button>}
+              <button
+                className="ob-btn"
+                style={{
+                  background: "#fff",
+                  border: "1.5px solid #e2e8f0",
+                  color: "#64748b",
+                }}
+                onClick={() => setDrawerEmp(null)}
+              >
+                {isEditMode ? "Cancel" : "Close"}
+              </button>
+              {isEditMode && (
+                <button
+                  className="ob-btn-primary ob-btn"
+                  onClick={handleUpdate}
+                  disabled={updating}
+                >
+                  {updating ? "Saving..." : "Save Changes"}
+                </button>
+              )}
             </div>
           </div>
         </>

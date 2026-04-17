@@ -156,8 +156,14 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    getAllEmployees(status: String, department: String, search: String, pagination: PaginationInput): EmployeePage!
+    getAllEmployees(
+      status: String
+      department: String
+      search: String
+      pagination: PaginationInput
+    ): EmployeePage!
     employee(id: ID!): Employee
+    me: Employee
   }
 
   extend type Mutation {

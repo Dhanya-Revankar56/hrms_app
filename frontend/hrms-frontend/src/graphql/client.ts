@@ -6,8 +6,10 @@ import { setContext } from "@apollo/client/link/context";
  * This connects your React frontend to the Express/GraphQL backend.
  */
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const httpLink = createHttpLink({
-  uri: `${import.meta.env.VITE_API_URL}/graphql`,
+  uri: `${API_URL}/graphql`,
 });
 
 const authLink = setContext((_, { headers }) => {

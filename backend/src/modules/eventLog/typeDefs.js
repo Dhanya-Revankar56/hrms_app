@@ -1,5 +1,4 @@
 const { gql } = require("apollo-server-express");
-const { GraphQLJSON } = require('graphql-type-json');
 
 const typeDefs = gql`
   type EventLog {
@@ -30,8 +29,10 @@ const typeDefs = gql`
       module_name: String
       action_type: String
       user_id: String
+      record_id: String
       date_from: String
       date_to: String
+      search: String
       pagination: PaginationInput
     ): EventLogPage!
   }

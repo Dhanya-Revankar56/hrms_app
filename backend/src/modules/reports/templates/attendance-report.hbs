@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ reportTitle }} — {{ institution.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4 landscape; margin: 15mm 12mm 15mm 12mm; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 9.5px; color: #1a1a2e; background: #fff; line-height: 1.5;
+    }
+
+    /* ── Letterhead ─── */
+    .letterhead { display: flex; align-items: center; justify-content: center; border-bottom: 3px solid #0d6e4e; padding-bottom: 10px; margin-bottom: 6px; gap: 14px; }
+    .letterhead-logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+    .letterhead-logo-placeholder {
+      width: 55px; height: 55px; border-radius: 50%;
+      background: linear-gradient(135deg, #0d6e4e, #13a876);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 20px; font-weight: 800;
+    }
+    .institution-name { font-size: 17px; font-weight: 800; color: #0d6e4e; text-transform: uppercase; }
+    .institution-short { font-size: 10px; color: #1a8f63; font-weight: 600; margin-top: 1px; }
+    .institution-tagline { font-size: 8.5px; color: #555; margin-top: 2px; }
+    .institution-meta  { font-size: 8px; color: #666; margin-top: 2px; }
+    .footer-institution-info { text-align:center; font-size:7.5px; color:#777; margin-top:5px; }
+
+    /* ── Title ─── */
+    .report-title-block { text-align: center; margin: 8px 0 10px; }
+    .report-category-badge {
+      display: inline-block; background: #d4edda; color: #0d6e4e; font-size: 8px;
+      font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+      padding: 2px 10px; border-radius: 10px; border: 1px solid #b5dfca; margin-bottom: 4px;
+    }
+    .report-title { font-size: 13px; font-weight: 700; color: #0d6e4e; }
+
+    /* ── Meta Strip ─── */
+    .meta-strip {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #f0faf5; border: 1px solid #b5dfca; border-radius: 4px;
+      padding: 5px 12px; margin-bottom: 12px; font-size: 9px; color: #444;
+    }
+    .meta-strip strong { color: #0d6e4e; }
+
+    /* ── Table ─── (landscape, more columns) */
+    .report-table {
+      width: 100%; border-collapse: collapse; font-size: 8.5px; page-break-inside: auto;
+    }
+    .report-table thead { background: #0d6e4e; color: #fff; }
+    .report-table thead th {
+      padding: 6px 7px; text-align: left; font-weight: 600; font-size: 8.5px;
+      border-right: 1px solid #1a8f63; white-space: nowrap;
+    }
+    .report-table thead th:last-child { border-right: none; }
+    .report-table tbody tr { page-break-inside: avoid; }
+    .report-table tbody tr:nth-child(even) { background: #f0faf5; }
+    .report-table tbody tr:nth-child(odd)  { background: #fff; }
+    .report-table tbody td {
+      padding: 4px 7px; border-bottom: 1px solid #c8e6d8;
+      border-right: 1px solid #ddf0e8; color: #2d2d2d; vertical-align: middle;
+    }
+    .report-table tbody td:last-child { border-right: none; }
+
+    /* ── Status Badges ─── */
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 7.5px; font-weight: 600; text-transform: uppercase; }
+    .badge-present  { background: #d4edda; color: #1a6b35; }
+    .badge-absent   { background: #f8d7da; color: #842029; }
+    .badge-late     { background: #ffe5d0; color: #7c3e0c; }
+    .badge-half_day { background: #fff3cd; color: #856404; }
+    .badge-on_leave { background: #d1ecf1; color: #0c5460; }
+    .badge-holiday  { background: #e2e3e5; color: #41464b; }
+
+    .summary-row { background: #d4edda !important; font-weight: 700; color: #0d6e4e; }
+    .empty-state { text-align: center; padding: 40px 0; color: #888; font-size: 11px; }
+
+    /* ── Footer ─── */
+    .report-footer {
+      margin-top: 18px; border-top: 2px solid #0d6e4e; padding-top: 10px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      font-size: 8px; color: #555;
+    }
+    .signature-block { text-align: center; min-width: 120px; }
+    .signature-line { border-top: 1px solid #444; margin-top: 26px; padding-top: 4px; font-size: 8px; }
+    .footer-center { text-align: center; font-size: 7.5px; color: #888; }
+    @media print { .report-table thead { display: table-header-group; } tr { page-break-inside: avoid; } }
+  </style>
+</head>
+<body>
+
+  <!-- LETTERHEAD -->
+  <div class="letterhead">
+    {{#if institution.logo}}
+      <img class="letterhead-logo-img" src="{{ institution.logo }}" alt="{{ institution.name }}" />
+    {{else}}
+      <div class="letterhead-logo-placeholder">{{ institution.name.[0] }}</div>
+    {{/if}}
+    <div style="text-align:center;">
+      <div class="institution-name">{{ institution.name }}</div>
+      {{#if institution.shortName}}<div class="institution-short">{{ institution.shortName }}</div>{{/if}}
+      <div class="institution-tagline">Human Resource Management System{{#if institution.code}} &nbsp;|&nbsp; {{ institution.code }}{{/if}}</div>
+      {{#if institution.address}}<div class="institution-meta">{{ institution.address }}</div>{{/if}}
+      {{#if institution.email}}<div class="institution-meta">✉ {{ institution.email }}{{#if institution.phone}} &nbsp;|&nbsp; ☎ {{ institution.phone }}{{/if}}</div>{{/if}}
+    </div>
+  </div>
+
+  <!-- TITLE -->
+  <div class="report-title-block">
+    <div class="report-category-badge">ATTENDANCE REPORT</div>
+    <div class="report-title">{{ reportTitle }}</div>
+  </div>
+
+  <!-- META STRIP -->
+  <div class="meta-strip">
+    <span><strong>Total Records:</strong> {{ totalRecords }}</span>
+    {{#if dateFrom}}
+    <span><strong>Period:</strong> {{ dateFrom }} → {{#if dateTo}}{{ dateTo }}{{else}}Today{{/if}}</span>
+    {{/if}}
+    <span><strong>Generated:</strong> {{ generatedOn }}</span>
+  </div>
+
+  <!-- TABLE -->
+  {{#if hasRows}}
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="width:26px;">#</th>
+        {{#each columns}}<th>{{ this }}</th>{{/each}}
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td style="color:#888;text-align:center;">{{ rowIndex @index }}</td>
+        {{#each this}}<td>{{ str this }}</td>{{/each}}
+      </tr>
+      {{/each}}
+      <tr class="summary-row">
+        <td></td>
+        <td colspan="{{ columns.length }}">Total Entries: {{ totalRecords }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty-state">No attendance records found for the selected filters.</div>
+  {{/if}}
+
+  <!-- FOOTER -->
+  <div class="report-footer">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div class="signature-block"><div class="signature-line">HR Officer</div></div>
+      <div class="footer-center">{{ institution.name }}<br/><span style="color:#aaa;">System-generated &nbsp;|&nbsp; HRMS</span></div>
+      <div class="signature-block"><div class="signature-line">Authorized Signatory</div></div>
+    </div>
+    {{#if institution.address}}<div class="footer-institution-info">{{ institution.address }}{{#if institution.email}} &nbsp;|&nbsp; {{ institution.email }}{{/if}}</div>{{/if}}
+  </div>
+
+</body>
+</html>

@@ -9,6 +9,16 @@ const typeDefs = gql`
     remarks: String
   }
 
+  type LeaveDayBreakdown {
+    date: String!
+    leave_type: String!
+  }
+
+  input LeaveDayBreakdownInput {
+    date: String!
+    leave_type: String!
+  }
+
   type Leave {
     id: ID!
     tenant_id: String
@@ -22,12 +32,13 @@ const typeDefs = gql`
     total_days: Float
     reason: String
     status: String
-    
+
     approvals: [LeaveApproval]
-    
+
     requested_date: String
     is_half_day: Boolean
     half_day_type: String
+    day_breakdowns: [LeaveDayBreakdown]
     document_url: String
     created_at: String
     updated_at: String
@@ -50,6 +61,7 @@ const typeDefs = gql`
     reason: String
     is_half_day: Boolean
     half_day_type: String
+    day_breakdowns: [LeaveDayBreakdownInput]
     document_url: String
   }
 
@@ -63,6 +75,7 @@ const typeDefs = gql`
     reason: String
     is_half_day: Boolean
     half_day_type: String
+    day_breakdowns: [LeaveDayBreakdownInput]
     document_url: String
   }
 
@@ -73,6 +86,9 @@ const typeDefs = gql`
     to_date: String
     total_days: Float
     reason: String
+    is_half_day: Boolean
+    half_day_type: String
+    day_breakdowns: [LeaveDayBreakdownInput]
   }
 
   type LeavePage {
@@ -85,16 +101,30 @@ const typeDefs = gql`
   }
 
   extend type Query {
-    leaves(employee_id: String, status: String, leave_type: String, department: String, search: String, month: Int, year: Int, pagination: PaginationInput): LeavePage!
+    leaves(
+      employee_id: String
+      status: String
+      leave_type: String
+      department: String
+      search: String
+      month: Int
+      year: Int
+      pagination: PaginationInput
+    ): LeavePage!
     leave(id: ID!): Leave
     leaveBalances(employee_id: String!): [LeaveBalance!]!
   }
 
   extend type Mutation {
     applyLeave(input: ApplyLeaveInput!): Leave!
-    updateLeaveApproval(id: ID!, role: String!, status: String!, remarks: String): Leave!
+    updateLeaveApproval(
+      id: ID!
+      role: String!
+      status: String!
+      remarks: String
+    ): Leave!
     cancelLeave(id: ID!): Leave!
-    
+
     createLeave(input: CreateLeaveInput!): Leave!
     updateLeave(id: ID!, input: UpdateLeaveInput!): Leave!
     deleteLeave(id: ID!): DeleteResponse!

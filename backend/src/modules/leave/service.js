@@ -51,6 +51,7 @@ const calculateWorkingDays = (
   settings,
   options = {},
   publicHolidays = [],
+  day_breakdowns = [],
 ) => {
   const { weekends_covered = false, holiday_covered = false } = options;
   let count = 0;
@@ -60,15 +61,27 @@ const calculateWorkingDays = (
   while (current <= end) {
     const isHoliday = isHolidayOrSunday(current, settings, publicHolidays);
 
+    // Compute day weight based on day_breakdowns
+    const dStr = current.toISOString().split("T")[0];
+    const breakdown = day_breakdowns.find((b) => b.date === dStr);
+    let dayWeight = 1;
+    if (
+      breakdown &&
+      breakdown.leave_type &&
+      breakdown.leave_type !== "Full Day"
+    ) {
+      dayWeight = 0.5;
+    }
+
     if (!isHoliday) {
-      count++;
+      count += dayWeight;
     } else {
       const d = new Date(current);
       const dayName = d.toLocaleDateString("en-US", { weekday: "long" });
       const isWeekend = !settings.working_days.includes(dayName);
 
-      if (isWeekend && weekends_covered) count++;
-      else if (!isWeekend && holiday_covered) count++;
+      if (isWeekend && weekends_covered) count += dayWeight;
+      else if (!isWeekend && holiday_covered) count += dayWeight;
     }
 
     current.setDate(current.getDate() + 1);
@@ -257,7 +270,7 @@ exports.applyLeave = async (input, _context) => {
     from_date,
     to_date,
     _institution_id,
-    is_half_day,
+    _is_half_day,
     _half_day_type,
   } = input;
 
@@ -356,8 +369,8 @@ exports.applyLeave = async (input, _context) => {
       holiday_covered: leaveTypeConfig.holiday_covered,
     },
     publicHolidays,
+    input.day_breakdowns || [],
   );
-  if (is_half_day) totalDays = 0.5;
   if (totalDays === 0)
     throw new Error("Selected range has no working days for this leave type");
 
@@ -421,6 +434,23 @@ exports.applyLeave = async (input, _context) => {
   const tenant_id = getTenantId();
   const leave = new Leave({ ...input, tenant_id, total_days: totalDays });
   const saved = await leave.save();
+
+  // 🛡 Audit Log
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    user_id: _context.user?.id || employee.user_id,
+    user_name: employee.name,
+    user_role: _context.user?.role || "EMPLOYEE",
+    module_name: "Leave Management",
+    action_type: "CREATED",
+    module: "Leave Management",
+    record_id: saved._id,
+    description: `${employee.name} applied for a leave`,
+    new_data: {
+      ...saved.toObject(),
+      employee_name: employee.name,
+    },
+  });
 
   return saved;
 };
@@ -506,6 +536,29 @@ exports.updateLeaveApproval = async (
 
   const saved = await leave.save();
 
+  // 🛡 Audit Log for status transitions (Approved/Rejected)
+  const emp = await Employee.findById(leave.employee_id).lean();
+  const empName = emp ? `${emp.first_name} ${emp.last_name}` : "Employee";
+  const user_id = getUserIdFromCtx(_context);
+  const user_role = _context.user?.role || role;
+
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
+    user_id,
+    user_name: _context.user?.name || "Admin",
+    user_role,
+    module_name: "Leave Management",
+    action_type: status === "approved" ? "UPDATED" : "UPDATED",
+    module: "Leave Management",
+    record_id: id,
+    description: `${empName}'s leave has been ${status} by ${user_role}`,
+    new_data: {
+      status: status,
+      remarks: remarks,
+      role: role,
+    },
+  });
+
   return saved;
 };
 
@@ -560,12 +613,19 @@ exports.cancelLeave = async (id, context) => {
 
   const saved = await leave.save();
 
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "LEAVE_CANCELLED",
+  // Log to EventRegister with standardized description (replacing direct AuditLog.create to avoid duplicates)
+  const emp = await Employee.findById(leave.employee_id).lean();
+  const empName = emp ? `${emp.first_name} ${emp.last_name}` : "Employee";
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
     user_id: getUserIdFromCtx(context),
-    tenant_id: leave.tenant_id,
-    metadata: { leave_id: id, type: leave.leave_type },
+    user_name: "User",
+    user_role: context.user?.role || "EMPLOYEE",
+    module_name: "Leave Management",
+    action_type: "UPDATED",
+    module: "Leave Management",
+    record_id: id,
+    description: `${empName} leave has been cancelled`,
   });
 
   return saved;
@@ -576,12 +636,19 @@ exports.createLeave = async (data, context) => {
   const leave = new Leave({ ...data, tenant_id });
   const saved = await leave.save();
 
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "LEAVE_CREATED",
+  // Log to EventRegister (replacing direct AuditLog.create to avoid duplicates)
+  const emp = await Employee.findById(data.employee_id).lean();
+  const empName = emp ? `${emp.first_name} ${emp.last_name}` : "Employee";
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
     user_id: getUserIdFromCtx(context),
-    tenant_id,
-    metadata: { leave_id: saved._id, type: data.leave_type },
+    user_name: "Admin",
+    user_role: "HR Administrator",
+    module_name: "Leave Management",
+    action_type: "CREATED",
+    module: "Leave Management",
+    record_id: saved._id,
+    description: `${empName} applied for a leave`,
   });
 
   return saved;
@@ -615,9 +682,9 @@ exports.updateLeave = async (id, data, context) => {
             holiday_covered: leaveTypeConfig.holiday_covered,
           },
           publicHolidays,
+          data.day_breakdowns || existing.day_breakdowns || [],
         );
 
-        if (existing.is_half_day) totalDays = 0.5;
         data.total_days = totalDays;
       }
     }
@@ -643,11 +710,14 @@ exports.updateLeave = async (id, data, context) => {
       user_id,
       user_name: "Admin",
       user_role: "HR Administrator",
-      module_name: "leave",
+      module_name: "Leave Management",
       action_type: "UPDATED",
+      module: "Leave Management",
       record_id: id,
-      description: `${empName} leave dates updated`,
-      new_data: updated,
+      description: `${empName}'s leave record updated`,
+      new_data: {
+        ...updated,
+      },
     });
   }
   return updated;
@@ -660,10 +730,15 @@ exports.deleteLeave = async (id, context) => {
 
   // 🛡 Audit Log
   await AuditLog.create({
-    action: "LEAVE_DELETED",
+    action: "DELETED",
+    module: "leave",
     user_id: getUserIdFromCtx(context),
     tenant_id: deleted.tenant_id,
-    metadata: { leave_id: id },
+    metadata: {
+      employee_id: deleted.employee_id,
+      leave_id: id,
+      description: "Leave record has been deleted",
+    },
   });
 
   return { success: true, message: "Leave record deleted successfully" };

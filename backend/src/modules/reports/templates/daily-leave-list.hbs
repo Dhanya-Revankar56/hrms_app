@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; margin: 0; padding: 20px; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
+        .logo { position: absolute; top: 10px; left: 20px; width: 60px; height: 60px; object-fit: contain; }
+        .report-title { font-size: 22px; font-weight: bold; color: #1e3a8a; text-transform: uppercase; margin: 0; }
+        .report-subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+        
+        .meta-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px; color: #444; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        th { background-color: #f1f5f9; color: #1e3a8a; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 10px 8px; border: 1px solid #e2e8f0; text-align: left; }
+        td { padding: 10px 8px; border: 1px solid #e2e8f0; font-size: 11px; vertical-align: top; word-wrap: break-word; }
+        
+        .emp-name { font-weight: bold; color: #111; font-size: 12px; margin-bottom: 2px; }
+        .emp-id { color: #64748b; font-size: 10px; }
+        .reason-col { color: #666; font-style: italic; line-height: 1.4; }
+        
+        tr:nth-child(even) { background-color: #f8fafc; }
+        
+        .footer { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+        .summary-box { margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .summary-title { font-weight: bold; color: #1e3a8a; margin-bottom: 10px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {{#if logoUrl}}
+            <img src="{{logoUrl}}" class="logo" alt="Logo">
+        {{/if}}
+        <h1 class="report-title">{{reportTitle}}</h1>
+        <p class="report-subtitle">Daily Personnel on Leave List</p>
+    </div>
+
+    <div class="meta-info">
+        <div><strong>Generated On:</strong> {{generatedOn}}</div>
+        <div><strong>Record Count:</strong> {{data.length}}</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">Employee Details</th>
+                <th style="width: 20%;">Designation / Dept</th>
+                <th style="width: 15%;">Leave Type</th>
+                <th style="width: 15%;">Period</th>
+                <th style="width: 25%;">Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each data}}
+            <tr>
+                <td>
+                    <div class="emp-name">{{this.Name}}</div>
+                    <div class="emp-id">{{this.["Emp ID"]}}</div>
+                </td>
+                <td>
+                    {{this.Designation}}<br/>
+                    <small style="color: #666;">{{this.Department}}</small>
+                </td>
+                <td style="font-weight: 500;">{{this.["Leave Type"]}}</td>
+                <td>
+                    {{str this.["From Date"]}}<br/>
+                    <small>to</small><br/>
+                    {{str this.["To Date"]}}
+                    <div style="margin-top: 4px; color: #1e3a8a; font-weight: bold;">{{this.Days}} Day(s)</div>
+                </td>
+                <td class="reason-col">{{this.Reason}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    {{#if data.length}}
+    <div class="summary-box">
+        <div class="summary-title">Reporting Summary</div>
+        <p style="font-size: 11px; margin: 0; color: #444;"> This list includes all employees whose approved leave period covers the selected date. This report is for internal official use only.</p>
+    </div>
+    {{/if}}
+
+    <div class="footer">
+        Confidential HR Document - Page 1
+    </div>
+</body>
+</html>

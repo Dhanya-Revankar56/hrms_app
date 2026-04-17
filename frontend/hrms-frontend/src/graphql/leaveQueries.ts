@@ -1,8 +1,26 @@
 import { gql } from "@apollo/client";
 
 export const GET_LEAVES = gql`
-  query GetLeaves($employee_id: String, $status: String, $leave_type: String, $department: String, $search: String, $month: Int, $year: Int, $pagination: PaginationInput) {
-    leaves(employee_id: $employee_id, status: $status, leave_type: $leave_type, department: $department, search: $search, month: $month, year: $year, pagination: $pagination) {
+  query GetLeaves(
+    $employee_id: String
+    $status: String
+    $leave_type: String
+    $department: String
+    $search: String
+    $month: Int
+    $year: Int
+    $pagination: PaginationInput
+  ) {
+    leaves(
+      employee_id: $employee_id
+      status: $status
+      leave_type: $leave_type
+      department: $department
+      search: $search
+      month: $month
+      year: $year
+      pagination: $pagination
+    ) {
       items {
         id
         employee_id
@@ -23,6 +41,10 @@ export const GET_LEAVES = gql`
         requested_date
         is_half_day
         half_day_type
+        day_breakdowns {
+          date
+          leave_type
+        }
         document_url
         employee {
           id
@@ -31,8 +53,14 @@ export const GET_LEAVES = gql`
           employee_id
           employee_image
           work_detail {
-            department { id name }
-            designation { id name }
+            department {
+              id
+              name
+            }
+            designation {
+              id
+              name
+            }
           }
         }
       }
@@ -73,8 +101,18 @@ export const APPLY_LEAVE = gql`
 `;
 
 export const UPDATE_LEAVE_APPROVAL = gql`
-  mutation UpdateLeaveApproval($id: ID!, $role: String!, $status: String!, $remarks: String) {
-    updateLeaveApproval(id: $id, role: $role, status: $status, remarks: $remarks) {
+  mutation UpdateLeaveApproval(
+    $id: ID!
+    $role: String!
+    $status: String!
+    $remarks: String
+  ) {
+    updateLeaveApproval(
+      id: $id
+      role: $role
+      status: $status
+      remarks: $remarks
+    ) {
       id
       status
       approvals {
@@ -113,6 +151,12 @@ export const UPDATE_LEAVE = gql`
       to_date
       total_days
       reason
+      is_half_day
+      half_day_type
+      day_breakdowns {
+        date
+        leave_type
+      }
     }
   }
 `;

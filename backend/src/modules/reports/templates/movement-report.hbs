@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ reportTitle }} — {{ institution.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4 landscape; margin: 15mm 12mm 15mm 12mm; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9.5px; color: #1a1a2e; background: #fff; line-height: 1.5; }
+
+    .letterhead { display: flex; align-items: center; justify-content: center; border-bottom: 3px solid #7c4700; padding-bottom: 10px; margin-bottom: 6px; gap: 14px; }
+    .letterhead-logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
+    .letterhead-logo-placeholder { width: 55px; height: 55px; border-radius: 50%; background: linear-gradient(135deg, #7c4700, #c4760a); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 800; }
+    .institution-name { font-size: 17px; font-weight: 800; color: #7c4700; text-transform: uppercase; }
+    .institution-short { font-size: 10px; color: #a05a0a; font-weight: 600; margin-top: 1px; }
+    .institution-tagline { font-size: 8.5px; color: #555; margin-top: 2px; }
+    .institution-meta  { font-size: 8px; color: #666; margin-top: 2px; }
+    .footer-institution-info { text-align:center; font-size:7.5px; color:#777; margin-top:5px; }
+
+    .report-title-block { text-align: center; margin: 8px 0 10px; }
+    .report-category-badge { display: inline-block; background: #fef3e2; color: #7c4700; font-size: 8px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 2px 10px; border-radius: 10px; border: 1px solid #f5d49a; margin-bottom: 4px; }
+    .report-title { font-size: 13px; font-weight: 700; color: #7c4700; }
+
+    .meta-strip { display: flex; justify-content: space-between; align-items: center; background: #fef9f0; border: 1px solid #f5d49a; border-radius: 4px; padding: 5px 12px; margin-bottom: 12px; font-size: 9px; color: #444; }
+    .meta-strip strong { color: #7c4700; }
+
+    .report-table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+    .report-table thead { background: #7c4700; color: #fff; }
+    .report-table thead th { padding: 6px 7px; text-align: left; font-weight: 600; font-size: 8.5px; border-right: 1px solid #a05a0a; white-space: nowrap; }
+    .report-table thead th:last-child { border-right: none; }
+    .report-table tbody tr:nth-child(even) { background: #fef9f0; }
+    .report-table tbody tr:nth-child(odd)  { background: #fff; }
+    .report-table tbody td { padding: 4px 7px; border-bottom: 1px solid #f5d49a; border-right: 1px solid #faebd0; color: #2d2d2d; vertical-align: middle; }
+    .report-table tbody td:last-child { border-right: none; }
+
+    .summary-row { background: #fde8c0 !important; font-weight: 700; color: #7c4700; }
+    .empty-state { text-align: center; padding: 40px 0; color: #888; }
+
+    .report-footer { margin-top: 18px; border-top: 2px solid #7c4700; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 8px; color: #555; }
+    .signature-block { text-align: center; min-width: 120px; }
+    .signature-line { border-top: 1px solid #444; margin-top: 26px; padding-top: 4px; font-size: 8px; }
+    .footer-center { text-align: center; font-size: 7.5px; color: #888; }
+    @media print { .report-table thead { display: table-header-group; } tr { page-break-inside: avoid; } }
+  </style>
+</head>
+<body>
+
+  <div class="letterhead">
+    {{#if institution.logo}}
+      <img class="letterhead-logo-img" src="{{ institution.logo }}" alt="{{ institution.name }}" />
+    {{else}}
+      <div class="letterhead-logo-placeholder">{{ institution.name.[0] }}</div>
+    {{/if}}
+    <div style="text-align:center;">
+      <div class="institution-name">{{ institution.name }}</div>
+      {{#if institution.shortName}}<div class="institution-short">{{ institution.shortName }}</div>{{/if}}
+      <div class="institution-tagline">Human Resource Management System{{#if institution.code}} &nbsp;|&nbsp; {{ institution.code }}{{/if}}</div>
+      {{#if institution.address}}<div class="institution-meta">{{ institution.address }}</div>{{/if}}
+      {{#if institution.email}}<div class="institution-meta">✉ {{ institution.email }}{{#if institution.phone}} &nbsp;|&nbsp; ☎ {{ institution.phone }}{{/if}}</div>{{/if}}
+    </div>
+  </div>
+
+  <div class="report-title-block">
+    <div class="report-category-badge">MOVEMENT REGISTER</div>
+    <div class="report-title">{{ reportTitle }}</div>
+  </div>
+
+  <div class="meta-strip">
+    <span><strong>Total Entries:</strong> {{ totalRecords }}</span>
+    {{#if dateFrom}}<span><strong>Period:</strong> {{ dateFrom }} → {{#if dateTo}}{{ dateTo }}{{else}}Today{{/if}}</span>{{/if}}
+    <span><strong>Generated:</strong> {{ generatedOn }}</span>
+  </div>
+
+  {{#if hasRows}}
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th style="width:26px;">#</th>
+        {{#each columns}}<th>{{ this }}</th>{{/each}}
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td style="color:#888;text-align:center;">{{ rowIndex @index }}</td>
+        {{#each this}}<td>{{ str this }}</td>{{/each}}
+      </tr>
+      {{/each}}
+      <tr class="summary-row">
+        <td></td>
+        <td colspan="{{ columns.length }}">Total Movements: {{ totalRecords }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty-state">No movement records found for the selected filters.</div>
+  {{/if}}
+
+  <div class="report-footer">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+      <div class="signature-block"><div class="signature-line">HR Officer</div></div>
+      <div class="footer-center">{{ institution.name }}<br/><span style="color:#aaa;">System-generated &nbsp;|&nbsp; HRMS</span></div>
+      <div class="signature-block"><div class="signature-line">Authorized Signatory</div></div>
+    </div>
+    {{#if institution.address}}<div class="footer-institution-info">{{ institution.address }}{{#if institution.email}} &nbsp;|&nbsp; {{ institution.email }}{{/if}}</div>{{/if}}
+  </div>
+
+</body>
+</html>

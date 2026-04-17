@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client/react";
 import {
   GET_RELIEVINGS,
@@ -9,7 +10,7 @@ import { GET_EMPLOYEES, REHIRE_EMPLOYEE } from "../graphql/employeeQueries";
 import { GET_DASHBOARD_STATS } from "../graphql/settingsQueries";
 import { GET_LEAVES } from "../graphql/leaveQueries";
 import { GET_MOVEMENTS } from "../graphql/movementQueries";
-import { isAdmin, isHod } from "../utils/auth";
+import { isAdmin } from "../utils/auth";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -1174,43 +1175,11 @@ function ExitDrawer({
   onReject,
   onRelieve,
   onRejoin,
-  onClearanceUpdate,
-  onSettlementToggle,
-  onInterviewSave,
 }: DrawerProps) {
-  const [hrRemarks, setHrRemarks] = useState<string>(rec.hrRemarks || "");
-  const [clearanceRemarks, setClearanceRemarks] = useState<string[]>(
-    (rec.clearances || []).map((c: Clearance) => c.remarks || ""),
-  );
-  const [intDone, setIntDone] = useState<boolean>(!!rec.exitInterviewDone);
-  const [intNotes, setIntNotes] = useState<string>(
-    rec.exitInterviewNotes || "",
-  );
+  const navigate = useNavigate();
+  const [hrRemarks] = useState<string>(rec.hrRemarks || "");
 
-  const approvedCount = (rec.clearances || []).filter(
-    (c: Clearance) => c.status === "Approved",
-  ).length;
-  const totalClearances = (rec.clearances || []).length;
-  const clearancePct =
-    totalClearances > 0
-      ? Math.round((approvedCount / totalClearances) * 100)
-      : 0;
-
-  const settleKeys: Array<[keyof Settlement, string]> = [
-    ["salarySettled", "Salary Settlement"],
-    ["pfSettled", "PF Settlement"],
-    ["gratuitySettled", "Gratuity Settlement"],
-    ["expenseSettled", "Expense Claims"],
-    ["noDuesIssued", "No Dues Certificate"],
-    ["experienceLetterIssued", "Experience Letter"],
-  ];
-  const settledCount = settleKeys.filter(([k]) => rec.settlement?.[k]).length;
-
-  const allClear = totalClearances > 0 && approvedCount === totalClearances;
-  const canRelieve =
-    rec.status === "Clearance In Progress" &&
-    allClear &&
-    settledCount === settleKeys.length;
+  const canRelieve = true; // Bypassed as sections are removed
 
   return (
     <>
@@ -1255,6 +1224,38 @@ function ExitDrawer({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              className="er-header-btn"
+              style={{
+                height: 34,
+                fontSize: 12,
+                borderColor: "var(--accent)",
+                color: "var(--accent)",
+                background: "rgba(29,78,216,.05)",
+              }}
+              onClick={() => navigate(`/employees/${rec.employeeDbId}`)}
+            >
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+              View Full Profile
+            </button>
             {(rec.status === "Relieved" ||
               rec.status === "Approved" ||
               rec.status === "Rejected") && (
@@ -1319,242 +1320,6 @@ function ExitDrawer({
           <div className="er-drawer-section">
             <div className="er-drawer-section-title">Reason / Notes</div>
             <div className="er-reason-box">{rec.exitReasonDetail}</div>
-          </div>
-
-          <div className="er-drawer-section">
-            <div className="er-drawer-section-title">
-              Department Clearances ({approvedCount}/{totalClearances})
-            </div>
-            <div className="er-progress-wrap">
-              <div className="er-progress-label">
-                <span>Clearance Progress</span>
-                <span>{clearancePct}%</span>
-              </div>
-              <div className="er-progress-track">
-                <div
-                  className="er-progress-fill"
-                  style={{ width: `${clearancePct}%` }}
-                />
-              </div>
-            </div>
-            <div className="er-clearance-list" style={{ marginTop: 12 }}>
-              {rec.clearances.map((cl: Clearance, idx: number) => (
-                <div
-                  key={cl.dept}
-                  className={`er-clearance-item ${cl.status.toLowerCase()}`}
-                >
-                  <div
-                    className={`er-clearance-icon ${cl.status.toLowerCase()}`}
-                  >
-                    {cl.status === "Approved" ? (
-                      <svg
-                        width="16"
-                        height="16"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        width="16"
-                        height="16"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="er-clearance-dept">{cl.dept}</div>
-                    {cl.clearedBy ? (
-                      <div className="er-clearance-by">
-                        Cleared by {cl.clearedBy} on {formatDate(cl.clearedOn)}
-                      </div>
-                    ) : (
-                      <div className="er-clearance-by">Not yet cleared</div>
-                    )}
-                    {cl.remarks && (
-                      <div className="er-clearance-remarks">"{cl.remarks}"</div>
-                    )}
-                    {isHod() &&
-                      cl.status === "Pending" &&
-                      rec.status !== "Pending Approval" &&
-                      rec.status !== "Rejected" && (
-                        <div>
-                          <input
-                            type="text"
-                            className="er-clearance-input"
-                            placeholder="Add clearance remarks…"
-                            value={clearanceRemarks[idx]}
-                            onChange={(e) => {
-                              const updated = [...clearanceRemarks];
-                              updated[idx] = e.target.value;
-                              setClearanceRemarks(updated);
-                            }}
-                          />
-                          <button
-                            className="er-clearance-approve-btn"
-                            onClick={() => onClearanceUpdate()}
-                          >
-                            <svg
-                              width="12"
-                              height="12"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            Mark Cleared
-                          </button>
-                        </div>
-                      )}
-                  </div>
-                  <div className="er-clearance-status">
-                    <span
-                      className={`er-clearance-pill ${cl.status.toLowerCase()}`}
-                    >
-                      {cl.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {isAdmin() &&
-            rec.status !== "Pending Approval" &&
-            rec.status !== "Rejected" && (
-              <div className="er-drawer-section">
-                <div className="er-drawer-section-title">
-                  Final Settlement ({settledCount}/{settleKeys.length})
-                </div>
-                <div className="er-settlement-grid">
-                  {settleKeys.map(
-                    ([key, label]: [keyof Settlement, string]) => (
-                      <div
-                        key={key}
-                        className={`er-settle-item${rec.settlement[key] ? " done" : ""}`}
-                        onClick={() => onSettlementToggle(rec.id, key)}
-                      >
-                        <div className="er-settle-check">
-                          {rec.settlement[key] && (
-                            <svg
-                              width="11"
-                              height="11"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        {label}
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
-
-          {rec.status !== "Pending Approval" && rec.status !== "Rejected" && (
-            <div className="er-drawer-section">
-              <div className="er-drawer-section-title">Exit Interview</div>
-              <div className="er-interview-box">
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    className={`er-settle-item${intDone ? " done" : ""}`}
-                    style={{ flex: 1, cursor: "pointer" }}
-                    onClick={() => setIntDone((v: boolean) => !v)}
-                  >
-                    <div className="er-settle-check">
-                      {intDone && (
-                        <svg
-                          width="11"
-                          height="11"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={3}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    Exit Interview Conducted
-                  </div>
-                </div>
-                {intDone && (
-                  <textarea
-                    className="er-interview-notes"
-                    placeholder="Interview notes / feedback summary…"
-                    value={intNotes}
-                    onChange={(e) => setIntNotes(e.target.value)}
-                  />
-                )}
-                <button
-                  style={{
-                    marginTop: 10,
-                    height: 30,
-                    padding: "0 14px",
-                    borderRadius: 7,
-                    border: "1.5px solid #e2e8f0",
-                    background: "#f8fafc",
-                    cursor: "pointer",
-                    fontFamily: "'DM Sans',sans-serif",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    color: "#334155",
-                  }}
-                  onClick={() => onInterviewSave(rec.id, intDone, intNotes)}
-                >
-                  Save Interview Status
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="er-drawer-section">
-            <div className="er-drawer-section-title">HR Remarks</div>
-            {rec.hrRemarks && rec.status !== "Pending Approval" ? (
-              <div className="er-reason-box">{rec.hrRemarks}</div>
-            ) : (
-              <textarea
-                className="er-hr-remarks"
-                placeholder="Add HR remarks before approving or rejecting…"
-                value={hrRemarks}
-                onChange={(e) => setHrRemarks(e.target.value)}
-              />
-            )}
           </div>
         </div>
 

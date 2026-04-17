@@ -3,7 +3,12 @@ const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const leaveSchema = new mongoose.Schema(
   {
-    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    tenant_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      index: true,
+    },
     institution_id: { type: String, index: true }, // Legacy
     employee_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -24,7 +29,7 @@ const leaveSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected", "cancelled", "closed"],
       default: "pending",
     },
-    
+
     // Dept Admin Approval
     dept_admin_status: {
       type: String,
@@ -48,7 +53,11 @@ const leaveSchema = new mongoose.Schema(
     // Structured Approvals
     approvals: [
       {
-        role: { type: String, enum: ["HEAD OF DEPARTMENT", "ADMIN"], required: true },
+        role: {
+          type: String,
+          enum: ["HEAD OF DEPARTMENT", "ADMIN"],
+          required: true,
+        },
         status: {
           type: String,
           enum: ["pending", "approved", "rejected", "cancelled"],
@@ -67,11 +76,21 @@ const leaveSchema = new mongoose.Schema(
       enum: ["first_half", "second_half", ""],
       default: "",
     },
+    day_breakdowns: [
+      {
+        date: { type: String, required: true },
+        leave_type: {
+          type: String,
+          enum: ["Full Day", "Half Day Morning", "Half Day Afternoon"],
+          default: "Full Day",
+        },
+      },
+    ],
     document_url: { type: String, default: "" },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
-  }
+  },
 );
 
 // Apply tenant isolation

@@ -1,8 +1,18 @@
-import { gql } from '@apollo/client';
+import { gql } from "@apollo/client";
 
 export const GET_EMPLOYEES = gql`
-  query GetAllEmployees($status: String, $department: String, $search: String, $pagination: PaginationInput) {
-    getAllEmployees(status: $status, department: $department, search: $search, pagination: $pagination) {
+  query GetAllEmployees(
+    $status: String
+    $department: String
+    $search: String
+    $pagination: PaginationInput
+  ) {
+    getAllEmployees(
+      status: $status
+      department: $department
+      search: $search
+      pagination: $pagination
+    ) {
       items {
         id
         employee_id
@@ -15,8 +25,14 @@ export const GET_EMPLOYEES = gql`
         employee_image
         reporting_to
         work_detail {
-          department { id name }
-          designation { id name }
+          department {
+            id
+            name
+          }
+          designation {
+            id
+            name
+          }
           employee_type
           date_of_joining
         }
@@ -74,8 +90,14 @@ export const GET_EMPLOYEE_BY_ID = gql`
       }
       work_detail {
         date_of_joining
-        designation { id name }
-        department { id name }
+        designation {
+          id
+          name
+        }
+        department {
+          id
+          name
+        }
         employee_type
         reporting_to
       }
@@ -117,6 +139,23 @@ export const REHIRE_EMPLOYEE = gql`
       id
       first_name
       last_name
+    }
+  }
+`;
+
+export const GET_MY_PROFILE = gql`
+  query GetMyProfile {
+    me {
+      id
+      first_name
+      last_name
+      app_role
+      work_detail {
+        department {
+          id
+          name
+        }
+      }
     }
   }
 `;

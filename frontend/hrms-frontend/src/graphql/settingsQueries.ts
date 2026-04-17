@@ -7,6 +7,7 @@ export const GET_SETTINGS = gql`
       institution_name
       institution_short_name
       institution_code
+      institution_logo
       owner_name
       added_by
       pan_number
@@ -25,11 +26,50 @@ export const GET_SETTINGS = gql`
         pin_code
       }
       working_days
-      departments { id name short_name description }
-      designations { id name short_name description }
-      leave_types { id name code total_days max_per_request max_consecutive_leaves days_before_apply max_consecutive_days weekends_covered holiday_covered user_entry balance_enabled workload_interchange document_required leave_category applicable_for reset_cycle description }
-      employee_categories { id name short_name description }
-      employee_types { id name short_name description }
+      departments {
+        id
+        name
+        short_name
+        description
+      }
+      designations {
+        id
+        name
+        short_name
+        description
+      }
+      leave_types {
+        id
+        name
+        code
+        total_days
+        max_per_request
+        max_consecutive_leaves
+        days_before_apply
+        max_consecutive_days
+        weekends_covered
+        holiday_covered
+        user_entry
+        balance_enabled
+        workload_interchange
+        document_required
+        leave_category
+        applicable_for
+        reset_cycle
+        description
+      }
+      employee_categories {
+        id
+        name
+        short_name
+        description
+      }
+      employee_types {
+        id
+        name
+        short_name
+        description
+      }
       movement_settings {
         limit_count
         limit_frequency
@@ -49,6 +89,7 @@ export const UPSERT_SETTINGS = gql`
       institution_name
       institution_short_name
       institution_code
+      institution_logo
       owner_name
       pan_number
       registration_number
@@ -73,7 +114,10 @@ export const UPSERT_SETTINGS = gql`
 export const UPSERT_DEPARTMENT = gql`
   mutation UpsertDepartment($input: UpsertMasterDataInput!) {
     upsertDepartment(input: $input) {
-      id name short_name description
+      id
+      name
+      short_name
+      description
     }
   }
 `;
@@ -87,7 +131,10 @@ export const DELETE_DEPARTMENT = gql`
 export const UPSERT_DESIGNATION = gql`
   mutation UpsertDesignation($input: UpsertMasterDataInput!) {
     upsertDesignation(input: $input) {
-      id name short_name description
+      id
+      name
+      short_name
+      description
     }
   }
 `;
@@ -101,7 +148,24 @@ export const DELETE_DESIGNATION = gql`
 export const UPSERT_LEAVE_TYPE = gql`
   mutation UpsertLeaveType($input: UpsertLeaveTypeInput!) {
     upsertLeaveType(input: $input) {
-      id name code total_days max_per_request max_consecutive_leaves days_before_apply max_consecutive_days weekends_covered holiday_covered user_entry balance_enabled workload_interchange document_required leave_category applicable_for reset_cycle description
+      id
+      name
+      code
+      total_days
+      max_per_request
+      max_consecutive_leaves
+      days_before_apply
+      max_consecutive_days
+      weekends_covered
+      holiday_covered
+      user_entry
+      balance_enabled
+      workload_interchange
+      document_required
+      leave_category
+      applicable_for
+      reset_cycle
+      description
     }
   }
 `;
@@ -115,7 +179,10 @@ export const DELETE_LEAVE_TYPE = gql`
 export const UPSERT_CATEGORY = gql`
   mutation UpsertCategory($input: UpsertMasterDataInput!) {
     upsertEmployeeCategory(input: $input) {
-      id name short_name description
+      id
+      name
+      short_name
+      description
     }
   }
 `;
@@ -129,7 +196,10 @@ export const DELETE_CATEGORY = gql`
 export const UPSERT_EMPLOYEE_TYPE = gql`
   mutation UpsertEmployeeType($input: UpsertMasterDataInput!) {
     upsertEmployeeType(input: $input) {
-      id name short_name description
+      id
+      name
+      short_name
+      description
     }
   }
 `;

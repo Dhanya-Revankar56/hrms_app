@@ -4,8 +4,82 @@ const Leave = require("../leave/model");
 const Movement = require("../movement/model");
 const EventLog = require("../eventLog/model");
 const Department = require("../settings/department.model");
-const Designation = require("../settings/designation.model");
 const { withTenant } = require("../../utils/tenantUtils");
+
+/**
+ * 🛠 DATA NORMALIZER: Flattens complex Mongoose objects for easy table/PDF rendering
+ */
+const normalizeData = (item, type) => {
+  if (!item) return null;
+
+  switch (type) {
+    case "employee":
+      return {
+        "Emp ID": item.employee_id || "N/A",
+        Name: item.name || `${item.first_name} ${item.last_name}`,
+        Department: item.work_detail?.department?.name || "Unassigned",
+        Designation: item.work_detail?.designation?.name || "Unassigned",
+        "Join Date": item.work_detail?.joining_date
+          ? new Date(item.work_detail.joining_date).toLocaleDateString()
+          : "N/A",
+        Status: item.status?.toUpperCase() || "ACTIVE",
+        Email: item.email || "N/A",
+        Contact: item.user_contact || "N/A",
+      };
+
+    case "attendance":
+      return {
+        Date: item.date ? new Date(item.date).toLocaleDateString() : "N/A",
+        "Emp ID": item.employee_id?.employee_id || item.employee_code || "N/A",
+        "Employee Name": item.employee_id?.name || "N/A",
+        "Check In": item.check_in || "--:--",
+        "Check Out": item.check_out || "--:--",
+        Status: item.status?.toUpperCase() || "PRESENT",
+        "Work Hours": item.working_hours
+          ? `${item.working_hours} hrs`
+          : "0 hrs",
+      };
+
+    case "leave":
+      return {
+        "Emp ID": item.employee_id?.employee_id || item.employee_code || "N/A",
+        "Employee Name": item.employee_id?.name || "N/A",
+        "Leave Type": item.leave_type || "N/A",
+        From: item.from_date
+          ? new Date(item.from_date).toLocaleDateString()
+          : "N/A",
+        To: item.to_date ? new Date(item.to_date).toLocaleDateString() : "N/A",
+        Days: item.total_days || 0,
+        Status: item.status?.toUpperCase() || "PENDING",
+        Reason: item.reason || "N/A",
+      };
+
+    case "movement":
+      return {
+        Date: item.date ? new Date(item.date).toLocaleDateString() : "N/A",
+        "Emp ID": item.employee_id?.employee_id || "N/A",
+        "Employee Name": item.employee_id?.name || "N/A",
+        "Out Time": item.out_time || "--:--",
+        "In Time": item.in_time || "--:--",
+        Purpose: item.purpose || "N/A",
+        Location: item.location || "N/A",
+      };
+
+    case "system":
+      return {
+        Timestamp: item.timestamp
+          ? new Date(item.timestamp).toLocaleString()
+          : "N/A",
+        Action: item.action_type || "N/A",
+        Module: item.module || "SYSTEM",
+        Details: item.description || item.metadata?.details || "N/A",
+        User: item.user_id?.name || "System",
+      };
+
+    default:
+      return item;
+  }
+};
 
 /**
  * Common filter builder for reports
@@ -41,34 +115,39 @@ const buildFilters = (query) => {
 
 exports.getEmployeeList = async (query) => {
   const filters = buildFilters(query);
-  return await Employee.find(filters)
+  const data = await Employee.find(filters)
     .populate("work_detail.department", "name")
     .populate("work_detail.designation", "name")
     .lean();
+  return data.map((item) => normalizeData(item, "employee"));
 };
 
 exports.getNewJoiners = async (query) => {
   const { startDate, endDate } = query;
   const filters = withTenant({
-    "work_detail.date_of_joining": {
+    "work_detail.joining_date": {
       $gte: new Date(
         startDate || new Date().setDate(new Date().getDate() - 30),
       ),
       $lte: new Date(endDate || new Date()),
     },
   });
-  return await Employee.find(filters)
+  const data = await Employee.find(filters)
     .populate("work_detail.department", "name")
+    .populate("work_detail.designation", "name")
     .lean();
+  return data.map((item) => normalizeData(item, "employee"));
 };
 
-exports.getExitReport = async (query) => {
+exports.getExitReport = async (_query) => {
   const filters = withTenant({
-    app_status: { $in: ["resigned", "terminated", "relieved"] },
+    status: { $in: ["relieved", "inactive"] },
   });
-  return await Employee.find(filters)
+  const data = await Employee.find(filters)
     .populate("work_detail.department", "name")
+    .populate("work_detail.designation", "name")
     .lean();
+  return data.map((item) => normalizeData(item, "employee"));
 };
 
 // --- Attendance Reports ---
@@ -89,10 +168,11 @@ exports.getAttendanceReport = async (query) => {
     filters.employee_id = { $in: employees.map((e) => e._id) };
   }
 
-  return await Attendance.find(withTenant(filters))
-    .populate("employee_id", "first_name last_name employee_id")
+  const data = await Attendance.find(withTenant(filters))
+    .populate("employee_id", "name employee_id")
     .sort({ date: -1 })
     .lean();
+  return data.map((item) => normalizeData(item, "attendance"));
 };
 
 // --- Leave Reports ---
@@ -106,22 +186,37 @@ exports.getLeaveReport = async (query) => {
     filters.to_date = { $lte: new Date(endDate) };
   }
 
-  if (type) filters.leave_type = type;
+  if (type && type !== "all") filters.leave_type = type;
 
-  return await Leave.find(withTenant(filters))
-    .populate("employee_id", "first_name last_name employee_id")
+  const data = await Leave.find(withTenant(filters))
+    .populate("employee_id", "name employee_id")
     .sort({ from_date: -1 })
     .lean();
+  return data.map((item) => normalizeData(item, "leave"));
 };
 
 // --- Movement Reports ---
 
 exports.getMovementReport = async (query) => {
-  const filters = buildFilters(query);
-  // Adjust for movement model fields if different
-  return await Movement.find(filters)
-    .populate("employee_id", "first_name last_name employee_id")
+  const { startDate, endDate, departmentId } = query;
+  let filters = {};
+
+  if (startDate && endDate) {
+    filters.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+  }
+
+  if (departmentId) {
+    const employees = await Employee.find(
+      withTenant({ "work_detail.department": departmentId }),
+    ).select("_id");
+    filters.employee_id = { $in: employees.map((e) => e._id) };
+  }
+
+  const data = await Movement.find(withTenant(filters))
+    .populate("employee_id", "name employee_id")
+    .sort({ date: -1 })
     .lean();
+  return data.map((item) => normalizeData(item, "movement"));
 };
 
 // --- System & Summary ---
@@ -135,29 +230,47 @@ exports.getSystemReport = async (query) => {
   }
 
   if (type === "login") {
-    filters.action_type = "LOGIN"; // Assuming this is the type used
+    filters.action_type = "LOGIN";
   }
 
-  return await EventLog.find(withTenant(filters))
+  const data = await EventLog.find(withTenant(filters))
+    .populate("user_id", "name")
     .sort({ timestamp: -1 })
     .limit(500)
     .lean();
+  return data.map((item) => normalizeData(item, "system"));
 };
 
-exports.getHrOverview = async (user) => {
-  // Reuse analytics logic but formatted for report
-  const Employee = require("../employee/model");
+exports.getHrOverview = async (_user) => {
   const baseFilter = withTenant({});
 
   const [total, active, onLeave, depts] = await Promise.all([
     Employee.countDocuments(baseFilter),
-    Employee.countDocuments({ ...baseFilter, app_status: "active" }),
-    Employee.countDocuments({ ...baseFilter, app_status: "on-leave" }),
-    Department.find(withTenant({})).lean(),
+    Employee.countDocuments({ ...baseFilter, status: "active" }),
+    Employee.countDocuments({ ...baseFilter, status: "on-leave" }),
+    Department.countDocuments(baseFilter),
   ]);
 
-  return {
-    summary: { total, active, onLeave },
-    departments: depts.map((d) => ({ name: d.name, id: d._id })),
-  };
+  return [
+    {
+      "Report Metric": "Total Headcount",
+      Value: total,
+      Description: "Total registered employees",
+    },
+    {
+      "Report Metric": "Active Workforce",
+      Value: active,
+      Description: "Currently active staff",
+    },
+    {
+      "Report Metric": "Currently On Leave",
+      Value: onLeave,
+      Description: "Staff with approved leave today",
+    },
+    {
+      "Report Metric": "Total departments",
+      Value: depts,
+      Description: "Registered organizational units",
+    },
+  ];
 };

@@ -5,16 +5,20 @@ export const GET_EVENT_LOGS = gql`
     $module_name: String
     $action_type: String
     $user_id: String
+    $record_id: String
     $date_from: String
     $date_to: String
+    $search: String
     $pagination: PaginationInput
   ) {
     eventLogs(
       module_name: $module_name
       action_type: $action_type
       user_id: $user_id
+      record_id: $record_id
       date_from: $date_from
       date_to: $date_to
+      search: $search
       pagination: $pagination
     ) {
       items {

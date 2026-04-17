@@ -1,11 +1,15 @@
-import React, { useState } from "react";
-import { exportToCSV, exportToPDF } from "../utils/exportUtils";
+import React, { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@apollo/client/react";
+import { GET_SETTINGS } from "../graphql/settingsQueries";
+import { GET_MY_PROFILE } from "../graphql/employeeQueries";
+import { isHod } from "../utils/auth";
 
 interface Report {
   id: string;
   name: string;
   description: string;
   type: string;
+  filters?: string[];
 }
 
 interface Category {
@@ -13,679 +17,894 @@ interface Category {
   name: string;
   icon: React.ReactNode;
   reports: Report[];
+  description: string;
 }
 
+const LEAVE_TYPES = [
+  "Casual Leave",
+  "Sick Leave",
+  "Earned Leave",
+  "Maternity Leave",
+  "Paternity Leave",
+  "Compensatory Off",
+  "Duty Leave",
+  "LWP",
+  "Other",
+];
+
 const CSS = `
-  .rp-container { padding: 32px; background: #f8fafc; min-height: 100vh; font-family: 'DM Sans', sans-serif; }
-  .rp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-  .rp-title { font-size: 28px; font-weight: 800; color: #1e293b; letter-spacing: -0.5px; }
-  .rp-subtitle { color: #64748b; font-size: 14px; font-weight: 500; margin-top: 4px; }
-
-  .rp-categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; padding: 4px; }
-  .rp-category-card {
-    background: #fff; border-radius: 20px; padding: 24px; border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  
+  .rep-wrapper { 
+    --primary: #1e3a8a;
+    --primary-hover: #172554;
+    --bg: #f3f4f6;
+    --card-bg: #ffffff;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --border: #d1d5db;
+    
+    padding: 24px; 
+    background: var(--bg); 
+    min-height: 100vh; 
+    font-family: 'Inter', sans-serif;
   }
-  .rp-category-card:hover { transform: translateY(-4px); border-color: #3b82f6; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1); }
-  .rp-category-icon {
-    width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
-    background: #eff6ff; color: #3b82f6;
+
+  /* ══ HEADER ══ */
+  .rep-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .rep-back-arrow { font-size: 20px; cursor: pointer; color: var(--text-main); font-weight: 600; }
+  .rep-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
+
+  /* ══ CATEGORY GRID ══ */
+  .rep-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+  .rep-cat-card {
+    background: var(--card-bg); border-radius: 12px; padding: 24px; border: 1px solid var(--border);
+    transition: all 0.2s; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start;
   }
-  .rp-category-name { font-size: 18px; font-weight: 700; color: #1e293b; }
-  .rp-category-count { font-size: 13px; color: #64748b; font-weight: 500; }
+  .rep-cat-card:hover { border-color: var(--primary); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  .rep-cat-icon { font-size: 32px; margin-bottom: 16px; }
+  .rep-cat-name { font-size: 18px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
+  .rep-cat-desc { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
 
-  .rp-report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-  .rp-report-card {
-    background: #fff; border: 1.5px solid #f1f5f9; border-radius: 16px; padding: 20px;
-    display: flex; align-items: center; gap: 16px; transition: 0.2s; cursor: pointer;
+  /* ══ REPORT LIST ══ */
+  .rep-list-item {
+    background: #fff; padding: 16px 20px; border: 1px solid var(--border); margin-bottom: 12px;
+    border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    transition: 0.2s;
   }
-  .rp-report-card:hover { border-color: #3b82f6; background: #f8faff; }
-  .rp-report-info h4 { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
-  .rp-report-info p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
+  .rep-list-item:hover { border-color: var(--primary); background: #f8fafc; }
+  .rep-list-item h4 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-main); }
+  .rep-list-item p { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 
-  .rp-table-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .rp-filter-bar { padding: 20px 24px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #fafbfe; }
-  .rp-filter-select, .rp-filter-input { height: 40px; padding: 0 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; background: #fff; outline: none; font-size: 13px; }
-  .rp-filter-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; display: block; }
+  /* ══ TOP ACTION BAR ══ */
+  .rep-action-bar {
+    display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 20px;
+  }
 
-  .rp-table { width: 100%; border-collapse: collapse; }
-  .rp-table th { text-align: left; padding: 14px 16px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-  .rp-table td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: #334155; }
+  /* ══ FILTER PANEL ══ */
+  .rep-filter-box {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 30px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  }
+  .rep-field { position: relative; }
+  .rep-field label {
+    position: absolute; top: -8px; left: 12px; background: #fff; padding: 0 4px;
+    font-size: 11px; font-weight: 600; color: var(--text-muted);
+  }
+  .rep-select, .rep-input {
+    width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0 12px; font-size: 14px; color: var(--text-main); outline: none;
+  }
+  .rep-select:focus, .rep-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.1); }
+  .rep-select:disabled, .rep-input:disabled { 
+    background: #f8fafc; 
+    color: #1e3a8a; 
+    cursor: not-allowed; 
+    -webkit-text-fill-color: #1e3a8a; 
+    opacity: 1; 
+    border-color: #cbd5e1;
+    font-weight: 500;
+  }
+  .rep-field.is-locked label { 
+    color: var(--primary); 
+    font-weight: 700; 
+    z-index: 10; 
+    background: linear-gradient(to bottom, #f3f4f6 50%, #fff 50%);
+  }
+  .rep-field.is-locked .rep-select { 
+    background-color: #f1f5f9;
+    border-style: dashed;
+  }
 
-  .rp-back-btn { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #3b82f6; cursor: pointer; border: none; background: none; margin-bottom: 24px; padding: 0; }
-  .rp-back-btn:hover { color: #2563eb; }
+  /* ══ PREVIEW TABLE ══ */
+  .rep-preview-container { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; }
+  .rep-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+  .rep-table th { background: #f9fafb; padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  .rep-table td { padding: 14px 16px; font-size: 13px; color: var(--text-main); border-bottom: 1px solid #f3f4f6; }
+  .emp-id-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-  .rp-export-btns { display: flex; gap: 10px; }
-  .rp-btn { height: 40px; padding: 0 16px; border-radius: 8px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s; border: 1px solid #e2e8f0; }
-  .rp-btn-primary { background: #3b82f6; color: #fff; border: none; }
-  .rp-btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
-  .rp-btn-outline { background: #fff; color: #475569; }
-  .rp-btn-outline:hover { background: #f8fafc; border-color: #3b82f6; color: #3b82f6; }
+  /* ══ STATUS BADGE ══ */
+  .status-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .status-approved { background: #d1fae5; color: #065f46; }
+  .status-pending  { background: #fef3c7; color: #92400e; }
+  .status-rejected { background: #fee2e2; color: #991b1b; }
+  .status-cancelled{ background: #f3f4f6; color: #6b7280; }
+  .status-closed   { background: #ede9fe; color: #5b21b6; }
 
-  .loading-shimmer { background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  /* ══ DROP DOWN EXPORT ══ */
+  .rep-dropdown { position: relative; }
+  .rep-dropdown-menu {
+    position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid var(--border);
+    border-radius: 6px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 120px; z-index: 50; margin-top: 4px;
+  }
+  .rep-dropdown-item { padding: 10px 16px; font-size: 13px; cursor: pointer; transition: 0.2s; }
+  .rep-dropdown-item:hover { background: #f3f4f6; color: var(--primary); }
+
+  /* ══ MODAL ══ */
+  .rep-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .rep-modal {
+    background: #fff; width: 400px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    animation: modalScale 0.2s ease-out;
+  }
+  @keyframes modalScale { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .rep-modal-header { padding: 20px 24px; border-bottom: 1px solid #eee; font-weight: 600; font-size: 16px; color: var(--text-main); }
+  .rep-modal-body { padding: 24px; text-align: center; }
+  .rep-modal-footer { padding: 16px 24px; display: flex; justify-content: center; gap: 12px; }
+
+  /* ══ BUTTONS ══ */
+  .btn-report { background: #1e293b; color: #fff; padding: 10px 24px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+  .btn-export { background: #fff; color: #1e293b; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .btn-action { padding: 8px 24px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+  .btn-green { background: #10b981; color: #fff; }
+  .btn-green:hover { background: #059669; }
+  .btn-outline-green { border: 2px solid #10b981; color: #10b981; background: transparent; }
+  .btn-outline-green:hover { background: #ecfdf5; }
+
+  /* ══ COMING SOON ══ */
+  .coming-soon-container { 
+    padding: 60px 20px; text-align: center; border-radius: 12px; background: #fff; border: 1px dashed var(--border);
+    margin-top: 20px;
+  }
+  .coming-soon-card { max-width: 500px; margin: 0 auto; }
+  .coming-soon-card h2 { font-size: 28px; font-weight: 700; color: var(--text-main); margin-bottom: 16px; }
+  .coming-soon-card p { font-size: 15px; color: var(--text-muted); line-height: 1.6; margin-bottom: 30px; }
+  .back-home-btn { 
+    background: var(--primary); color: #fff; border: none; padding: 12px 32px; border-radius: 8px; 
+    font-weight: 600; cursor: pointer; transition: 0.2s; 
+  }
+  .back-home-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 `;
 
 const Reports: React.FC = () => {
-  const [view, setView] = useState<"CATEGORIES" | "REPORTS" | "TABLE">(
+  const [view, setView] = useState<"CATEGORIES" | "REPORTS" | "GENERATE">(
     "CATEGORIES",
   );
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeReport, setActiveReport] = useState<Report | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const [previewData, setPreviewData] = useState<Record<string, unknown>[]>([]);
+  const [previewColumns, setPreviewColumns] = useState<string[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
   const [filters, setFilters] = useState({
-    startDate: "",
-    endDate: "",
+    startDate: "2015-01-01",
+    endDate: new Date().toISOString().split("T")[0],
+    selectedDate: new Date().toISOString().split("T")[0],
     department: "All",
-    role: "All",
-    search: "",
+    employeeType: "All",
+    category: "All",
+    leaveType: "All",
+    status: "All",
+    month: new Date().toISOString().slice(0, 7),
+    academicYear: "2025-26",
   });
-  const [reportData, setReportData] = useState<Record<string, unknown>[]>([]);
-  const [loadingReport, setLoadingReport] = useState(false);
+
+  const { data: settingsData } = useQuery(GET_SETTINGS);
+  const { data: profileData } = useQuery(GET_MY_PROFILE);
+
+  const departments = settingsData?.settings?.departments || [];
+
+  const currentUserDeptId = profileData?.me?.work_detail?.department?.id;
+  const isUserHod = isHod();
+
+  const isDailyLeave = (id?: string) => id === "leave.daily";
+  const isMonthlyLeave = (id?: string) => id === "leave.monthly";
+  const isLeaveApproval = (id?: string) => id === "leave.approvals";
+  const isMovementDaily = (id?: string) => id === "movement.daily";
+  const isMovementMonthly = (id?: string) => id === "movement.monthly";
+  const isHolidayMonthly = (id?: string) => id === "holiday.monthly";
+  const isHolidayYearly = (id?: string) => id === "holiday.yearly";
+
+  // 🛡 HOD Enforcement: Lock department on mount/profile load
+  useEffect(() => {
+    if (isUserHod && currentUserDeptId) {
+      // If we haven't set the department yet, or it was 'All', force it to the HOD's dept
+      if (filters.department === "All" || filters.department === "") {
+        setFilters((prev) => ({ ...prev, department: currentUserDeptId }));
+      }
+    }
+  }, [isUserHod, currentUserDeptId, filters.department]);
+
+  useEffect(() => {
+    if (view === "GENERATE" && activeReport) {
+      fetchPreview();
+    }
+  }, [view, activeReport, filters, fetchPreview]);
+
+  const buildQueryString = useCallback(
+    (extra: Record<string, string> = {}) => {
+      if (!activeReport) return "";
+      const p: Record<string, string> = {
+        id: activeReport.id,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        selectedDate: filters.selectedDate,
+        departmentId: filters.department === "All" ? "" : filters.department,
+        category: filters.category === "All" ? "" : filters.category,
+        leaveType: filters.leaveType === "All" ? "" : filters.leaveType,
+        status: filters.status === "All" ? "" : filters.status,
+        month: filters.month,
+        academicYear: filters.academicYear,
+        ...extra,
+      };
+      return Object.entries(p)
+        .filter(([, v]) => v !== "")
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join("&");
+    },
+    [activeReport, filters],
+  );
+
+  const fetchPreview = useCallback(async () => {
+    if (!activeReport) return;
+    setLoadingPreview(true);
+    const url = `http://localhost:5000/api/reports?${buildQueryString({ limit: "10" })}`;
+    try {
+      const token = localStorage.getItem("token");
+      const tenantId = localStorage.getItem("tenant_id");
+      const response = await fetch(url, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "x-tenant-id": tenantId || "",
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server Error ${response.status}`);
+      }
+      const data = await response.json();
+      setPreviewData(data.data || []);
+      setPreviewColumns(data.columns || []);
+    } catch (err: unknown) {
+      console.error("Preview failed:", err);
+      setPreviewData([]);
+      setPreviewColumns([]);
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, [activeReport, buildQueryString]); // buildQueryString is defined outside but uses filters, I should probably also wrap buildQueryString in useCallback or just put activeReport and buildQueryString here.
+
+  const validateFilters = () => {
+    if (
+      (isDailyLeave(activeReport?.id) || isMovementDaily(activeReport?.id)) &&
+      !filters.selectedDate
+    ) {
+      alert("Please select a Date for this report.");
+      return false;
+    }
+    if (
+      (isMonthlyLeave(activeReport?.id) ||
+        isMovementMonthly(activeReport?.id) ||
+        isHolidayMonthly(activeReport?.id) ||
+        activeReport?.id === "employee.onboarding") &&
+      !filters.month
+    ) {
+      alert("Please select a Month for this report.");
+      return false;
+    }
+    if (isHolidayYearly(activeReport?.id) && !filters.academicYear) {
+      alert("Please select an Academic Year for this report.");
+      return false;
+    }
+    return true;
+  };
+
+  const onGenerate = async (mode: "view" | "download") => {
+    if (!activeReport) return;
+    if (!validateFilters()) return;
+
+    if (mode === "view") setViewing(true);
+    else setDownloading(true);
+
+    const url = `http://localhost:5000/api/reports?${buildQueryString()}&${mode === "view" ? "view" : "download"}=pdf`;
+    try {
+      const token = localStorage.getItem("token");
+      const tenantId = localStorage.getItem("tenant_id");
+      const response = await fetch(url, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "x-tenant-id": tenantId || "",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to generate report");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      if (mode === "view") {
+        const w = window.open(blobUrl, "_blank");
+        if (!w) {
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = `${activeReport.name}.pdf`;
+          a.click();
+        }
+      } else {
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `${activeReport.name}.pdf`;
+        a.click();
+      }
+    } catch (err) {
+      console.error("PDF Error:", err);
+      alert("Error generating PDF.");
+    } finally {
+      setViewing(false);
+      setDownloading(false);
+      setShowModal(false);
+    }
+  };
+
+  const handleCsvExport = () => {
+    if (!activeReport) return;
+    const url = `http://localhost:5000/api/reports?${buildQueryString()}&download=csv`;
+    const token = localStorage.getItem("token");
+    const tenantId = localStorage.getItem("tenant_id");
+    fetch(url, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        "x-tenant-id": tenantId || "",
+      },
+    })
+      .then((r) => r.blob())
+      .then((blob) => {
+        const a = document.createElement("a");
+        a.href = window.URL.createObjectURL(blob);
+        a.download = `${activeReport.name}_${Date.now()}.csv`;
+        a.click();
+        setShowExportOptions(false);
+      })
+      .catch(() => alert("Failed to export data."));
+  };
+
+  const statusBadge = (status: string) => {
+    const cls = `status-badge status-${status?.toLowerCase() || "pending"}`;
+    return <span className={cls}>{status || "—"}</span>;
+  };
 
   const categories: Category[] = [
     {
       id: "employee",
       name: "Employee Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      ),
+      description: "Counts, directory, and onboarding/exit logs",
+      icon: "👥",
       reports: [
         {
-          id: "emp-list",
-          name: "Employee List",
-          description: "Complete organizational directory with contact info",
-          type: "list",
+          id: "employee.count",
+          name: "Employee Count Report",
+          description: "Department-wise headcount summaries",
+          type: "employee",
         },
         {
-          id: "emp-summary",
-          name: "Employee Summary",
-          description: "Consolidated summary of employee demographics",
-          type: "summary",
+          id: "employee.onboarding",
+          name: "Employee Onboarding Report",
+          description: "List of new joiners by month",
+          type: "employee",
         },
         {
-          id: "emp-count",
-          name: "Employee Count",
-          description: "Headcount breakdown by various parameters",
-          type: "count",
+          id: "employee.list",
+          name: "Employee List Report",
+          description: "Detailed staff directory with filters",
+          type: "employee",
         },
         {
-          id: "new-joiners",
-          name: "New Joiners",
-          description: "Onboarding tracking for recent hires",
-          type: "new-joiners",
-        },
-        {
-          id: "exit-report",
-          name: "Exit Report",
-          description: "Offboarding and attrition analytics",
-          type: "exit",
-        },
-        {
-          id: "dept-dist",
-          name: "Department-wise Distribution",
-          description: "Employee allocation across departments",
-          type: "dept-dist",
-        },
-        {
-          id: "role-dist",
-          name: "Role-wise Report",
-          description: "Employee breakdown by organizational roles",
-          type: "role-dist",
-        },
-      ],
-    },
-    {
-      id: "attendance",
-      name: "Attendance Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      ),
-      reports: [
-        {
-          id: "att-daily",
-          name: "Daily Attendance",
-          description: "Daily check-in/out status report",
-          type: "daily",
-        },
-        {
-          id: "att-monthly",
-          name: "Monthly Attendance",
-          description: "Aggregated monthly attendance records",
-          type: "monthly",
-        },
-        {
-          id: "att-datewise",
-          name: "Date-wise Attendance",
-          description: "Specific date range attendance details",
-          type: "datewise",
-        },
-        {
-          id: "late-time",
-          name: "Late Time Report",
-          description: "Tracking late arrivals and early departures",
-          type: "late",
-        },
-        {
-          id: "monthly-status",
-          name: "Monthly Status Report",
-          description: "Summary of individual status over the month",
-          type: "status",
-        },
-        {
-          id: "att-percent",
-          name: "Attendance Percentage Report",
-          description: "Overall attendance efficiency analytics",
-          type: "percentage",
+          id: "employee.relieved",
+          name: "Relieved Employee Report",
+          description: "Exited staff records and reasons",
+          type: "employee",
         },
       ],
     },
     {
       id: "leave",
       name: "Leave Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-        </svg>
-      ),
+      description: "Daily records, monthly summaries, and approvals",
+      icon: "📅",
       reports: [
         {
-          id: "leave-history",
-          name: "Leave History",
-          description: "Historical log of all leave applications",
-          type: "history",
+          id: "leave.daily",
+          name: "Daily Leave Record Report",
+          description: "All leave records for a specific date",
+          type: "leave",
         },
         {
-          id: "leave-daily",
-          name: "Daily Leave",
-          description: "Leaves active on a specific day",
-          type: "daily",
+          id: "leave.monthly",
+          name: "Monthly Leave Record Report",
+          description: "Leave records for a selected month",
+          type: "leave",
         },
         {
-          id: "leave-monthly",
-          name: "Monthly Leave",
-          description: "Monthly leave trends and summaries",
-          type: "monthly",
-        },
-        {
-          id: "leave-balance",
-          name: "Leave Balance",
-          description: "Current remaining leave quotas per employee",
-          type: "balance",
-        },
-        {
-          id: "leave-move",
-          name: "Leave Movement",
-          description: "Tracking leave transitions and approvals",
-          type: "movement",
-        },
-        {
-          id: "most-leave",
-          name: "Most Leave Taken Report",
-          description: "Analytics on high leave utilization",
-          type: "most-taken",
+          id: "leave.approvals",
+          name: "Leave Approval Report",
+          description: "All leave requests filtered by status",
+          type: "leave",
         },
       ],
     },
     {
       id: "movement",
-      name: "Movement Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 13.1V16c0 .6.4 1 1 1h2" />
-          <circle cx="7" cy="17" r="2" />
-          <path d="M9 17h6" />
-          <circle cx="17" cy="17" r="2" />
-        </svg>
-      ),
+      name: "Movement Register",
+      description: "Official duty tracks and out-movements",
+      icon: "🚀",
       reports: [
         {
-          id: "move-reg",
-          name: "Movement Register",
-          description: "Detailed log of official movements",
-          type: "register",
+          id: "movement.daily",
+          name: "Daily Movement Register Report",
+          description: "Track employee in/out movement for a specific date",
+          type: "movement",
         },
         {
-          id: "move-daily",
-          name: "Daily Movement",
-          description: "Summary of movements for the current day",
-          type: "daily",
+          id: "movement.monthly",
+          name: "Monthly Movement Register Report",
+          description: "Summary of employee movements over a selected month",
+          type: "movement",
         },
       ],
     },
     {
-      id: "timesheet",
-      name: "Timesheet Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-      ),
+      id: "holiday",
+      name: "Holiday Reports",
+      description: "Monthly and yearly holiday calendars",
+      icon: "🎉",
       reports: [
         {
-          id: "ts-report",
-          name: "Time Sheet Report",
-          description: "Standard timesheet submission tracking",
-          type: "standard",
+          id: "holiday.monthly",
+          name: "Monthly Holiday List Report",
+          description: "Holidays within a selected month",
+          type: "holiday",
         },
         {
-          id: "ts-custom",
-          name: "Custom Time Sheet Report",
-          description: "Filtered and customized timesheet views",
-          type: "custom",
+          id: "holiday.yearly",
+          name: "Yearly Holiday List Report",
+          description: "Academic year holiday calendar (June-May)",
+          type: "holiday",
         },
       ],
+    },
+    {
+      id: "attendance",
+      name: "Attendance Reports",
+      description: "Detailed logs and attendance trends",
+      icon: "",
+      isComingSoon: true, // Custom flag
+      reports: [],
     },
     {
       id: "system",
-      name: "System Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-      ),
+      name: "System Logs",
+      description: "Audit trail and event register",
+      icon: "🛡️",
       reports: [
         {
-          id: "sys-login",
-          name: "Login History Report",
-          description: "Audit log of user authentication events",
-          type: "login",
-        },
-        {
-          id: "sys-activity",
-          name: "User Activity Report",
-          description: "Detailed log of system interactions",
-          type: "activity",
-        },
-      ],
-    },
-    {
-      id: "summary",
-      name: "Summary Reports",
-      icon: (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-          <path d="M22 12A10 10 0 0 0 12 2v10z" />
-        </svg>
-      ),
-      reports: [
-        {
-          id: "hr-overview",
-          name: "HR Overview Report",
-          description: "Comprehensive dashboard summary of HR metrics",
-          type: "overview",
+          id: "eventLog.audit",
+          name: "Event Audit Logs",
+          description: "Activity trail for compliance",
+          type: "system",
         },
       ],
     },
   ];
 
-  const fetchReportData = async (catId: string, type: string) => {
-    setLoadingReport(true);
-    try {
-      const queryParams = new URLSearchParams({
-        category: catId,
-        type: type,
-        ...filters,
-      });
-      const response = await fetch(
-        `http://localhost:5000/api/reports?${queryParams}`,
+  const renderPreviewHeaders = () => {
+    if (previewColumns.length > 0) {
+      return previewColumns.map((col) => <th key={col}>{col}</th>);
+    }
+    return <th>Data</th>;
+  };
+
+  const renderPreviewRow = (row: Record<string, unknown>, i: number) => {
+    if (previewColumns.length > 0) {
+      return (
+        <tr key={i}>
+          <td style={{ textAlign: "center" }}>{i + 1}</td>
+          {previewColumns.map((col) => {
+            const val = row[col];
+            if (col === "Leave Status" || col === "Status")
+              return <td key={col}>{statusBadge(val)}</td>;
+            return <td key={col}>{val ?? "—"}</td>;
+          })}
+        </tr>
       );
-      const result = await response.json();
-      if (result.success) {
-        setReportData(result.data);
-      }
-    } catch (err) {
-      console.error("Fetch report failed", err);
-    } finally {
-      setLoadingReport(false);
     }
-  };
-
-  const handleCategoryClick = (cat: Category) => {
-    setActiveCategory(cat);
-    setView("REPORTS");
-  };
-
-  const handleReportClick = (report: Report) => {
-    setActiveReport(report);
-    setView("TABLE");
-    fetchReportData(activeCategory!.id, report.type);
-  };
-
-  const handleBack = () => {
-    if (view === "TABLE") setView("REPORTS");
-    else if (view === "REPORTS") setView("CATEGORIES");
-  };
-
-  const handleExport = (format: "csv" | "pdf") => {
-    const fileName = `${activeReport?.name || "Report"}_${new Date().toISOString().split("T")[0]}`;
-    if (format === "csv") {
-      exportToCSV(reportData, fileName);
-    } else {
-      exportToPDF(reportData, fileName, activeReport?.name || "HR Report");
-    }
-  };
-
-  // Helper to format table values
-  const renderCell = (val: unknown) => {
-    if (typeof val === "object" && val !== null) {
-      const obj = val as Record<string, unknown>;
-      return String(obj.name || obj.id || JSON.stringify(val));
-    }
-    return String(val || "—");
+    return (
+      <tr key={i}>
+        <td>{JSON.stringify(row)}</td>
+      </tr>
+    );
   };
 
   return (
-    <div className="rp-container">
+    <div className="rep-wrapper">
       <style>{CSS}</style>
 
-      {view !== "CATEGORIES" && (
-        <button className="rp-back-btn" onClick={handleBack}>
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
+      {/* HEADER WITH BACK BUTTON */}
+      <div className="rep-header">
+        {view !== "CATEGORIES" && (
+          <div
+            className="rep-back-arrow"
+            onClick={() => {
+              if (view === "GENERATE") setView("REPORTS");
+              else setView("CATEGORIES");
+            }}
           >
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          Back to {view === "TABLE" ? activeCategory?.name : "Categories"}
-        </button>
-      )}
-
-      <div className="rp-header">
-        <div>
-          <h1 className="rp-title">
-            {view === "CATEGORIES"
-              ? "HR Analytics & Reports"
-              : view === "REPORTS"
-                ? activeCategory?.name
-                : activeReport?.name}
-          </h1>
-          <p className="rp-subtitle">
-            {view === "CATEGORIES"
-              ? "Select a category to view specialized reports"
-              : view === "REPORTS"
-                ? `Found ${activeCategory?.reports.length} reports in this module`
-                : `Generated on ${new Date().toLocaleDateString()}`}
-          </p>
-        </div>
-
-        {view === "TABLE" && (
-          <div className="rp-export-btns">
-            <button
-              className="rp-btn rp-btn-outline"
-              onClick={() => handleExport("csv")}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Export CSV
-            </button>
-            <button
-              className="rp-btn rp-btn-primary"
-              onClick={() => handleExport("pdf")}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-              </svg>
-              Download PDF
-            </button>
+            ←
           </div>
         )}
+        <h1 className="rep-title">
+          {view === "CATEGORIES"
+            ? "Reports"
+            : view === "REPORTS"
+              ? activeCategory?.name
+              : activeReport?.name}
+        </h1>
       </div>
 
+      {/* CATEGORY GRID */}
       {view === "CATEGORIES" && (
-        <div className="rp-categories-grid">
+        <div className="rep-cat-grid">
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="rp-category-card"
-              onClick={() => handleCategoryClick(cat)}
+              className="rep-cat-card"
+              onClick={() => {
+                setActiveCategory(cat);
+                setView("REPORTS");
+              }}
             >
-              <div className="rp-category-icon">{cat.icon}</div>
-              <div>
-                <div className="rp-category-name">{cat.name}</div>
-                <div className="rp-category-count">
-                  {cat.reports.length} Standard Reports
-                </div>
-              </div>
+              <div className="rep-cat-icon">{cat.icon}</div>
+              <div className="rep-cat-name">{cat.name}</div>
+              <div className="rep-cat-desc">{cat.description}</div>
             </div>
           ))}
         </div>
       )}
 
-      {view === "REPORTS" && (
-        <div className="rp-report-grid">
-          {activeCategory?.reports.map((report) => (
-            <div
-              key={report.id}
-              className="rp-report-card"
-              onClick={() => handleReportClick(report)}
-            >
-              <div
-                className="rp-category-icon"
-                style={{ width: 40, height: 40, borderRadius: 10 }}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+      {/* REPORTS LIST */}
+      {view === "REPORTS" && activeCategory && (
+        <div>
+          {activeCategory.isComingSoon ? (
+            <div className="coming-soon-container">
+              <div className="coming-soon-card">
+                <p>
+                  We are currently building this module to provide you with
+                  comprehensive data insights. This feature will be enabled
+                  shortly.
+                </p>
+                <button
+                  className="back-home-btn"
+                  onClick={() => setView("CATEGORIES")}
                 >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                </svg>
-              </div>
-              <div className="rp-report-info">
-                <h4>{report.name}</h4>
-                <p>{report.description}</p>
+                  Back to Dashboard
+                </button>
               </div>
             </div>
-          ))}
+          ) : (
+            <div>
+              {activeCategory.reports.map((report) => (
+                <div
+                  key={report.id}
+                  className="rep-list-item"
+                  onClick={() => {
+                    setActiveReport(report);
+                    setPreviewData([]);
+                    setPreviewColumns([]);
+                    setView("GENERATE");
+                  }}
+                >
+                  <div>
+                    <h4>{report.name}</h4>
+                    <p>{report.description}</p>
+                  </div>
+                  <div style={{ fontSize: 18, opacity: 0.4 }}>→</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {view === "TABLE" && (
-        <div className="rp-table-card">
-          <div className="rp-filter-bar">
-            <div>
-              <label className="rp-filter-label">Date From</label>
-              <input
-                type="date"
-                className="rp-filter-input"
-                value={filters.startDate}
-                onChange={(e) =>
-                  setFilters({ ...filters, startDate: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="rp-filter-label">Date To</label>
-              <input
-                type="date"
-                className="rp-filter-input"
-                value={filters.endDate}
-                onChange={(e) =>
-                  setFilters({ ...filters, endDate: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="rp-filter-label">Department</label>
-              <select
-                className="rp-filter-select"
-                value={filters.department}
-                onChange={(e) =>
-                  setFilters({ ...filters, department: e.target.value })
-                }
+      {/* FILTER PANEL & PREVIEW */}
+      {view === "GENERATE" && (
+        <div>
+          <div className="rep-action-bar">
+            <div className="rep-dropdown">
+              <button
+                className="btn-export"
+                onClick={() => setShowExportOptions(!showExportOptions)}
               >
-                <option value="All">All Departments</option>
-                <option value="IT">IT Department</option>
-                <option value="HR">HR Department</option>
-              </select>
+                <span style={{ fontSize: 16 }}>📥</span> Export
+              </button>
+              {showExportOptions && (
+                <div className="rep-dropdown-menu">
+                  <div className="rep-dropdown-item" onClick={handleCsvExport}>
+                    EXCEL (CSV)
+                  </div>
+                  <div
+                    className="rep-dropdown-item"
+                    onClick={() => {
+                      onGenerate("download");
+                      setShowExportOptions(false);
+                    }}
+                  >
+                    PDF Report
+                  </div>
+                </div>
+              )}
             </div>
-            <button
-              className="rp-btn rp-btn-primary"
-              style={{ marginTop: 18 }}
-              onClick={() =>
-                fetchReportData(activeCategory!.id, activeReport!.type)
-              }
-            >
-              Apply Filters
+            <button className="btn-report" onClick={() => setShowModal(true)}>
+              REPORT
             </button>
-            <input
-              className="rp-filter-input"
-              placeholder="Search in results..."
-              style={{ flex: 1, marginTop: 18 }}
-              value={filters.search}
-              onChange={(e) =>
-                setFilters({ ...filters, search: e.target.value })
-              }
-            />
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table className="rp-table">
-              <thead>
-                <tr>
-                  {reportData.length > 0 ? (
-                    Object.keys(reportData[0]).map((key) => (
-                      <th key={key}>{key.replace(/_/g, " ")}</th>
-                    ))
+          <div className="rep-filter-box">
+            {/* ── EMPLOYEE REPORT FILTERS ── */}
+
+            {/* Date Range for specific reports (excluding movement) */}
+            {activeReport &&
+              (activeReport.id.includes("exit") ||
+                activeReport.id.includes("new") ||
+                activeReport.id.includes("eventLog")) && (
+                <>
+                  <div className="rep-field">
+                    <label>Start Date</label>
+                    <input
+                      type="date"
+                      className="rep-input"
+                      value={filters.startDate}
+                      onChange={(e) =>
+                        setFilters({ ...filters, startDate: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="rep-field">
+                    <label>End Date</label>
+                    <input
+                      type="date"
+                      className="rep-input"
+                      value={filters.endDate}
+                      onChange={(e) =>
+                        setFilters({ ...filters, endDate: e.target.value })
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+            {/* Month for employee onboarding / relieved */}
+            {(activeReport?.id === "employee.onboarding" ||
+              activeReport?.id === "employee.relieved") && (
+              <div className="rep-field">
+                <label>Month</label>
+                <input
+                  type="month"
+                  className="rep-input"
+                  value={filters.month}
+                  onChange={(e) =>
+                    setFilters({ ...filters, month: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
+            {/* ── LEAVE REPORT FILTERS ── */}
+
+            {/* Specific Date (Daily leave / movement — mandatory) */}
+            {(isDailyLeave(activeReport?.id) ||
+              isMovementDaily(activeReport?.id)) && (
+              <div className="rep-field">
+                <label>Date *</label>
+                <input
+                  type="date"
+                  className="rep-input"
+                  value={filters.selectedDate}
+                  onChange={(e) =>
+                    setFilters({ ...filters, selectedDate: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
+            {/* Month picker for monthly leave / movement / holiday / approval */}
+            {(isMonthlyLeave(activeReport?.id) ||
+              isMovementMonthly(activeReport?.id) ||
+              isHolidayMonthly(activeReport?.id) ||
+              isLeaveApproval(activeReport?.id)) && (
+              <div className="rep-field">
+                <label>
+                  Month{" "}
+                  {isMonthlyLeave(activeReport?.id) ||
+                  isMovementMonthly(activeReport?.id) ||
+                  isHolidayMonthly(activeReport?.id)
+                    ? "*"
+                    : ""}
+                </label>
+                <input
+                  type="month"
+                  className="rep-input"
+                  value={filters.month}
+                  onChange={(e) =>
+                    setFilters({ ...filters, month: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
+            {/* Academic Year for Holiday report */}
+            {isHolidayYearly(activeReport?.id) && (
+              <div className="rep-field">
+                <label>Academic Year *</label>
+                <select
+                  className="rep-select"
+                  value={filters.academicYear}
+                  onChange={(e) =>
+                    setFilters({ ...filters, academicYear: e.target.value })
+                  }
+                >
+                  <option value="2024-25">2024-25</option>
+                  <option value="2025-26">2025-26</option>
+                  <option value="2026-27">2026-27</option>
+                </select>
+              </div>
+            )}
+
+            {/* Department — all reports (except Employee Count) */}
+            {activeReport?.id !== "employee.count" &&
+              !isHolidayMonthly(activeReport?.id) &&
+              !isHolidayYearly(activeReport?.id) && (
+                <div className={`rep-field ${isUserHod ? "is-locked" : ""}`}>
+                  <label>Department {isUserHod ? "(Locked)" : ""}</label>
+                  <select
+                    className="rep-select"
+                    value={filters.department}
+                    onChange={(e) =>
+                      setFilters({ ...filters, department: e.target.value })
+                    }
+                    disabled={isUserHod}
+                  >
+                    {!isUserHod && <option value="All">All Departments</option>}
+                    {departments.map((d: { id: string; name: string }) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+            {/* Filters */}
+
+            {/* Leave Type — daily, monthly, approval */}
+            {(isDailyLeave(activeReport?.id) ||
+              isMonthlyLeave(activeReport?.id) ||
+              isLeaveApproval(activeReport?.id)) && (
+              <div className="rep-field">
+                <label>Leave Type</label>
+                <select
+                  className="rep-select"
+                  value={filters.leaveType}
+                  onChange={(e) =>
+                    setFilters({ ...filters, leaveType: e.target.value })
+                  }
+                >
+                  <option value="All">All Types</option>
+                  {LEAVE_TYPES.map((lt) => (
+                    <option key={lt} value={lt}>
+                      {lt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Status — any other reports if needed (currently hidden for approval report) */}
+          </div>
+
+          {/* PREVIEW TABLE */}
+          <div className="rep-preview-container">
+            {loadingPreview ? (
+              <div style={{ padding: 40, textAlign: "center", color: "#666" }}>
+                Fetching preview data...
+              </div>
+            ) : (
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}>Sl No</th>
+                    {renderPreviewHeaders()}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.length > 0 ? (
+                    previewData.map((row, i) => renderPreviewRow(row, i))
                   ) : (
-                    <th>No Data</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {loadingReport ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      <td colSpan={10}>
-                        <div
-                          className="loading-shimmer"
-                          style={{ height: 20, borderRadius: 4 }}
-                        />
+                    <tr>
+                      <td
+                        colSpan={10}
+                        style={{
+                          textAlign: "center",
+                          padding: 40,
+                          color: "#999",
+                        }}
+                      >
+                        No data found for the selected filters.
                       </td>
                     </tr>
-                  ))
-                ) : reportData.length > 0 ? (
-                  reportData.map((row, i) => (
-                    <tr key={i}>
-                      {Object.values(row).map((val: unknown, j) => (
-                        <td key={j}>{renderCell(val)}</td>
-                      ))}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={10}
-                      style={{
-                        textAlign: "center",
-                        padding: 40,
-                        color: "#94a3b8",
-                      }}
-                    >
-                      No records found for the selected criteria.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* GENERATE MODAL */}
+      {showModal && (
+        <div className="rep-modal-overlay">
+          <div className="rep-modal">
+            <div className="rep-modal-header">Download the Report</div>
+            <div className="rep-modal-body">
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
+              <div style={{ fontWeight: 600, fontSize: 18, color: "#1e293b" }}>
+                {activeReport?.name}
+              </div>
+            </div>
+            <div className="rep-modal-footer">
+              <button
+                className="btn-action btn-outline-green"
+                onClick={() => onGenerate("download")}
+                disabled={downloading}
+              >
+                {downloading ? "Preparing..." : "Download"}
+              </button>
+              <button
+                className="btn-action btn-green"
+                onClick={() => onGenerate("view")}
+                disabled={viewing}
+              >
+                {viewing ? "Viewing..." : "View"}
+              </button>
+            </div>
+            <div style={{ textAlign: "center", paddingBottom: 20 }}>
+              <button
+                onClick={() => setShowModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         </div>
       )}

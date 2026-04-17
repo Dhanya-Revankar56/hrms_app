@@ -1,54 +1,30 @@
-const reportService = require("./service");
+const { ReportEngine } = require("./engine/reportEngine");
 
-exports.getReports = async (req, res) => {
-  try {
-    const {
-      category,
-      type,
-      startDate,
-      endDate,
-      departmentId,
-      role,
-      employeeId,
-    } = req.query;
-    let data = [];
+/**
+ * 🎛 REPORT CONTROLLER
+ *
+ * Thin controller — all logic lives in the engine and registry.
+ * Simply delegates to the ReportEngine.
+ */
 
-    switch (category) {
-      case "employee":
-        if (type === "list")
-          data = await reportService.getEmployeeList(req.query);
-        else if (type === "new-joiners")
-          data = await reportService.getNewJoiners(req.query);
-        else if (type === "exit")
-          data = await reportService.getExitReport(req.query);
-        else data = await reportService.getEmployeeList(req.query);
-        break;
-      case "attendance":
-        data = await reportService.getAttendanceReport(req.query);
-        break;
-      case "leave":
-        data = await reportService.getLeaveReport(req.query);
-        break;
-      case "movement":
-        data = await reportService.getMovementReport(req.query);
-        break;
-      case "system":
-        data = await reportService.getSystemReport(req.query);
-        break;
-      case "timesheet":
-        // Placeholder for timesheet logic
-        data = [];
-        break;
-      case "summary":
-        data = await reportService.getHrOverview(req.user);
-        break;
-      default:
-        return res.status(400).json({ error: "Invalid report category" });
-    }
+/**
+ * GET /api/reports
+ * Params:
+ *   ?id=leave.history
+ *   OR ?category=leave&type=history   (legacy compat)
+ *   &startDate=YYYY-MM-DD
+ *   &endDate=YYYY-MM-DD
+ *   &download=pdf                      (omit for JSON response)
+ */
+exports.getReport = async (req, res) => {
+  return ReportEngine.handle(req, res);
+};
 
-    res.json({ success: true, data });
-  } catch (error) {
-    console.error("[Report Controller Error]", error);
-    res.status(500).json({ error: error.message });
-  }
+/**
+ * GET /api/reports/meta
+ * Returns all report configs grouped by category.
+ * Used by the frontend to build dynamic filter UIs.
+ */
+exports.getReportMeta = (req, res) => {
+  return ReportEngine.getMeta(req, res);
 };

@@ -3,7 +3,12 @@ const tenantPlugin = require("../../middleware/tenantPlugin");
 
 const relievingSchema = new mongoose.Schema(
   {
-    tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: "Tenant", required: true, index: true },
+    tenant_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      index: true,
+    },
     institution_id: { type: String, index: true }, // Legacy
     employee_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -17,7 +22,13 @@ const relievingSchema = new mongoose.Schema(
     reason: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["Pending Approval", "Approved", "Clearance In Progress", "Relieved", "Rejected"],
+      enum: [
+        "Pending Approval",
+        "Approved",
+        "Clearance In Progress",
+        "Relieved",
+        "Rejected",
+      ],
       default: "Pending Approval",
     },
     exit_interview_done: { type: Boolean, default: false },
@@ -34,12 +45,16 @@ const relievingSchema = new mongoose.Schema(
       user_id: { type: String, default: "" },
       user_name: { type: String, default: "" },
     },
+    approved_by: {
+      user_name: { type: String, default: "" },
+      user_role: { type: String, default: "" },
+    },
+    approved_at: { type: Date },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
-  }
+  },
 );
-
 
 // Apply tenant isolation
 tenantPlugin(relievingSchema);

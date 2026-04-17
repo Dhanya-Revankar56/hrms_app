@@ -1,10 +1,9 @@
 const Holiday = require("./model");
-const AuditLog = require("../audit/model");
 const { withTenant, getUserIdFromCtx } = require("../../utils/tenantUtils");
 
 exports.listHolidays = async ({ year, month, pagination }) => {
-  const filter = withTenant({ is_active: true });
-  
+  const filter = withTenant({});
+
   if (year || month) {
     const y = year || new Date().getFullYear();
     if (month) {
@@ -24,7 +23,7 @@ exports.listHolidays = async ({ year, month, pagination }) => {
 
   const [items, totalCount] = await Promise.all([
     Holiday.find(filter).sort({ date: 1 }).skip(skip).limit(limit).lean(),
-    Holiday.countDocuments(filter)
+    Holiday.countDocuments(filter),
   ]);
 
   return {
@@ -33,8 +32,8 @@ exports.listHolidays = async ({ year, month, pagination }) => {
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
       currentPage: page,
-      hasNextPage: page * limit < totalCount
-    }
+      hasNextPage: page * limit < totalCount,
+    },
   };
 };
 
@@ -45,23 +44,31 @@ exports.getHolidayById = async (id) => {
 exports.createHoliday = async (data, context) => {
   const filter = withTenant({});
   const holiday = new Holiday({ ...data, ...filter });
-  
+
   let saved;
   try {
     saved = await holiday.save();
   } catch (error) {
     if (error.code === 11000) {
-      throw new Error(`A holiday on this date already exists for this campus.`, { cause: error });
+      throw new Error(
+        `A holiday on this date already exists for this campus.`,
+        { cause: error },
+      );
     }
     throw error;
   }
 
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "HOLIDAY_CREATED",
+  // Log to EventRegister via service (consolidated to avoid duplicates)
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
     user_id: getUserIdFromCtx(context),
-    tenant_id: filter.tenant_id,
-    metadata: { holiday_name: saved.name, date: saved.date }
+    user_name: context.user?.name || "Admin",
+    user_role: context.user?.role || "ADMIN",
+    module_name: "Holidays",
+    action_type: "CREATED",
+    module: "Holidays",
+    record_id: saved._id,
+    description: `${saved.name} holiday is created`,
   });
 
   return saved.toObject();
@@ -72,17 +79,22 @@ exports.updateHoliday = async (id, data, context) => {
   const updated = await Holiday.findOneAndUpdate(
     filter,
     { $set: data },
-    { new: true }
+    { new: true },
   ).lean();
 
   if (!updated) throw new Error("Holiday record not found");
 
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "HOLIDAY_UPDATED",
+  // Log to EventRegister (consolidated)
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
     user_id: getUserIdFromCtx(context),
-    tenant_id: filter.tenant_id,
-    metadata: { holiday_id: id, name: updated.name }
+    user_name: context.user?.name || "Admin",
+    user_role: context.user?.role || "ADMIN",
+    module_name: "Holidays",
+    action_type: "UPDATED",
+    module: "Holidays",
+    record_id: id,
+    description: `${updated.name} holiday details were updated`,
   });
 
   return updated;
@@ -90,20 +102,21 @@ exports.updateHoliday = async (id, data, context) => {
 
 exports.deleteHoliday = async (id, context) => {
   const filter = withTenant({ _id: id });
-  const holiday = await Holiday.findOneAndUpdate(
-    filter,
-    { $set: { is_active: false } },
-    { new: true }
-  ).lean();
+  const holiday = await Holiday.findOneAndDelete(filter).lean();
 
   if (!holiday) throw new Error("Holiday record not found");
 
-  // 🛡 Audit Log
-  await AuditLog.create({
-    action: "HOLIDAY_DELETED",
+  // Log to EventRegister (consolidated)
+  const eventLogService = require("../eventLog/service");
+  await eventLogService.logEvent({
     user_id: getUserIdFromCtx(context),
-    tenant_id: filter.tenant_id,
-    metadata: { holiday_id: id, name: holiday.name }
+    user_name: context.user?.name || "Admin",
+    user_role: context.user?.role || "ADMIN",
+    module_name: "Holidays",
+    action_type: "DELETED",
+    module: "Holidays",
+    record_id: id,
+    description: `${holiday.name} holiday has been deleted`,
   });
 
   return { success: true, message: "Holiday record deleted successfully" };

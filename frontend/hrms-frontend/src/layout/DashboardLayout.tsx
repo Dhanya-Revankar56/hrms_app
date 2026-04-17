@@ -1,8 +1,8 @@
 // src/layout/DashboardLayout.tsx
 
-import  { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { getRole, type AppRole } from "../utils/auth";
+import { normalizeRole, type AppRole } from "../utils/auth";
 
 const LAYOUT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap');
@@ -717,16 +717,19 @@ interface NavItem {
 }
 
 const IcoSize = {
-  width: 16, height: 16,
-  fill: "none", viewBox: "0 0 24 24",
-  stroke: "currentColor", strokeWidth: 1.9,
+  width: 16,
+  height: 16,
+  fill: "none",
+  viewBox: "0 0 24 24",
+  stroke: "currentColor",
+  strokeWidth: 1.9,
 } as const;
 
 const NAV_ITEMS: NavItem[] = [
   {
     path: "/dashboard",
     label: "Dashboard",
-    roles: ["ADMIN", "HOD", "EMPLOYEE"],
+    roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
         <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -742,8 +745,11 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["ADMIN"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+        />
       </svg>
     ),
   },
@@ -753,41 +759,53 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87m6-4.13a4 4 0 11-8 0 4 4 0 018 0zm6-4a4 4 0 11-6.32-3.26" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87m6-4.13a4 4 0 11-8 0 4 4 0 018 0zm6-4a4 4 0 11-6.32-3.26"
+        />
       </svg>
     ),
   },
   {
     path: "/attendance",
     label: "Attendance",
-    roles: ["ADMIN", "HOD"],
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+        />
       </svg>
     ),
   },
   {
     path: "/leave",
     label: "Leave Management",
-    roles: ["ADMIN", "HOD"],
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
       </svg>
     ),
   },
   {
     path: "/movement",
     label: "Movement Register",
-    roles: ["ADMIN", "HOD"],
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+        />
       </svg>
     ),
   },
@@ -797,19 +815,25 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+        />
       </svg>
     ),
   },
   {
     path: "/event-register",
     label: "Event Register",
-    roles: ["ADMIN", "HOD"],
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m3 4L10 14m3 3L10 11" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m3 4L10 14m3 3L10 11"
+        />
       </svg>
     ),
   },
@@ -819,8 +843,11 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["ADMIN", "HOD"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M9 17v-2a4 4 0 014-4h4m-4-4l4 4-4 4" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 17v-2a4 4 0 014-4h4m-4-4l4 4-4 4"
+        />
       </svg>
     ),
   },
@@ -830,31 +857,31 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["ADMIN"],
     icon: (
       <svg {...IcoSize}>
-        <path strokeLinecap="round" strokeLinejoin="round"
-          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
       </svg>
     ),
   },
 
   {
-  path: "/settings",
-  label: "Settings",
-  roles: ["ADMIN"],
-  icon: (
-    <svg {...IcoSize}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.325 4.317a1 1 0 011.35-.447l1.518.876a1 1 0 001.093-.049l1.3-1.04a1 1 0 011.447.18l1.2 1.6a1 1 0 01-.18 1.447l-1.04 1.3a1 1 0 00-.049 1.093l.876 1.518a1 1 0 01-.447 1.35l-1.8.9a1 1 0 00-.553.894l-.18 1.7a1 1 0 01-.993.9h-2a1 1 0 01-.993-.9l-.18-1.7a1 1 0 00-.553-.894l-1.8-.9a1 1 0 01-.447-1.35l.876-1.518a1 1 0 00-.049-1.093l-1.04-1.3a1 1 0 01-.18-1.447l1.2-1.6a1 1 0 011.447-.18l1.3 1.04a1 1 0 001.093.049l1.518-.876z"
-      />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  ),
-}
+    path: "/settings",
+    label: "Settings",
+    roles: ["ADMIN", "HOD", "EMPLOYEE"],
+    icon: (
+      <svg {...IcoSize}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M10.325 4.317a1 1 0 011.35-.447l1.518.876a1 1 0 001.093-.049l1.3-1.04a1 1 0 011.447.18l1.2 1.6a1 1 0 01-.18 1.447l-1.04 1.3a1 1 0 00-.049 1.093l.876 1.518a1 1 0 01-.447 1.35l-1.8.9a1 1 0 00-.553.894l-.18 1.7a1 1 0 01-.993.9h-2a1 1 0 01-.993-.9l-.18-1.7a1 1 0 00-.553-.894l-1.8-.9a1 1 0 01-.447-1.35l.876-1.518a1 1 0 00-.049-1.093l-1.04-1.3a1 1 0 01-.18-1.447l1.2-1.6a1 1 0 011.447-.18l1.3 1.04a1 1 0 001.093.049l1.518-.876z"
+        />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+  },
 ];
-
-
-
 
 /* ─────────────────────────────────────────────
    MOCK NOTIFICATIONS
@@ -862,7 +889,7 @@ const NAV_ITEMS: NavItem[] = [
 const NOTIFICATIONS = [
   { id: 1, text: "Rahul Sharma completed onboarding", time: "2 min ago" },
   { id: 2, text: "3 leave requests pending approval", time: "1 hr ago" },
-  { id: 3, text: "Priya Verma's documents approved",  time: "3 hr ago" },
+  { id: 3, text: "Priya Verma's documents approved", time: "3 hr ago" },
 ];
 
 /* ─────────────────────────────────────────────
@@ -879,31 +906,35 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // ✨ Reactive User Resolution (Fix: No more stale global role)
   const getUser = () => {
     const u = {
-      id: localStorage.getItem('user_id') || "", 
-      name: localStorage.getItem('user_name') || "User",
-      role: localStorage.getItem('user_role') || "Employee",
-      initials: (localStorage.getItem('user_name') || "U").charAt(0).toUpperCase()
+      id: localStorage.getItem("user_id") || "",
+      name: localStorage.getItem("user_name") || "User",
+      role: localStorage.getItem("user_role") || "Employee",
+      initials: (localStorage.getItem("user_name") || "U")
+        .charAt(0)
+        .toUpperCase(),
     };
     try {
-       const raw = localStorage.getItem('user');
-       if (raw) {
-         const parsed = JSON.parse(raw);
-         u.id = parsed.id || u.id;
-         u.name = parsed.name || u.name;
-         u.role = parsed.role || u.role;
-         u.initials = (parsed.name || "U").charAt(0).toUpperCase();
-       }
-    } catch { /* Fail safe */ }
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        u.id = parsed.id || u.id;
+        u.name = parsed.name || u.name;
+        u.role = parsed.role || u.role;
+        u.initials = (parsed.name || "U").charAt(0).toUpperCase();
+      }
+    } catch {
+      /* Fail safe */
+    }
     return u;
   };
   const currentUser = getUser();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('institution_id');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("institution_id");
+    localStorage.removeItem("user");
     // Use full page redirect to clear Apollo in-memory cache and re-evaluate ProtectedRoute
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   useEffect(() => {
@@ -911,7 +942,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       const savedTheme = localStorage.getItem("hrms_theme") || "system";
       let activeTheme = savedTheme;
       if (savedTheme === "system") {
-        activeTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        activeTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
       }
       document.documentElement.setAttribute("data-theme", activeTheme);
     };
@@ -935,7 +968,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
   }, []);
 
-  const activeNav = NAV_ITEMS.find((n: NavItem) => location.pathname.startsWith(n.path));
+  const activeNav = NAV_ITEMS.find((n: NavItem) =>
+    location.pathname.startsWith(n.path),
+  );
   const pageTitle = activeNav?.label ?? "Dashboard";
 
   return (
@@ -943,30 +978,47 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <style dangerouslySetInnerHTML={{ __html: LAYOUT_CSS }} />
 
       <div className="app-shell">
-
         {/* ── SIDEBAR ── */}
         <aside className="sidebar">
-
           <div className="sb-header">
             <div className="sb-brand">
               <div className="sb-brand-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24"
-                  stroke="rgba(255,255,255,.88)" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0121 20.055a11.952 11.952 0 01-9 0 11.952 11.952 0 01-9-3.422L12 14z" />
+                <svg
+                  width="18"
+                  height="18"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="rgba(255,255,255,.88)"
+                  strokeWidth={1.8}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422A12.083 12.083 0 0121 20.055a11.952 11.952 0 01-9 0 11.952 11.952 0 01-9-3.422L12 14z"
+                  />
                 </svg>
               </div>
-              <span className="sb-brand-name">Campus<span>HR</span></span>
+              <span className="sb-brand-name">
+                Campus<span>HR</span>
+              </span>
             </div>
           </div>
 
           <nav className="sb-nav">
             <div className="sb-section-label">Menu</div>
-            {NAV_ITEMS.filter(item => item.roles.includes(getRole())).map((item: NavItem) => {
+            {NAV_ITEMS.filter((item) =>
+              item.roles.includes(normalizeRole(currentUser.role)),
+            ).map((item: NavItem) => {
               // 👤 Special handling for Employee Profile link
               let targetPath = item.path;
-              if (item.path === "/employees" && currentUser.role === "EMPLOYEE" && currentUser.id) {
+              let displayLabel = item.label;
+              if (
+                item.path === "/employees" &&
+                currentUser.role === "EMPLOYEE" &&
+                currentUser.id
+              ) {
                 targetPath = `/employees/${currentUser.id}`;
+                displayLabel = "My Profile";
               }
 
               return (
@@ -978,55 +1030,86 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   }
                 >
                   {item.icon}
-                  <span>{item.label}</span>
+                  <span>{displayLabel}</span>
                 </NavLink>
               );
             })}
           </nav>
 
-          <div className="sb-footer" style={{ position: 'relative' }}>
-            <div className="sb-user" onClick={() => setUserMenuOpen(!userMenuOpen)}>
+          <div className="sb-footer" style={{ position: "relative" }}>
+            <div
+              className="sb-user"
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+            >
               <div className="sb-user-avatar">{currentUser.initials}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="sb-user-name">{currentUser.name}</div>
                 <div className="sb-user-role">{currentUser.role}</div>
               </div>
-              <svg className="sb-user-chevron" width="14" height="14"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              <svg
+                className="sb-user-chevron"
+                width="14"
+                height="14"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 15l7-7 7 7"
+                />
               </svg>
             </div>
 
             {userMenuOpen && (
               <div className="sb-user-menu">
-                <div className="sb-menu-item danger" onClick={(e) => {
-                  e.stopPropagation();
-                  handleLogout();
-                }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <div
+                  className="sb-menu-item danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLogout();
+                  }}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
                   </svg>
                   Log out
                 </div>
               </div>
             )}
           </div>
-
         </aside>
 
         {/* ── MAIN AREA ── */}
         <div className="main-area">
-
           {/* Topbar */}
           <header className="topbar">
             <div className="topbar-left">
-              <h1 className="topbar-title" style={{ fontSize: '15px', fontWeight: 700 }}>
-                CampusHR &rsaquo; <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{pageTitle}</span>
+              <h1
+                className="topbar-title"
+                style={{ fontSize: "15px", fontWeight: 700 }}
+              >
+                CampusHR &rsaquo;{" "}
+                <span style={{ color: "var(--accent)", fontWeight: 800 }}>
+                  {pageTitle}
+                </span>
               </h1>
             </div>
 
             <div className="topbar-right">
-
               {/* Notification bell with dropdown */}
               <div className="topbar-bell-wrap">
                 <button
@@ -1034,12 +1117,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   onClick={() => setNotifOpen((v: boolean) => !v)}
                   aria-label="Notifications"
                 >
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor" strokeWidth={1.9} style={{ color: 'var(--text-primary)', opacity: 0.8 }}>
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  <svg
+                    width="20"
+                    height="20"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.9}
+                    style={{ color: "var(--text-primary)", opacity: 0.8 }}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                    />
                   </svg>
-                  <div className="topbar-bell-dot" style={{ background: '#ef4444', border: '2px solid var(--white)' }} />
+                  <div
+                    className="topbar-bell-dot"
+                    style={{
+                      background: "#ef4444",
+                      border: "2px solid var(--white)",
+                    }}
+                  />
                 </button>
 
                 {/* Dropdown — only renders when notifOpen is true */}
@@ -1064,15 +1163,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="topbar-user-avatar">{currentUser.initials}</div>
                 <span className="topbar-user-name">{currentUser.name}</span>
               </div>
-
             </div>
           </header>
 
           {/* Page content */}
-          <main className="page-content">
-            {children}
-          </main>
-
+          <main className="page-content">{children}</main>
         </div>
       </div>
 
@@ -1084,7 +1179,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             setUserMenuOpen(false);
           }}
           style={{
-            position: "fixed", inset: 0, zIndex: 40,
+            position: "fixed",
+            inset: 0,
+            zIndex: 40,
           }}
         />
       )}

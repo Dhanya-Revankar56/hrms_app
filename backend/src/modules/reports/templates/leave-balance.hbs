@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ reportTitle }} — {{ institution.name }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4 landscape; margin: 10mm 8mm 10mm 8mm; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 9px;
+      color: #000;
+      background: #fff;
+      line-height: 1.35;
+    }
+
+    /* ══ HEADER ═══════════════════════════════════════════════════════════════ */
+    .header-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 5px;
+    }
+    .logo-box { width: 64px; height: 64px; flex-shrink: 0; }
+    .logo-img { width: 100%; height: 100%; object-fit: contain; }
+    .inst-info { flex: 1; text-align: center; }
+    .inst-name { font-size: 15px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; margin-bottom: 3px; }
+    .inst-details { font-size: 7.5px; color: #444; margin-bottom: 1px; }
+    .header-line { border-bottom: 2px solid #1e3a8a; margin-top: 4px; margin-bottom: 10px; }
+
+    /* ══ TITLE ═══════════════════════════════════════════════════════════════ */
+    .report-title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    /* ══ FILTER SUMMARY ══════════════════════════════════════════════════════ */
+    .filter-summary { margin-bottom: 12px; margin-left: 4px; }
+    .filter-row { display: flex; margin-bottom: 3px; font-size: 9px; }
+    .filter-key { width: 110px; font-weight: 700; color: #333; }
+    .filter-separator { width: 16px; text-align: center; }
+    .filter-value { flex: 1; color: #000; }
+
+    /* ══ LEAVE BALANCE TABLE ══════════════════════════════════════════════════ */
+    .balance-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+      font-size: 8.5px;
+    }
+
+    /* Header row */
+    .balance-table thead tr:first-child th {
+      background: #dce8f8;
+      color: #1e3a8a;
+      font-weight: 700;
+      border: 1px solid #000;
+      padding: 5px 4px;
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+      font-size: 8px;
+    }
+    .balance-table thead th.emp-header {
+      text-align: left;
+      padding-left: 6px;
+    }
+
+    /* Data rows */
+    .balance-table tbody td {
+      border: 1px solid #ccc;
+      padding: 4px 5px;
+      vertical-align: middle;
+    }
+    .balance-table tbody td.emp-cell {
+      border: 1px solid #000;
+    }
+    .balance-table tbody td.num-cell {
+      text-align: center;
+      border: 1px solid #000;
+      color: #1e3a8a;
+      font-weight: 600;
+    }
+    .balance-table tbody td.total-cell {
+      text-align: center;
+      border: 1px solid #000;
+      background: #f0f4ff;
+      color: #1e3a8a;
+      font-weight: 700;
+    }
+    .balance-table tbody td.zero-cell {
+      text-align: center;
+      border: 1px solid #e5e7eb;
+      color: #9ca3af;
+    }
+
+    /* Stacked text inside cells */
+    .emp-name { font-weight: 600; font-size: 9px; color: #111827; }
+    .emp-id   { font-size: 7.5px; color: #6b7280; margin-top: 1px; }
+    .emp-desig{ font-size: 8.5px; color: #374151; }
+    .emp-dept { font-size: 7.5px; color: #1e40af; margin-top: 1px; }
+
+    /* Alternate rows */
+    .balance-table tbody tr:nth-child(even) { background: #f9fafb; }
+
+    /* ══ SIGNATURES ═══════════════════════════════════════════════════════════ */
+    .signature-container {
+      margin-top: 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 10px;
+    }
+    .signature-box { text-align: center; min-width: 160px; }
+    .signature-line {
+      border-top: 1px solid #000;
+      padding-top: 4px;
+      font-weight: 700;
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+    .signature-name { margin-bottom: 3px; font-weight: 700; font-size: 10px; }
+
+    @media print {
+      .balance-table thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header-container">
+    {{#if institution.logo}}
+    <div class="logo-box">
+      <img src="{{ institution.logo }}" alt="Logo" class="logo-img" />
+    </div>
+    {{/if}}
+    <div class="inst-info">
+      <div class="inst-name">{{ institution.name }}</div>
+      <div class="inst-details">Human Resource Management System | {{ institution.code }}</div>
+      <div class="inst-details">{{ institution.address }}</div>
+      <div class="inst-details">
+        {{#if institution.email}}✉ {{ institution.email }}{{/if}}
+        {{#if institution.phone}}&nbsp;&nbsp;☎ {{ institution.phone }}{{/if}}
+      </div>
+    </div>
+  </div>
+  <div class="header-line"></div>
+
+  <!-- TITLE -->
+  <div class="report-title">{{ reportTitle }}</div>
+
+  <!-- FILTERS -->
+  {{#if appliedFilters}}
+  <div class="filter-summary">
+    {{#each appliedFilters}}
+    <div class="filter-row">
+      <div class="filter-key">{{ this.key }}</div>
+      <div class="filter-separator">:</div>
+      <div class="filter-value">{{ this.value }}</div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  <!-- LEAVE BALANCE TABLE -->
+  {{#if hasRows}}
+  <table class="balance-table">
+    <thead>
+      <tr>
+        <th class="emp-header" style="width:30px;">Sl No</th>
+        <th class="emp-header" style="width:140px;">Employee Name</th>
+        <th class="emp-header" style="width:130px;">Designation / Department</th>
+        {{#each leaveTypeColumns}}
+          <th>{{ this }}</th>
+        {{/each}}
+        <th style="background:#1e3a8a;color:#fff;min-width:40px;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="num-cell">{{ rowIndex @index }}</td>
+        <td class="emp-cell">
+          <div class="emp-name">{{str (lookup this "Employee Name")}}</div>
+          <div class="emp-id">{{str (lookup this "Employee ID")}}</div>
+        </td>
+        <td class="emp-cell">
+          <div class="emp-desig">{{str (lookup this "Designation")}}</div>
+          <div class="emp-dept">{{str (lookup this "Department")}}</div>
+        </td>
+        {{#each ../leaveTypeColumns}}
+          {{#with (lookup .. this)}}
+            {{#if (gt this 0)}}
+              <td class="num-cell">{{ this }}</td>
+            {{else}}
+              <td class="zero-cell">—</td>
+            {{/if}}
+          {{else}}
+            <td class="zero-cell">—</td>
+          {{/with}}
+        {{/each}}
+        <td class="total-cell">{{str (lookup this "Total")}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <div style="text-align:center; padding: 40px; color: #999;">No leave balance records found.</div>
+  {{/if}}
+
+  <!-- SIGNATURES -->
+  <div class="signature-container">
+    <div class="signature-box">
+      {{#if signatureInfo.showHOD}}
+        <div class="signature-name">{{ signatureInfo.hodName }}</div>
+        <div class="signature-line">HOD ({{ signatureInfo.deptName }})</div>
+      {{else}}
+        <div style="height: 28px;"></div>
+        <div class="signature-line">HR Officer</div>
+      {{/if}}
+    </div>
+    <div style="flex:1;"></div>
+    <div class="signature-box">
+      <div style="height: 28px;"></div>
+      <div class="signature-line">Principal</div>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:20px; font-size:7px; color:#999;">
+    System-generated report · {{ generatedOn }}
+  </div>
+
+</body>
+</html>

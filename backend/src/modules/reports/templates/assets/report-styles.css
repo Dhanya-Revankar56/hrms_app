@@ -1,0 +1,35 @@
+/**
+ * 🖨 Print-Optimized CSS for PDF Report Templates
+ * Injected by pdfBuilder.js after Puppeteer loads the HTML.
+ * Ensures crisp rendering in Chromium headless.
+ */
+
+/* Force white background on print */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Prevent orphan table rows */
+  tr, td, th {
+    page-break-inside: avoid !important;
+  }
+
+  /* Repeat table header on every page */
+  thead {
+    display: table-header-group !important;
+  }
+
+  /* Prevent blank pages from excess bottom margin */
+  .report-footer {
+    page-break-after: avoid !important;
+  }
+}
+
+/* Force background colors in Chromium */
+* {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}

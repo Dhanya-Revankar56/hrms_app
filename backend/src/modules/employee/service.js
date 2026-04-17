@@ -207,13 +207,16 @@ exports.createEmployee = async (data, context) => {
 
     // 🛡 3. Audit Log
     await AuditLog.create({
-      action: "EMPLOYEE_CREATED",
+      action: "CREATED",
+      module: "Employee Onboarding",
       user_id: getUserIdFromCtx(context) || savedUser._id,
       tenant_id,
       metadata: {
-        employee_id: savedEmp.employee_id,
+        employee_id: savedEmp._id,
+        employee_code: savedEmp.employee_id,
         name: emp.name,
         email: normalized.user_email,
+        description: `${emp.name} joined the organization`,
       },
     });
 
@@ -254,11 +257,20 @@ exports.updateEmployee = async (id, data, context) => {
 
   // 🛡 3. Audit Log
   await AuditLog.create({
-    action: "EMPLOYEE_UPDATED",
+    action: "UPDATED",
+    module: "Employee Management",
     user_id: getUserIdFromCtx(context),
     tenant_id: existing.tenant_id,
-    metadata: { employee_id: id, changes: Object.keys(data) },
+    metadata: {
+      employee_id: id,
+      changes: Object.keys(data),
+      description: `${updated.name} details were updated`,
+    },
   });
+
+  // Also log to EventRegister via service for consistency if needed,
+  // but AuditLog.create is sufficient since listEventLogs reads it.
+  // I will just make the description cleaner.
 
   return updated;
 };
@@ -280,10 +292,15 @@ exports.deleteEmployee = async (id, context) => {
 
   // 🛡 2. Audit Log
   await AuditLog.create({
-    action: "EMPLOYEE_DELETED",
+    action: "DELETED",
+    module: "Employee Management",
     user_id: getUserIdFromCtx(context),
     tenant_id: emp.tenant_id,
-    metadata: { employee_id: id, name: emp.name },
+    metadata: {
+      employee_id: id,
+      name: emp.name,
+      description: `${emp.name} has been deleted`,
+    },
   });
 
   return {
@@ -320,10 +337,15 @@ exports.reHireEmployee = async (id, context) => {
 
   // 🛡 2. Audit Log
   await AuditLog.create({
-    action: "EMPLOYEE_REHIRED",
+    action: "REJOINED",
+    module: "Employee Management",
     user_id: getUserIdFromCtx(context),
     tenant_id: emp.tenant_id,
-    metadata: { employee_id: id, name: emp.name },
+    metadata: {
+      employee_id: id,
+      name: emp.name,
+      description: `${emp.name} rejoined the organization`,
+    },
   });
 
   return await Employee.findOne(filter).lean();
