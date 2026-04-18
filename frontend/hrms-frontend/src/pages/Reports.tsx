@@ -27,6 +27,14 @@ interface SettingsData {
       id: string;
       name: string;
     }[];
+    leave_types: {
+      id: string;
+      name: string;
+    }[];
+    employee_categories: {
+      id: string;
+      name: string;
+    }[];
   };
 }
 
@@ -39,18 +47,6 @@ interface ProfileData {
     };
   };
 }
-
-const LEAVE_TYPES = [
-  "Casual Leave",
-  "Sick Leave",
-  "Earned Leave",
-  "Maternity Leave",
-  "Paternity Leave",
-  "Compensatory Off",
-  "Duty Leave",
-  "LWP",
-  "Other",
-];
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -234,6 +230,8 @@ const Reports: React.FC = () => {
   const { data: profileData } = useQuery<ProfileData>(GET_MY_PROFILE);
 
   const departments = settingsData?.settings?.departments || [];
+  const leaveTypes = settingsData?.settings?.leave_types || [];
+  const employeeCategories = settingsData?.settings?.employee_categories || [];
 
   const currentUserDeptId = profileData?.me?.work_detail?.department?.id;
   const isUserHod = isHod();
@@ -259,13 +257,26 @@ const Reports: React.FC = () => {
   const buildQueryString = useCallback(
     (extra: Record<string, string> = {}) => {
       if (!activeReport) return "";
+
+      // 🔍 Resolve human-readable labels for the PDF header
+      const activeDept = departments.find((d) => d.id === filters.department);
+      const deptName = activeDept
+        ? activeDept.name
+        : filters.department === "All"
+          ? "All Departments"
+          : "";
+      const categoryLabel =
+        filters.category === "All" ? "All Categories" : filters.category;
+
       const p: Record<string, string> = {
         id: activeReport.id,
         startDate: filters.startDate,
         endDate: filters.endDate,
         selectedDate: filters.selectedDate,
         departmentId: filters.department === "All" ? "" : filters.department,
+        deptName, // 🎯 Pass resolved label
         category: filters.category === "All" ? "" : filters.category,
+        categoryLabel, // 🎯 Pass resolved label
         leaveType: filters.leaveType === "All" ? "" : filters.leaveType,
         status: filters.status === "All" ? "" : filters.status,
         month: filters.month,
@@ -273,11 +284,11 @@ const Reports: React.FC = () => {
         ...extra,
       };
       return Object.entries(p)
-        .filter(([, v]) => v !== "")
-        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .filter(([, v]) => v !== undefined && v !== "")
+        .map(([k, v]) => `${k}=${encodeURIComponent(v as string)}`)
         .join("&");
     },
-    [activeReport, filters],
+    [activeReport, filters, departments],
   );
 
   const fetchPreview = useCallback(async () => {
@@ -869,10 +880,11 @@ const Reports: React.FC = () => {
                   }
                 >
                   <option value="All">All Categories</option>
-                  <option value="Teaching">Teaching</option>
-                  <option value="Non-Teaching">Non-Teaching</option>
-                  <option value="Support Staff">Support Staff</option>
-                  <option value="General">General</option>
+                  {employeeCategories.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -891,9 +903,9 @@ const Reports: React.FC = () => {
                   }
                 >
                   <option value="All">All Types</option>
-                  {LEAVE_TYPES.map((lt) => (
-                    <option key={lt} value={lt}>
-                      {lt}
+                  {leaveTypes.map((lt) => (
+                    <option key={lt.id} value={lt.name}>
+                      {lt.name}
                     </option>
                   ))}
                 </select>

@@ -146,14 +146,28 @@
   <div class="empty-state">No attendance records found for the selected filters.</div>
   {{/if}}
 
-  <!-- FOOTER -->
-  <div class="report-footer">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
-      <div class="signature-block"><div class="signature-line">HR Officer</div></div>
-      <div class="footer-center">{{ institution.name }}<br/><span style="color:#aaa;">System-generated &nbsp;|&nbsp; HRMS</span></div>
-      <div class="signature-block"><div class="signature-line">Authorized Signatory</div></div>
+    <!-- FOOTER -->
+  <div class="report-footer" style="margin-top: 18px; border-top: 2px solid #0d6e4e; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 8px; color: #555;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;">
+      <!-- Left Signature (HOD or Admin) -->
+      <div class="signature-block" style="text-align: center; min-width: 130px;">
+        <div class="signature-name" style="font-weight: 700; font-size: 10px; color: #000; margin-bottom: 3px;">{{ signatureInfo.leftName }}</div>
+        <div class="signature-line" style="border-top: 1px solid #444; padding-top: 4px; font-size: 8px; font-weight: bold;">{{ signatureInfo.leftTitle }}</div>
+        {{#if signatureInfo.leftSubtitle}}<div style="font-size: 8px; padding-top: 2px; font-weight: bold;">{{ signatureInfo.leftSubtitle }}</div>{{/if}}
+      </div>
+      
+      <!-- Center Info -->
+      <div class="footer-center" style="text-align: center; font-size: 7.5px; color: #888; flex: 1; padding: 0 10px;">
+        {{ institution.name }}<br/><span style="color:#aaa;">System-generated &nbsp;|&nbsp; HRMS</span>
+      </div>
+      
+      <!-- Right Signature (Principal) -->
+      <div class="signature-block" style="text-align: center; min-width: 130px;">
+        <div class="signature-name" style="font-weight: 700; font-size: 10px; color: #000; margin-bottom: 3px;">&nbsp;</div>
+        <div class="signature-line" style="border-top: 1px solid #444; padding-top: 4px; font-size: 8px; font-weight: bold;">{{ signatureInfo.rightName }}</div>
+        <div style="font-size: 8px; padding-top: 2px; font-weight: bold;">{{ signatureInfo.rightSubtitle }}</div>
+      </div>
     </div>
-    {{#if institution.address}}<div class="footer-institution-info">{{ institution.address }}{{#if institution.email}} &nbsp;|&nbsp; {{ institution.email }}{{/if}}</div>{{/if}}
   </div>
 
 </body>

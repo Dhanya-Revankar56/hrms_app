@@ -253,6 +253,7 @@ const ReportEngine = {
           config,
           req.query,
           tenantId,
+          req.user,
           res,
         );
       }

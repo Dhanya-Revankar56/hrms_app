@@ -11,6 +11,10 @@ const resolvers = {
       ctx,
     ) => {
       const role = ctx.user?.role;
+      console.log(
+        `[MovementResolver] Fetching for User: ${ctx.user?.email || "Unknown"}, Role: ${role}`,
+      );
+
       let filterId = employee_id;
       let filterDept = department;
 
@@ -18,16 +22,24 @@ const resolvers = {
         const empRecord = await Employee.findOne({ user_id: ctx.user.id })
           .select("_id")
           .lean();
-        filterId = empRecord?._id || ctx.user.id; // Fallback to user_id if employee record missing
+        console.log(
+          `[MovementResolver] Linked Employee Record: ${empRecord?._id || "NOT FOUND"}`,
+        );
+        filterId = empRecord?._id || ctx.user.id;
       } else if (role === "HEAD OF DEPARTMENT") {
         const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
           .select("work_detail.department")
           .lean();
-        // Only override if HOD has a department; otherwise allow passed department
+        console.log(
+          `[MovementResolver] HOD Dept: ${hodRecord?.work_detail?.department || "NOT FOUND"}`,
+        );
         if (hodRecord?.work_detail?.department) {
           filterDept = hodRecord.work_detail.department.toString();
         }
       }
+      console.log(
+        `[MovementResolver] Final Query -> id: ${filterId}, dept: ${filterDept}`,
+      );
 
       return await movementService.listMovements({
         employee_id: filterId,

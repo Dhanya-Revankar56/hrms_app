@@ -136,8 +136,9 @@ const getInstitutionInfo = async (tenantId) => {
     console.log(`[PDFBuilder] Fetching settings for tenant: ${tenantId}`);
 
     // Add a quick timeout for settings lookup to prevent hanging on flaky networks
+    // 🎯 Optimization: Add a strict timeout for settings lookup to prevent hanging the whole PDF
     const settings = await Settings.findOne({ tenant_id: tenantId })
-      .setOptions({ skipTenant: true })
+      .setOptions({ skipTenant: true, serverSelectionTimeoutMS: 5000 })
       .lean();
 
     if (!settings) {
@@ -203,6 +204,35 @@ const getInstitutionInfo = async (tenantId) => {
   }
 };
 
+// ─── Browser Singleton ────────────────────────────────────────────────────────
+
+let browserInstance = null;
+
+const getBrowserInstance = async () => {
+  if (browserInstance) return browserInstance;
+
+  console.log("[PDFBuilder] Launching Chromium...");
+  const isProduction = process.env.NODE_ENV === "production";
+  const launchOptions = {
+    headless: isProduction ? chromium.headless : "new",
+    args: isProduction
+      ? chromium.args
+      : [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+        ],
+    executablePath: isProduction
+      ? await chromium.executablePath()
+      : findChrome(),
+  };
+
+  browserInstance = await puppeteer.launch(launchOptions);
+  console.log("[PDFBuilder] Browser launched successfully");
+  return browserInstance;
+};
+
 // ─── Main PDF Generator ───────────────────────────────────────────────────────
 
 /**
@@ -215,7 +245,16 @@ const getInstitutionInfo = async (tenantId) => {
  * @param {string}   tenantId - Current tenant ID (from req.user.tenant_id)
  * @param {Object}   res      - Express response object
  */
-const generatePDF = async (rows, columns, config, params, tenantId, res) => {
+const generatePDF = async (
+  rows,
+  columns,
+  config,
+  params,
+  tenantId,
+  user,
+  res,
+) => {
+  const startTotal = Date.now();
   console.log(`[PDFBuilder] Starting generation for: ${config.id || "report"}`);
 
   // 1. Institution info from Settings
@@ -253,25 +292,38 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
     }));
   }
 
-  // 🎯 Applied Filters Summary (Structured for key-value layout)
+  // ── 🎯 Applied Filters Summary (Optimized: Use labels from params if provided) ──
   const filterSummary = [];
   const deptId = params.departmentId;
+  let deptName = params.deptName; // 🎯 Resolved label from frontend
   const categoryStr = params.category;
+  const categoryLabel = params.categoryLabel; // 🎯 Resolved label from frontend
   const monthStr = params.month;
   const selectedDate = params.selectedDate;
   const leaveTypeStr = params.leaveType;
   const statusStr = params.status;
 
-  if (deptId && deptId !== "All") {
-    const dept = await Department.findById(deptId)
-      .setOptions({ skipTenant: true })
-      .lean();
-    if (dept) filterSummary.push({ key: "Department", value: dept.name });
+  // 🏛 Department Label
+  if (deptName) {
+    filterSummary.push({ key: "Department", value: deptName });
+  } else if (deptId && deptId !== "All") {
+    // Fallback to DB lookup if label missing (with timeout)
+    try {
+      const dept = await Department.findById(deptId)
+        .setOptions({ skipTenant: true, serverSelectionTimeoutMS: 3000 })
+        .lean();
+      if (dept) filterSummary.push({ key: "Department", value: dept.name });
+    } catch (_) {
+      filterSummary.push({ key: "Department", value: "Selected Department" });
+    }
   } else {
-    filterSummary.push({ key: "Department", value: "All" });
+    filterSummary.push({ key: "Department", value: "All Departments" });
   }
 
-  if (categoryStr && categoryStr !== "All") {
+  // 🏷 Category Label
+  if (categoryLabel) {
+    filterSummary.push({ key: "Employee Category", value: categoryLabel });
+  } else if (categoryStr && categoryStr !== "All") {
     filterSummary.push({ key: "Employee Category", value: categoryStr });
   }
 
@@ -310,41 +362,73 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
     });
   }
 
-  // 🎯 Custom Addition: HOD Signature Logic
-  let showHOD = false;
-  let hodName = "";
-  let deptName = "";
+  // 🎯 Custom Addition: Signature Logic based on User who generated the report
+  const User = require("../../auth/user.model");
+  let leftName = "System Administrator";
+  let leftTitle = "Admin";
+  let leftSubtitle = "";
 
-  if (deptId && deptId !== "All") {
-    const dept = await Department.findById(deptId)
-      .setOptions({ skipTenant: true })
-      .lean();
-    if (dept) {
-      deptName = dept.name.toUpperCase();
-      // Find employee with role "HEAD OF DEPARTMENT" and department match
-      const User = require("../../auth/user.model");
-      const hodUser = await User.findOne({
-        role: "HEAD OF DEPARTMENT",
-        tenant_id: tenantId,
-      })
-        .setOptions({ skipTenant: true })
-        .lean();
+  let rightName = "Principal / Director";
+  let rightSubtitle = institution.name || "";
 
-      if (hodUser) {
-        const hodEmp = await Employee.findOne({
-          user_id: hodUser._id,
-          "work_detail.department": deptId,
-        })
-          .setOptions({ skipTenant: true })
-          .lean();
+  if (user) {
+    if (user.role === "HEAD OF DEPARTMENT") {
+      const hodEmp = await Employee.findOne({ user_id: user.id })
+        .select("name work_detail")
+        .populate("work_detail.department", "name")
+        .setOptions({ skipTenant: true, serverSelectionTimeoutMS: 2000 })
+        .lean()
+        .catch(() => null);
 
-        if (hodEmp) {
-          showHOD = true;
-          hodName = hodEmp.name;
-        }
+      if (hodEmp) {
+        leftName = hodEmp.name.toUpperCase();
+        leftTitle = "Head of Department".toUpperCase();
+        leftSubtitle = (
+          hodEmp.work_detail?.department?.name || ""
+        ).toUpperCase();
+      } else {
+        leftName = "HOD".toUpperCase();
+        leftTitle = "Head of Department".toUpperCase();
+      }
+    } else if (
+      user.role === "admin" ||
+      user.role === "ADMIN" ||
+      user.role === "superadmin" ||
+      user.role === "SYSTEM ADMINISTRATOR"
+    ) {
+      const adminDoc = await User.findOne({ _id: user.id })
+        .select("name")
+        .setOptions({ skipTenant: true, serverSelectionTimeoutMS: 2000 })
+        .lean()
+        .catch(() => null);
+      if (adminDoc && adminDoc.name) {
+        leftName = adminDoc.name.toUpperCase();
+      } else {
+        leftName = "SYSTEM ADMINISTRATOR";
+      }
+      leftTitle = "Admin".toUpperCase();
+    } else {
+      leftTitle = (user.role || "Generated By").toUpperCase();
+      const userEmp = await Employee.findOne({ user_id: user.id })
+        .select("name")
+        .setOptions({ skipTenant: true, serverSelectionTimeoutMS: 2000 })
+        .lean()
+        .catch(() => null);
+      if (userEmp) {
+        leftName = userEmp.name.toUpperCase();
+      } else {
+        leftName = "HR OFFICER";
       }
     }
   }
+
+  const signatureInfo = {
+    leftName: leftName.toUpperCase(),
+    leftTitle: leftTitle.toUpperCase(),
+    leftSubtitle: leftSubtitle.toUpperCase(),
+    rightName: rightName.toUpperCase(),
+    rightSubtitle: rightSubtitle.toUpperCase(),
+  };
 
   // 3. Template context
   const templateData = {
@@ -360,12 +444,7 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
     totalRecords: rows.length,
     hasRows: rows.length > 0,
     appliedFilters: filterSummary,
-    signatureInfo: {
-      showHOD,
-      hodName,
-      deptName,
-      principalName: "Principal", // Fallback or fetch from settings
-    },
+    signatureInfo,
     // Extract leave type columns for the dedicated leave-balance template
     leaveTypeColumns: columns.filter(
       (c) =>
@@ -384,37 +463,19 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
   const htmlContent = template(templateData);
 
   // 4. Render PDF with Puppeteer
-  let browser;
+  let page;
 
   try {
-    console.log("[PDFBuilder] Launching Chromium...");
+    const browser = await getBrowserInstance();
 
-    const isProduction = process.env.NODE_ENV === "production";
-    const launchOptions = {
-      headless: isProduction ? chromium.headless : "new",
-      args: isProduction
-        ? chromium.args
-        : [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-          ],
-      executablePath: isProduction
-        ? await chromium.executablePath()
-        : findChrome(),
-    };
-
-    browser = await puppeteer.launch(launchOptions);
-    console.log("[PDFBuilder] Browser launched successfully");
-
-    const page = await browser.newPage();
+    page = await browser.newPage();
     page.setDefaultNavigationTimeout(60000);
     page.setDefaultTimeout(60000);
 
+    const renderStart = Date.now();
     console.log("[PDFBuilder] Rendering HTML to PDF...");
-    // Set content and wait for all resources to settle
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+    // 🚀 Speedup: Stop waiting for full network activity, render as soon as structure is ready
+    await page.setContent(htmlContent, { waitUntil: "domcontentloaded" });
 
     // Inject print CSS to ensure colors render correctly in headless mode
     const cssPath = path.join(TEMPLATES_DIR, "assets", "report-styles.css");
@@ -441,6 +502,13 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
       },
     });
 
+    console.log(
+      `[PDFBuilder] Rendering step took ${Date.now() - renderStart}ms`,
+    );
+    console.log(
+      `[PDFBuilder] Total generation time: ${Date.now() - startTotal}ms`,
+    );
+
     // 5. Stream PDF response
     const filename = `${config.id || "report"}_${Date.now()}.pdf`;
     const isDownload = params.download === "pdf";
@@ -457,9 +525,9 @@ const generatePDF = async (rows, columns, config, params, tenantId, res) => {
     console.error("[PDFBuilder] Chromium Error:", err.stack);
     throw new Error(`PDF Render Failed: ${err.message}`, { cause: err });
   } finally {
-    if (browser) {
+    if (page) {
       try {
-        await browser.close();
+        await page.close();
       } catch (_) {
         /* ignore close errors */
       }

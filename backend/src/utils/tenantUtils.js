@@ -8,8 +8,11 @@ const { getTenantId } = require("../middleware/tenantContext");
 const withTenant = (filter = {}, req = null) => {
   // If req is provided, prioritize its tenantId (from middleware)
   const tenantId = req?.tenant_id || getTenantId();
-  
+
   if (!tenantId) {
+    console.warn(
+      `[TenantUtils] !! CRITICAL !! Missing tenant context for query. Path: ${req?.path}`,
+    );
     throw new Error("Missing tenant context for multi-tenant query.");
   }
 
@@ -19,13 +22,16 @@ const withTenant = (filter = {}, req = null) => {
     try {
       oid = new mongoose.Types.ObjectId(tenantId);
     } catch (err) {
-      console.warn("[TenantUtils] Failed to cast tenantId to ObjectId:", tenantId);
+      console.warn(
+        "[TenantUtils] Failed to cast tenantId to ObjectId:",
+        tenantId,
+      );
     }
   }
 
-  return { 
-    ...filter, 
-    tenant_id: oid
+  return {
+    ...filter,
+    tenant_id: oid,
   };
 };
 
@@ -46,5 +52,5 @@ const applyTenantFilter = (filter) => {
 module.exports = {
   withTenant,
   applyTenantFilter,
-  getUserIdFromCtx
+  getUserIdFromCtx,
 };

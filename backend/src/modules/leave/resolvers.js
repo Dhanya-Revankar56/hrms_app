@@ -21,6 +21,10 @@ const resolvers = {
       ctx,
     ) => {
       const role = ctx.user?.role;
+      console.log(
+        `[LeaveResolver] Fetching for User: ${ctx.user?.email || "Unknown"}, Role: ${role}`,
+      );
+
       let filterId = employee_id;
       let filterDept = department;
 
@@ -28,13 +32,22 @@ const resolvers = {
         const empRecord = await Employee.findOne({ user_id: ctx.user.id })
           .select("_id")
           .lean();
+        console.log(
+          `[LeaveResolver] Linked Employee Record: ${empRecord?._id || "NOT FOUND"}`,
+        );
         filterId = empRecord?._id;
       } else if (role === "HEAD OF DEPARTMENT") {
         const hodRecord = await Employee.findOne({ user_id: ctx.user.id })
           .select("work_detail.department")
           .lean();
+        console.log(
+          `[LeaveResolver] HOD Dept: ${hodRecord?.work_detail?.department || "NOT FOUND"}`,
+        );
         filterDept = hodRecord?.work_detail?.department?.toString();
       }
+      console.log(
+        `[LeaveResolver] Final Filter -> id: ${filterId}, dept: ${filterDept}`,
+      );
 
       return await leaveService.listLeaves({
         employee_id: filterId,

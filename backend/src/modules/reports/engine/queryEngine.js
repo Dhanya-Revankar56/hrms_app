@@ -41,9 +41,16 @@ const resolveSpecialFilter = async (filterDef, value, req = null) => {
       .select("_id user_id")
       .lean();
 
-    const actorIds = employees.map((e) => e.user_id).filter((id) => id);
     const targetIds = employees.map((e) => e._id);
+    const actorIds = employees.map((e) => e.user_id).filter((id) => id);
 
+    // If the report expects a single field (like employee_id or user_id),
+    // we return the array of IDs.
+    if (filterDef.applyTo) {
+      return { $in: targetIds };
+    }
+
+    // 🏰 Fallback for Event Log reports which require spreading multiple keys
     return {
       __spreadKeys: true,
       user_id: filterDef.castToString

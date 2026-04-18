@@ -115,7 +115,7 @@ exports.listLeaves = async ({
 }) => {
   const filter = withTenant({});
   if (employee_id) filter.employee_id = employee_id;
-  if (status) filter.status = status;
+  if (status) filter.status = { $regex: new RegExp(`^${status}$`, "i") };
   if (leave_type) filter.leave_type = leave_type;
 
   if (department || search) {

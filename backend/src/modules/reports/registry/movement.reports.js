@@ -17,7 +17,13 @@ module.exports = [
         key: "selectedDate",
         type: "date",
         applyTo: "movement_date",
-        op: "$eq",
+        op: "$gte",
+      },
+      {
+        key: "selectedDate",
+        type: "date",
+        applyTo: "movement_date",
+        op: "$lte",
       },
       {
         key: "departmentId",
