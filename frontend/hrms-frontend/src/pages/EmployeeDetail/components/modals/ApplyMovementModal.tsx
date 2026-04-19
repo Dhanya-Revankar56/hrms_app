@@ -1,3 +1,6 @@
+import AnalogTimePicker from "../../../../components/AnalogTimePicker";
+import { formatDateForInput } from "../../../../utils/dateUtils";
+
 interface ApplyMovementForm {
   movement_date: string;
   movement_type: string;
@@ -99,7 +102,7 @@ export default function ApplyMovementModal({
               <input
                 type="date"
                 className="ed-date-input"
-                value={moveForm.movement_date}
+                value={formatDateForInput(moveForm.movement_date)}
                 onChange={(e) =>
                   setMoveForm({ ...moveForm, movement_date: e.target.value })
                 }
@@ -158,7 +161,7 @@ export default function ApplyMovementModal({
               {showOut && (
                 <AnalogTimePicker
                   initialTime={moveForm.out_time || "09:00"}
-                  onSave={(t) => {
+                  onSave={(t: string) => {
                     setMoveForm({ ...moveForm, out_time: t });
                     setShowOut(false);
                   }}
@@ -187,7 +190,7 @@ export default function ApplyMovementModal({
               {showRet && (
                 <AnalogTimePicker
                   initialTime={moveForm.in_time || "10:00"}
-                  onSave={(t) => {
+                  onSave={(t: string) => {
                     setMoveForm({ ...moveForm, in_time: t });
                     setShowRet(false);
                   }}

@@ -127,6 +127,13 @@ export interface Attendance {
 export interface LeaveApproval {
   role: string;
   status: string;
+  updated_at?: string;
+  remarks?: string;
+}
+
+export interface LeaveDayBreakdown {
+  date: string;
+  leave_type: string;
 }
 
 export interface LeaveBalance {
@@ -136,20 +143,31 @@ export interface LeaveBalance {
 
 export interface Leave {
   id: string;
+  employee_id?: string;
+  employee_code?: string;
   leave_type: string;
   from_date: string;
   to_date: string;
   total_days: number;
+  reason?: string;
   document_url?: string;
   requested_date?: string;
   created_at?: string;
   status: string;
+  is_half_day?: boolean;
+  half_day_type?: string;
+  day_breakdowns?: Array<{ date: string; leave_type: string }>;
   approvals: LeaveApproval[];
-  employee_code?: string;
   employee?: {
-    employee_id: string;
+    id: string;
+    employee_id?: string;
     first_name: string;
     last_name: string;
+    employee_image?: string;
+    work_detail?: {
+      department?: { id: string; name: string };
+      designation?: { id: string; name: string };
+    };
   };
 }
 

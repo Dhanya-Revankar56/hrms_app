@@ -74,7 +74,7 @@ function DotsMenu({
   onReject,
   onRelieve,
 }: {
-  rec: RelievingRecord;
+  rec: Record<string, unknown> & { status: string };
   onView: () => void;
   onApprove: () => void;
   onReject: () => void;
@@ -242,17 +242,20 @@ function DotsMenu({
 /* ─────────────────────────────────────────────
    MAIN SECTION COMPONENT
 ───────────────────────────────────────────── */
+// Using any for now to avoid circular dependency or complex interface mapping in this section
+// Ideally these should be unified in a shared types file.
+
 interface RelievingRecord {
   id: string;
   empId: string;
   firstName: string;
   lastName: string;
-  officialEmail: string;
   department: string;
   designation: string;
   lastWorkingDay: string;
   status: string;
   avatarColor: string;
+  officialEmail: string;
 }
 
 interface RelievingTableSectionProps {

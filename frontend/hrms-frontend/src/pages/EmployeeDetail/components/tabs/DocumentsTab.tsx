@@ -1,4 +1,4 @@
-import { EmployeeDocument } from "../../../../types";
+import type { EmployeeDocument } from "../../../../types";
 import { formatDateForDisplay } from "../../../../utils/dateUtils";
 
 export default function DocumentsTab({

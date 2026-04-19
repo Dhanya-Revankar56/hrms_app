@@ -11,6 +11,7 @@ import {
 import { GET_SETTINGS } from "../../graphql/settingsQueries";
 import { isAdmin, hasRole, isHod } from "../../utils/auth";
 import { formatDateForInput } from "../../utils/dateUtils";
+import type { Leave, LeaveDayBreakdown } from "../../types";
 
 // Modular Sections
 import LeaveHeaderSection from "./components/sections/LeaveHeaderSection";
@@ -39,45 +40,7 @@ type SortField =
   | "finalStatus";
 type SortDir = "asc" | "desc";
 
-interface LeaveApproval {
-  role: string;
-  status: string;
-  updated_at?: string;
-  remarks?: string;
-}
-
-interface LeaveDayBreakdown {
-  date: string;
-  leave_type: string;
-}
-
-interface LeaveRequest {
-  id: string;
-  employee_id: string;
-  employee_code: string;
-  leave_type: string;
-  from_date: string;
-  to_date: string;
-  total_days: number;
-  reason: string;
-  status: string;
-  approvals: LeaveApproval[];
-  requested_date: string;
-  is_half_day: boolean;
-  half_day_type: string;
-  day_breakdowns?: LeaveDayBreakdown[];
-  employee?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    employee_id: string;
-    employee_image: string;
-    work_detail?: {
-      department: { id: string; name: string };
-      designation: { id: string; name: string };
-    };
-  };
-}
+// Using unified types from "../../types"
 
 interface FilterState {
   search: string;
@@ -89,7 +52,7 @@ interface FilterState {
 
 interface LeavesData {
   leaves: {
-    items: LeaveRequest[];
+    items: Leave[];
     pageInfo: {
       totalCount: number;
       totalPages: number;
@@ -201,7 +164,7 @@ const getLeaveName = (type: string) => {
 };
 
 // Status is now a single field from backend
-function deriveStatus(req: LeaveRequest): LeaveStatus {
+function deriveStatus(req: Leave): LeaveStatus {
   const s = (req.status || "Pending").toLowerCase();
   if (s === "approved") return "Approved";
   if (s === "rejected") return "Rejected";
@@ -677,7 +640,7 @@ const CSS = `
 /* ─────────────────────────────────────────────
    SMALL COMPONENTS
 ───────────────────────────────────────────── */
-function OverallStatusBadge({ req }: { req: LeaveRequest }) {
+function OverallStatusBadge({ req }: { req: Leave }) {
   const status = deriveStatus(req);
   const cls: Record<LeaveStatus, string> = {
     Pending: "lv-badge lv-badge-pending",
@@ -788,7 +751,7 @@ function RejectModal({ name, onConfirm, onCancel }: RejectModalProps) {
    LEAVE DETAIL DRAWER
 ───────────────────────────────────────────── */
 interface DrawerProps {
-  req: LeaveRequest;
+  req: Leave;
   onClose: () => void;
   onCancel?: (id: string) => void;
   onApprove: (id: string, remarks: string, role: string) => void;
@@ -799,7 +762,7 @@ interface DrawerProps {
    UPDATE LEAVE MODAL
 ───────────────────────────────────────────── */
 interface UpdateModalProps {
-  req: LeaveRequest;
+  req: Leave;
   onClose: () => void;
   onToast: (m: string) => void;
 }
@@ -1476,7 +1439,7 @@ export default function Leave() {
   const [sortField, setSortField] = useState<SortField>("startDate");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<string[]>([]);
-  const [drawerReq, setDrawerReq] = useState<LeaveRequest | null>(null);
+  const [drawerReq, setDrawerReq] = useState<Leave | null>(null);
   const [toast, setToast] = useState<string>("");
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<{
@@ -1544,10 +1507,7 @@ export default function Leave() {
     refetchQueries: [{ query: GET_LEAVES }],
   });
 
-  const requests = useMemo<LeaveRequest[]>(
-    () => data?.leaves?.items || [],
-    [data],
-  );
+  const requests = useMemo<Leave[]>(() => data?.leaves?.items || [], [data]);
   const pageInfo = data?.leaves?.pageInfo;
   const totalCount = pageInfo?.totalCount || 0;
   const totalPages = pageInfo?.totalPages || 1;
@@ -1571,13 +1531,13 @@ export default function Leave() {
   }
 
   /* Simplified filtered list (mostly server-side) */
-  const filtered = useMemo<LeaveRequest[]>(() => {
+  const filtered = useMemo<Leave[]>(() => {
     const list = [...requests];
 
     // Server-side search and filtering are already applied.
     // Client-side search is removed to prevent redundant/conflicting logic.
 
-    list.sort((a: LeaveRequest, b: LeaveRequest) => {
+    list.sort((a: Leave, b: Leave) => {
       let va: string | number | undefined = "",
         vb: string | number | undefined = "";
       if (sortField === "name") {
@@ -1651,9 +1611,7 @@ export default function Leave() {
   }
   function toggleAll() {
     setSelected((prev: string[]) =>
-      prev.length === filtered.length
-        ? []
-        : filtered.map((r: LeaveRequest) => r.id),
+      prev.length === filtered.length ? [] : filtered.map((r: Leave) => r.id),
     );
   }
 
@@ -1758,7 +1716,7 @@ export default function Leave() {
           selectedItems={selected}
           sort={{ field: sortField, dir: sortDir }}
           actions={{
-            onSort: handleSort,
+            onSort: (f: SortField) => handleSort(f),
             onToggleSelect: toggleSelect,
             onToggleAll: toggleAll,
             onViewDetails: setDrawerReq,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@apollo/client/react";
 import { GET_SETTINGS } from "../graphql/settingsQueries";
 import { GET_MY_PROFILE } from "../graphql/employeeQueries";
@@ -268,7 +268,9 @@ const Reports: React.FC = () => {
       if (!activeReport) return "";
 
       // 🔍 Resolve human-readable labels for the PDF header
-      const activeDept = departments.find((d) => d.id === filters.department);
+      const activeDept = departments.find(
+        (d: { id: string; name: string }) => d.id === filters.department,
+      );
       const deptName = activeDept
         ? activeDept.name
         : filters.department === "All"
@@ -889,7 +891,7 @@ const Reports: React.FC = () => {
                   }
                 >
                   <option value="All">All Categories</option>
-                  {employeeCategories.map((c) => (
+                  {employeeCategories.map((c: { id: string; name: string }) => (
                     <option key={c.id} value={c.name}>
                       {c.name}
                     </option>
@@ -912,7 +914,7 @@ const Reports: React.FC = () => {
                   }
                 >
                   <option value="All">All Types</option>
-                  {leaveTypes.map((lt) => (
+                  {leaveTypes.map((lt: { id: string; name: string }) => (
                     <option key={lt.id} value={lt.name}>
                       {lt.name}
                     </option>

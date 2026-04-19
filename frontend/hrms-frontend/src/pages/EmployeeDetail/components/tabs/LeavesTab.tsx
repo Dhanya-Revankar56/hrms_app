@@ -1,4 +1,4 @@
-import { Leave, LeaveBalance } from "../../../../types";
+import type { Leave, LeaveBalance } from "../../../../types";
 import { formatDateForDisplay } from "../../../../utils/dateUtils";
 
 interface LeavesTabProps {

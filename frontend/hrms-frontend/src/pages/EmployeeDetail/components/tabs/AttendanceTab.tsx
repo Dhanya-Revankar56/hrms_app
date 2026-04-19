@@ -1,4 +1,6 @@
-import { Attendance } from "../../../../types";
+import React from "react";
+import { isAdmin, isHod } from "../../../../utils/auth";
+import type { Attendance } from "../../../../types";
 
 interface AttendanceTabProps {
   attendanceData: { attendances: { items: Attendance[] } } | undefined;
@@ -28,12 +30,15 @@ export default function AttendanceTab({
   setShowUpdateShiftTimeModal,
   setSelectedDetailsDate,
 }: AttendanceTabProps) {
+  const [selectedDates, setSelectedDates] = React.useState<string[]>([]);
+
   const to12 = (t: string): string => {
     if (!t) return "—";
     const [h, m] = t.split(":").map(Number);
     const ap = h >= 12 ? "PM" : "AM";
     return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ap}`;
   };
+
   return (
     <>
       <div className="ed-section" style={{ padding: 0, overflow: "hidden" }}>
@@ -199,7 +204,9 @@ export default function AttendanceTab({
                     }}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedDates(daysInMonth.map((d) => d.iso));
+                        setSelectedDates(
+                          daysInMonth.map((d: { iso: string }) => d.iso),
+                        );
                       } else {
                         setSelectedDates([]);
                       }
@@ -248,7 +255,9 @@ export default function AttendanceTab({
                         onChange={() => {
                           if (selectedDates.includes(day.iso)) {
                             setSelectedDates(
-                              selectedDates.filter((d) => d !== day.iso),
+                              selectedDates.filter(
+                                (d: string) => d !== day.iso,
+                              ),
                             );
                           } else {
                             setSelectedDates([...selectedDates, day.iso]);

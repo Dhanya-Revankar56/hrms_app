@@ -1,4 +1,4 @@
-import { Movement } from "../../../../types";
+import type { Movement } from "../../../../types";
 import { formatDateForDisplay } from "../../../../utils/dateUtils";
 
 interface MovementsTabProps {

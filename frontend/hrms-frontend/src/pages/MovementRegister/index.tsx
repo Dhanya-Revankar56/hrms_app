@@ -680,7 +680,7 @@ function NewModal({ onClose, onToast }: ModalP) {
               {showOut && (
                 <AnalogTimePicker
                   initialTime={form.outTime || "09:00"}
-                  onSave={(t) => {
+                  onSave={(t: string) => {
                     f("outTime", t);
                     setShowOut(false);
                   }}
@@ -715,7 +715,7 @@ function NewModal({ onClose, onToast }: ModalP) {
               {showRet && (
                 <AnalogTimePicker
                   initialTime={form.returnTime || "10:00"}
-                  onSave={(t) => {
+                  onSave={(t: string) => {
                     f("returnTime", t);
                     setShowRet(false);
                   }}
@@ -1040,7 +1040,7 @@ function Drawer({
                   {showOutP && (
                     <AnalogTimePicker
                       initialTime={editOut}
-                      onSave={(t) => {
+                      onSave={(t: string) => {
                         setEditOut(t);
                         setShowOutP(false);
                       }}
@@ -1059,7 +1059,7 @@ function Drawer({
                   {showRetP && (
                     <AnalogTimePicker
                       initialTime={editRet}
-                      onSave={(t) => {
+                      onSave={(t: string) => {
                         setEditRet(t);
                         setShowRetP(false);
                       }}
@@ -1339,7 +1339,9 @@ function Drawer({
                       type="time"
                       className="mr-rl-in"
                       value={ret}
-                      onChange={(e) => setRet(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setRet(e.target.value)
+                      }
                     />
                     <button className="mr-rl-btn" onClick={logRet}>
                       <svg
@@ -1523,9 +1525,9 @@ export default function MovementRegister() {
 
       <MovementTableSection
         items={filtered}
-        onRowClick={setDrawer}
+        onRowClick={(rec: MovementRecord) => setDrawer(rec)}
         sortState={{ sf, sd }}
-        onSort={sort}
+        onSort={(f: SortField) => sort(f)}
         helpers={{ fmtDate, timeRange }}
         StatusCell={StatusCell}
       />

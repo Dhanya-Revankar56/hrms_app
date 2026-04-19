@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-import { Employee } from "../../../types";
+import type { Employee } from "../../../types";
 
 interface HeaderSectionProps {
   employee: Employee;

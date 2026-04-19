@@ -1859,7 +1859,7 @@ export default function Relieving() {
           onSort={handleSort}
           helpers={{ getInitials, formatDate }}
           actions={{
-            onView: setDrawerRec,
+            onView: (rec) => setDrawerRec(rec as unknown as ExitRecord),
             onApprove: (rec) =>
               initiateApprove(rec.id, `${rec.firstName} ${rec.lastName}`, ""),
             onReject: (rec) =>

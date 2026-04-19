@@ -99,6 +99,8 @@ interface FilterState {
   department: string;
   employmentType: string | "All";
   role: EmpRole | "All";
+  category: string;
+  designation: string;
 }
 
 /* Backend Interfaces for Type Safety */
@@ -462,6 +464,8 @@ export default function EmployeeManagement() {
     department: "All",
     employmentType: "All",
     role: "All",
+    category: "",
+    designation: "",
   });
 
   /* Feature States */
@@ -610,7 +614,7 @@ export default function EmployeeManagement() {
       <div className="em-table-card">
         <EmployeeFilterSection
           filters={filters}
-          onFilterChange={(f) => setFilters(f)}
+          onFilterChange={(f: FilterState) => setFilters(f)}
           departments={departments}
           employeeTypes={employeeTypes}
           loading={loading}

@@ -1,5 +1,3 @@
-import React from "react";
-
 interface UpdateShiftTimeModalProps {
   isOpen: boolean;
   onClose: () => void;

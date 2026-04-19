@@ -1,4 +1,4 @@
-import { ManagedEmployee } from "../..";
+import type { ManagedEmployee } from "../..";
 
 interface EmployeeTableSectionProps {
   employees: ManagedEmployee[];

@@ -1,5 +1,3 @@
-import React from "react";
-
 interface AttendanceDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;

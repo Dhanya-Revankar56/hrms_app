@@ -3,6 +3,9 @@ interface FilterState {
   status: string;
   department: string;
   employmentType: string;
+  role: string;
+  category: string;
+  designation: string;
 }
 
 interface EmployeeFilterSectionProps {

@@ -1,4 +1,4 @@
-import { Movement } from "../../../../types";
+import type { Movement } from "../../../../types";
 
 type SortField = "empId" | "empName" | "date" | "status";
 type SortDir = "asc" | "desc";
@@ -148,12 +148,12 @@ export default function MovementTableSection({
                   </td>
                   <td>
                     <span className="mr-date">
-                      {helpers.fmtDate(rec.movement_date)}
+                      {helpers.fmtDate(rec.movement_date || "")}
                     </span>
                   </td>
                   <td>
                     <span className="mr-time">
-                      {helpers.timeRange(rec.out_time, rec.in_time)}
+                      {helpers.timeRange(rec.out_time || "", rec.in_time || "")}
                     </span>
                   </td>
                   <td>

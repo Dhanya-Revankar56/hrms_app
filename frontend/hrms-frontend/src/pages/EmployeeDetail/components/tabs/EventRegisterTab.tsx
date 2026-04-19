@@ -1,4 +1,4 @@
-import { EventLog } from "../../../../types";
+import type { EventLog } from "../../../../types";
 
 const MODULE_MAP: Record<string, string> = {
   employee: "Employee Management",

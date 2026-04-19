@@ -1,4 +1,4 @@
-import { Employee } from "../../../../types";
+import type { Employee } from "../../../../types";
 import { formatDateForDisplay } from "../../../../utils/dateUtils";
 
 interface SummaryTabProps {
@@ -7,6 +7,7 @@ interface SummaryTabProps {
 
 export default function SummaryTab({ empData }: SummaryTabProps) {
   const employee = empData?.employee;
+  if (!employee) return null;
   return (
     <>
       <div className="ed-content-grid">

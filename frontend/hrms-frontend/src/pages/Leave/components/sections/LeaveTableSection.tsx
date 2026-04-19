@@ -1,4 +1,4 @@
-import { Leave } from "../../../../types";
+import type { Leave } from "../../../../types";
 
 interface LeaveTableSectionProps {
   requests: Leave[];
