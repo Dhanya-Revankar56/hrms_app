@@ -74,7 +74,7 @@ function DotsMenu({
   onReject,
   onRelieve,
 }: {
-  rec: Record<string, unknown> & { status: string };
+  rec: RelievingRecord;
   onView: () => void;
   onApprove: () => void;
   onReject: () => void;

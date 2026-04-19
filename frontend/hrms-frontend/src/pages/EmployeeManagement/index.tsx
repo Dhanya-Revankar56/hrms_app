@@ -613,8 +613,19 @@ export default function EmployeeManagement() {
 
       <div className="em-table-card">
         <EmployeeFilterSection
-          filters={filters}
-          onFilterChange={(f: FilterState) => setFilters(f)}
+          filters={
+            filters as unknown as Record<
+              | "search"
+              | "status"
+              | "department"
+              | "employmentType"
+              | "role"
+              | "category"
+              | "designation",
+              string
+            >
+          }
+          onFilterChange={(f) => setFilters(f as unknown as FilterState)}
           departments={departments}
           employeeTypes={employeeTypes}
           loading={loading}

@@ -1716,7 +1716,7 @@ export default function Leave() {
           selectedItems={selected}
           sort={{ field: sortField, dir: sortDir }}
           actions={{
-            onSort: (f: SortField) => handleSort(f),
+            onSort: (f: string) => handleSort(f as SortField),
             onToggleSelect: toggleSelect,
             onToggleAll: toggleAll,
             onViewDetails: setDrawerReq,

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
+import type { Movement } from "../../types";
 import {
   GET_MOVEMENTS,
   CREATE_MOVEMENT,
@@ -1525,7 +1526,9 @@ export default function MovementRegister() {
 
       <MovementTableSection
         items={filtered}
-        onRowClick={(rec: MovementRecord) => setDrawer(rec)}
+        onRowClick={(rec: Movement) =>
+          setDrawer(rec as unknown as MovementRecord)
+        }
         sortState={{ sf, sd }}
         onSort={(f: SortField) => sort(f)}
         helpers={{ fmtDate, timeRange }}

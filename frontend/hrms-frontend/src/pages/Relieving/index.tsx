@@ -1856,7 +1856,7 @@ export default function Relieving() {
         <RelievingTableSection
           records={filtered}
           sort={{ field: sortField, dir: sortDir }}
-          onSort={handleSort}
+          onSort={(f: string) => handleSort(f as SortField)}
           helpers={{ getInitials, formatDate }}
           actions={{
             onView: (rec) => setDrawerRec(rec as unknown as ExitRecord),
