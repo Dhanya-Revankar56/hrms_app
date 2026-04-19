@@ -23,13 +23,17 @@ dist-ssr
 *.sln
 *.sw?
 
-# Lint & debug outputs
-*.txt
-*lint*
-*report*
-*output*
-*errors*
+# Debug / temp files
+*.tmp
+*.diff
 
-# Logs
-logs
-*.log
+# TypeScript debug outputs
+tsc_errors*
+tsc-output*
+
+# Lint outputs
+lint_output*
+lint_results*
+
+# Misc temp scripts
+resolve_conflicts*
