@@ -221,3 +221,78 @@ export interface EventLog {
   description?: string;
   timestamp: string;
 }
+
+/* ─────────────────────────────────────────────
+   MODULE SPECIFIC TYPES FOR STANDARDIZATION
+   ───────────────────────────────────────────── */
+
+export type MvStatus =
+  | "Pending"
+  | "Approved"
+  | "Rejected"
+  | "Completed"
+  | "Cancelled";
+
+export interface MovementRecord {
+  id: string;
+  employee_id: string;
+  employee_code: string;
+  movement_type: string;
+  from_location: string;
+  to_location: string;
+  purpose: string;
+  movement_date: string;
+  out_time: string;
+  in_time: string;
+  status: MvStatus;
+  employee?: {
+    employee_id: string;
+    first_name: string;
+    last_name: string;
+    work_detail?: {
+      department?: { id: string; name: string };
+      designation?: { id: string; name: string };
+    };
+  };
+}
+
+export type ExitStatus =
+  | "Pending Approval"
+  | "Approved"
+  | "Clearance In Progress"
+  | "Relieved"
+  | "Rejected";
+
+export interface ExitRecord {
+  id: string;
+  empId: string;
+  firstName: string;
+  lastName: string;
+  department: string;
+  designation: string;
+  avatarColor: string;
+  officialEmail: string;
+  phone: string;
+  reportingManager: string;
+  joiningDate: string;
+  resignDate: string;
+  lastWorkingDay: string;
+  noticePeriod: number;
+  exitReason: string;
+  exitReasonDetail: string;
+  status: string;
+  appliedDate: string;
+  approvedBy: string;
+  approvedOn: string;
+  hrRemarks: string;
+  employeeDbId: string;
+}
+
+export type RelievingRecord = ExitRecord;
+
+export type LeaveStatus =
+  | "Pending"
+  | "Approved"
+  | "Rejected"
+  | "Closed"
+  | "Cancelled";

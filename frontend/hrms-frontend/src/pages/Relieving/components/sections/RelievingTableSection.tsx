@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import type { RelievingRecord } from "../../../../types";
 
 /* ─────────────────────────────────────────────
    INTERNAL HELPERS
@@ -245,18 +246,7 @@ function DotsMenu({
 // Using any for now to avoid circular dependency or complex interface mapping in this section
 // Ideally these should be unified in a shared types file.
 
-interface RelievingRecord {
-  id: string;
-  empId: string;
-  firstName: string;
-  lastName: string;
-  department: string;
-  designation: string;
-  lastWorkingDay: string;
-  status: string;
-  avatarColor: string;
-  officialEmail: string;
-}
+// Using standardized RelievingRecord from types.ts
 
 interface RelievingTableSectionProps {
   records: RelievingRecord[];

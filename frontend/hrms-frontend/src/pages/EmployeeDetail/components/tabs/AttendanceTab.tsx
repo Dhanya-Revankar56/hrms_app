@@ -1,5 +1,3 @@
-import React from "react";
-import { isAdmin, isHod } from "../../../../utils/auth";
 import type { Attendance } from "../../../../types";
 
 interface AttendanceTabProps {
@@ -17,6 +15,10 @@ interface AttendanceTabProps {
   }[];
   setShowUpdateShiftTimeModal: (val: boolean) => void;
   setSelectedDetailsDate: (val: string) => void;
+  selectedDates: string[];
+  setSelectedDates: (dates: string[]) => void;
+  isAdmin: boolean;
+  isHod: boolean;
 }
 
 export default function AttendanceTab({
@@ -29,9 +31,11 @@ export default function AttendanceTab({
   daysInMonth,
   setShowUpdateShiftTimeModal,
   setSelectedDetailsDate,
+  selectedDates,
+  setSelectedDates,
+  isAdmin,
+  isHod,
 }: AttendanceTabProps) {
-  const [selectedDates, setSelectedDates] = React.useState<string[]>([]);
-
   const to12 = (t: string): string => {
     if (!t) return "—";
     const [h, m] = t.split(":").map(Number);
@@ -100,7 +104,7 @@ export default function AttendanceTab({
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            {(isAdmin() || isHod()) && (
+            {(isAdmin || isHod) && (
               <>
                 <button
                   className="ed-btn"
@@ -162,7 +166,7 @@ export default function AttendanceTab({
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
               </svg>
             </button>
-            {(isAdmin() || isHod()) && (
+            {(isAdmin || isHod) && (
               <button
                 className="ed-btn"
                 title="Settings"

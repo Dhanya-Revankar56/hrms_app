@@ -11,6 +11,7 @@ import { GET_DASHBOARD_STATS } from "../../graphql/settingsQueries";
 import { GET_LEAVES } from "../../graphql/leaveQueries";
 import { GET_MOVEMENTS } from "../../graphql/movementQueries";
 import { isAdmin } from "../../utils/auth";
+import type { ExitRecord, ExitStatus, RelievingRecord } from "../../types";
 
 // Modular Sections
 import RelievingHeaderSection from "./components/sections/RelievingHeaderSection";
@@ -22,14 +23,7 @@ import RelievingPaginationSection from "./components/sections/RelievingPaginatio
 /* ─────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────── */
-type ExitStatus =
-  | "Pending Approval"
-  | "Approved"
-  | "Clearance In Progress"
-  | "Relieved"
-  | "Rejected";
-
-type ClearanceStatus = "Pending" | "Approved";
+// Using standardized ExitStatus from types.ts
 
 type ExitReason =
   | "Personal Reasons"
@@ -49,14 +43,6 @@ type SortField =
   | "lastDay"
   | "status";
 type SortDir = "asc" | "desc";
-
-interface Clearance {
-  dept: string;
-  status: ClearanceStatus;
-  remarks: string;
-  clearedBy: string;
-  clearedOn: string;
-}
 
 interface Settlement {
   salarySettled: boolean;
@@ -118,35 +104,6 @@ interface RelievingData {
     items: BackendRelieving[];
     pageInfo: { totalCount: number; totalPages: number };
   };
-}
-
-interface ExitRecord {
-  id: string;
-  empId: string;
-  firstName: string;
-  lastName: string;
-  department: string;
-  designation: string;
-  avatarColor: string;
-  officialEmail: string;
-  phone: string;
-  reportingManager: string;
-  joiningDate: string;
-  resignDate: string;
-  lastWorkingDay: string;
-  noticePeriod: number;
-  exitReason: ExitReason;
-  exitReasonDetail: string;
-  status: ExitStatus;
-  appliedDate: string;
-  approvedBy: string;
-  approvedOn: string;
-  hrRemarks: string;
-  clearances: Clearance[];
-  settlement: Settlement;
-  exitInterviewDone: boolean;
-  exitInterviewNotes: string;
-  employeeDbId: string;
 }
 
 interface FilterState {
@@ -1859,7 +1816,7 @@ export default function Relieving() {
           onSort={(f: string) => handleSort(f as SortField)}
           helpers={{ getInitials, formatDate }}
           actions={{
-            onView: (rec) => setDrawerRec(rec as unknown as ExitRecord),
+            onView: (rec: RelievingRecord) => setDrawerRec(rec),
             onApprove: (rec) =>
               initiateApprove(rec.id, `${rec.firstName} ${rec.lastName}`, ""),
             onReject: (rec) =>

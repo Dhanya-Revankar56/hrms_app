@@ -22,6 +22,7 @@ import { GET_MOVEMENTS, CREATE_MOVEMENT } from "../../graphql/movementQueries";
 import { GET_EMPLOYEE_DOCUMENTS } from "../../graphql/documentQueries";
 import { GET_EVENT_LOGS } from "../../graphql/eventLogQueries";
 import { GET_SETTINGS } from "../../graphql/settingsQueries";
+import { isAdmin, isHod } from "../../utils/auth";
 
 // Components
 import HeaderSection from "./components/HeaderSection";
@@ -359,6 +360,7 @@ export default function EmployeeDetail({ forcedTab }: { forcedTab?: TabType }) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [activeTab, setActiveTab] = useState<TabType>(forcedTab || "Summary");
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
   useEffect(() => {
     if (forcedTab) {
@@ -940,6 +942,10 @@ export default function EmployeeDetail({ forcedTab }: { forcedTab?: TabType }) {
             daysInMonth={daysInMonth}
             setShowUpdateShiftTimeModal={setShowUpdateShiftTimeModal}
             setSelectedDetailsDate={setSelectedDetailsDate}
+            selectedDates={selectedDates}
+            setSelectedDates={setSelectedDates}
+            isAdmin={isAdmin()}
+            isHod={isHod()}
           />
         )}
         {activeTab === "Movements" && (
