@@ -14,32 +14,49 @@ exports.login = async (email, password, reqMetadata = {}) => {
     .select("+password")
     .setOptions({ skipTenant: true })
     .populate("tenant_id"); // Resolve full tenant info
-  
-  console.log("👤 User Lookup Result:", user ? { id: user._id, role: user.role, tenant_id: user.tenant_id?._id || user.tenant_id } : "USER_NOT_FOUND");
-  
+
+  console.log(
+    "👤 User Lookup Result:",
+    user
+      ? {
+          id: user._id,
+          role: user.role,
+          tenant_id: user.tenant_id?._id || user.tenant_id,
+        }
+      : "USER_NOT_FOUND",
+  );
+
   if (!user) {
-    throw new Error(`Invalid Credentials: Your account was not found. Please contact support.`);
+    throw new Error(
+      `Invalid Credentials: Your account was not found. Please contact support.`,
+    );
   }
 
   // 2. Resolve Tenant
   const tenant = user.tenant_id;
   if (!tenant || !tenant.isActive) {
-    throw new Error(`Institution Access Error: The institution associated with this account is inactive.`);
+    throw new Error(
+      `Institution Access Error: The institution associated with this account is inactive.`,
+    );
   }
 
   // 🛡 3. Account Activity Check
   if (!user.isActive) {
-    throw new Error("Access Denied: Your account has been deactivated. Please contact HR.");
+    throw new Error(
+      "Access Denied: Your account has been deactivated. Please contact HR.",
+    );
   }
 
   // 🛡 3. Brute-Force Check
   if (user.lockUntil && user.lockUntil > Date.now()) {
-    throw new Error("Account is temporarily locked due to repeated failures. Try again later.");
+    throw new Error(
+      "Account is temporarily locked due to repeated failures. Try again later.",
+    );
   }
 
   // 4. Validate Credentials
   const isMatch = await user.comparePassword(password);
-  
+
   if (!isMatch) {
     // Increment attempts
     user.loginAttempts += 1;
@@ -47,7 +64,7 @@ exports.login = async (email, password, reqMetadata = {}) => {
       user.lockUntil = Date.now() + 15 * 60 * 1000; // 15 min lock
     }
     await user.save();
-    
+
     throw new Error("Invalid credentials.");
   }
 
@@ -59,13 +76,14 @@ exports.login = async (email, password, reqMetadata = {}) => {
 
   // 6. Generate Secured JWT
   const token = jwt.sign(
-    { 
-      user_id: user._id, 
-      tenant_id: tenant._id, 
-      role: user.role 
+    {
+      user_id: user._id,
+      email: user.email,
+      tenant_id: tenant._id,
+      role: user.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRY || "24h" }
+    { expiresIn: process.env.JWT_EXPIRY || "24h" },
   );
 
   // 7. Audit Log
@@ -76,8 +94,8 @@ exports.login = async (email, password, reqMetadata = {}) => {
     metadata: {
       email,
       ip: reqMetadata?.ip || "unknown",
-      userAgent: reqMetadata?.userAgent || "unknown"
-    }
+      userAgent: reqMetadata?.userAgent || "unknown",
+    },
   });
 
   return {
@@ -87,8 +105,8 @@ exports.login = async (email, password, reqMetadata = {}) => {
       email: user.email,
       role: user.role,
       tenant_id: tenant._id.toString(),
-      tenant_code: tenant.code
-    }
+      tenant_code: tenant.code,
+    },
   };
 };
 
@@ -121,7 +139,7 @@ exports.changePassword = async (userId, oldPassword, newPassword) => {
     action: "PASSWORD_CHANGED",
     user_id: userId,
     tenant_id: user.tenant_id,
-    metadata: { timestamp: new Date().toISOString() }
+    metadata: { timestamp: new Date().toISOString() },
   });
 
   return true;

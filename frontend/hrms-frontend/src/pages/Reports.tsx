@@ -229,9 +229,18 @@ const Reports: React.FC = () => {
   const { data: settingsData } = useQuery<SettingsData>(GET_SETTINGS);
   const { data: profileData } = useQuery<ProfileData>(GET_MY_PROFILE);
 
-  const departments = settingsData?.settings?.departments || [];
-  const leaveTypes = settingsData?.settings?.leave_types || [];
-  const employeeCategories = settingsData?.settings?.employee_categories || [];
+  const departments = useMemo(
+    () => settingsData?.settings?.departments || [],
+    [settingsData],
+  );
+  const leaveTypes = useMemo(
+    () => settingsData?.settings?.leave_types || [],
+    [settingsData],
+  );
+  const employeeCategories = useMemo(
+    () => settingsData?.settings?.employee_categories || [],
+    [settingsData],
+  );
 
   const currentUserDeptId = profileData?.me?.work_detail?.department?.id;
   const isUserHod = isHod();

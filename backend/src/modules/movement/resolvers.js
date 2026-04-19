@@ -38,7 +38,7 @@ const resolvers = {
         }
       }
       console.log(
-        `[MovementResolver] Final Query -> id: ${filterId}, dept: ${filterDept}`,
+        `[MovementResolver] Final Query -> id: ${filterId || "ALL"}, dept: ${filterDept || "NONE"}`,
       );
 
       return await movementService.listMovements({

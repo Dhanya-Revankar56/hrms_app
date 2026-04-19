@@ -81,6 +81,7 @@ const getUserFromToken = (req) => {
     return {
       id: decoded.user_id,
       user_id: decoded.user_id,
+      email: decoded.email,
       tenant_id: isValidTenant ? tenantId : null,
       role: normalizeRole(decoded.role),
       institution_id: isValidTenant ? tenantId : null, // Backward compatibility support

@@ -46,7 +46,7 @@ const resolvers = {
         filterDept = hodRecord?.work_detail?.department?.toString();
       }
       console.log(
-        `[LeaveResolver] Final Filter -> id: ${filterId}, dept: ${filterDept}`,
+        `[LeaveResolver] Final Filter -> id: ${filterId || "ALL"}, dept: ${filterDept || "NONE"}`,
       );
 
       return await leaveService.listLeaves({

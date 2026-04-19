@@ -73,3 +73,133 @@ export interface FilterState {
   employmentType: EmpType | "All";
   role: EmpRole | "All";
 }
+
+/* ─────────────────────────────────────────────
+   BACKEND COMPATIBLE INTERFACES (Snake Case)
+   ───────────────────────────────────────────── */
+
+export interface Employee {
+  id: string;
+  employee_id: string;
+  title: string;
+  first_name: string;
+  last_name: string;
+  user_email: string;
+  user_contact: string;
+  app_status: string;
+  work_detail?: {
+    designation?: { name: string };
+    department?: { name: string };
+    employee_type?: string;
+    date_of_joining?: string;
+  };
+  personal_detail?: {
+    gender?: string;
+    date_of_birth?: string;
+    marital_status?: string;
+    aadhar_no?: string;
+    pan_no?: string;
+    pf_no?: string;
+    esic_no?: string;
+  };
+  bank_detail?: Array<{
+    bank_type: string;
+    bank_name: string;
+    account_no: string;
+    ifsc: string;
+  }>;
+  reporting_to?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface Attendance {
+  id: string;
+  date: string;
+  check_in: string;
+  check_out: string;
+  status: string;
+  working_hours: number;
+  marked_by?: string;
+}
+
+export interface LeaveApproval {
+  role: string;
+  status: string;
+}
+
+export interface LeaveBalance {
+  leave_type: string;
+  balance: number;
+}
+
+export interface Leave {
+  id: string;
+  leave_type: string;
+  from_date: string;
+  to_date: string;
+  total_days: number;
+  document_url?: string;
+  requested_date?: string;
+  created_at?: string;
+  status: string;
+  approvals: LeaveApproval[];
+  employee_code?: string;
+  employee?: {
+    employee_id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface Movement {
+  id: string;
+  movement_date: string;
+  movement_type: string;
+  out_time: string;
+  in_time?: string;
+  purpose?: string;
+  remarks?: string;
+  status?: string;
+  employee_code?: string;
+  employee?: {
+    employee_id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface SessionTiming {
+  label?: string;
+  before: string;
+  marking: string;
+  after: string;
+  isOptional: boolean;
+  before_display?: string;
+  after_display?: string;
+  marking_display?: string;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  name: string;
+  created_at: string;
+  file_url: string;
+}
+
+export interface Settings {
+  leave_types: Array<{ name: string; total_days: number }>;
+}
+
+export interface EventLog {
+  id: string;
+  user_id: string;
+  user_name?: string;
+  user_role?: string;
+  action_type: string;
+  module_name: string;
+  record_id?: string;
+  description?: string;
+  timestamp: string;
+}
