@@ -11,7 +11,19 @@ exports.getNextID = async (institution_id, model_name) => {
   const result = await Counter.findOneAndUpdate(
     filter,
     { $inc: { sequence_value: 1 }, $set: { updated_at: new Date() } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   return result.sequence_value;
+};
+
+/**
+ * Rolls back (decrements) the counter when an operation fails after
+ * the counter was already incremented. Prevents ID gaps.
+ */
+exports.rollbackCounter = async (institution_id, model_name) => {
+  const filter = withTenant({ model_name });
+  await Counter.findOneAndUpdate(filter, {
+    $inc: { sequence_value: -1 },
+    $set: { updated_at: new Date() },
+  });
 };

@@ -224,6 +224,12 @@ exports.createEmployee = async (data, context) => {
   } catch (error) {
     // 🛡 Rollback pseudo-transaction
     await User.deleteOne({ _id: savedUser._id });
+    // 🛡 Rollback counter to prevent ID gaps
+    try {
+      await counterService.rollbackCounter(tenant_id, "employee");
+    } catch (counterErr) {
+      console.error("[Employee] Counter rollback failed:", counterErr.message);
+    }
     throw error;
   }
 };
